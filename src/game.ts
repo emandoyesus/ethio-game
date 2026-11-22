@@ -860,8 +860,9 @@ export class GameEngine {
 
       segment.clip = maxy;
 
-      const p1 = this.project({ x: segment.p1.x - x, y: segment.p1.y, z: p1Z }, this.cameraX, this.cameraY, this.cameraZ);
-      const p2 = this.project({ x: segment.p2.x - x - dx, y: segment.p2.y, z: p2Z }, this.cameraX, this.cameraY, this.cameraZ);
+      const segmentX = segment.p1.x - x;
+      const p1 = this.project({ x: segmentX, y: segment.p1.y, z: p1Z }, this.cameraX, this.cameraY, this.cameraZ);
+      const p2 = this.project({ x: segment.p1.x - x - dx, y: segment.p2.y, z: p2Z }, this.cameraX, this.cameraY, this.cameraZ);
 
       x += dx;
       dx += segment.curve;
@@ -923,14 +924,21 @@ export class GameEngine {
         for (const sprite of segment.sprites) {
           if (sprite.collected) continue;
           const spriteZ = p1Z + (sprite.zOffset || 0);
-          const sprProj = this.project({ x: segment.p1.x - x + sprite.offset * ROAD.ROAD_WIDTH, y: segment.p1.y, z: spriteZ }, this.cameraX, this.cameraY, this.cameraZ);
-          visibleSprites.push({
-            sprite,
-            seg: segment,
-            scale: sprProj.scale,
-            sx: sprProj.x,
-            sy: sprProj.y
-          });
+          const sprProj = this.project(
+            { x: segmentX + sprite.offset * ROAD.ROAD_WIDTH, y: segment.p1.y, z: spriteZ },
+            this.cameraX,
+            this.cameraY,
+            this.cameraZ
+          );
+          if (sprProj.scale > 0) {
+            visibleSprites.push({
+              sprite,
+              seg: segment,
+              scale: sprProj.scale,
+              sx: sprProj.x,
+              sy: sprProj.y
+            });
+          }
         }
       }
     }
@@ -938,9 +946,7 @@ export class GameEngine {
     visibleSprites.sort((a, b) => a.scale - b.scale);
 
     for (const item of visibleSprites) {
-      if (item.sy > item.seg.clip) {
-        this.renderSprite(item.sprite, item.sx, item.sy, item.scale);
-      }
+      this.renderSprite(item.sprite, item.sx, item.sy, item.scale);
     }
   }
 
@@ -957,16 +963,17 @@ export class GameEngine {
 
   private renderSprite(spriteInstance: SpriteInstance, sx: number, sy: number, scale: number) {
     const spriteKey = spriteInstance.type;
-    const spr = sprites.get(spriteKey);
+    const spr = sprites.get(spriteKey) || (typeof spriteKey === 'string' && spriteKey.startsWith('PASSENGER') ? sprites.get('PASSENGER') : undefined);
     if (!spr) return;
 
-    const destW = spr.width * scale * (this.width / 2) * 0.003;
-    const destH = spr.height * scale * (this.width / 2) * 0.003;
+    const scaleFactor = spriteKey === 'CHECKPOINT_GATE' ? 4.2 : 2.8;
+    const destW = Math.round(spr.width * scale * (this.width / 2) * scaleFactor);
+    const destH = Math.round(spr.height * scale * (this.width / 2) * scaleFactor);
 
     if (destW < 2 || destH < 2) return;
 
-    const destX = sx - destW * spr.anchorX;
-    const destY = sy - destH * spr.anchorY;
+    const destX = Math.round(sx - destW * spr.anchorX);
+    const destY = Math.round(sy - destH * spr.anchorY);
 
     this.ctx.drawImage(spr.canvas, destX, destY, destW, destH);
   }
