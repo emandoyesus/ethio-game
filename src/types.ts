@@ -54,6 +54,7 @@ export interface RoadSegment {
   color: RoadSegmentColor;
   sprites: SpriteInstance[];
   clip: number;
+  hasZebraCrossing?: boolean;
 }
 
 export interface SpriteInstance {
@@ -88,6 +89,7 @@ export type SpriteType =
   | 'SCENERY_TAXI_SIGN'
   | 'SCENERY_POLICE_CONE'
   | 'SCENERY_RADAR_SIGN'
+  | 'SCENERY_ZEBRA_PEDESTRIAN'
   | 'CHECKPOINT_GATE';
 
 export interface Particle {

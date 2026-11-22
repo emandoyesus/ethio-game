@@ -27,6 +27,9 @@ An authentic retro pseudo-3D Ethiopian highway arcade racer built with vanilla T
 * **Addis Taxi FM Radio & Weyala Street Audio**:
   * 4-station in-cab radio (<kbd>R</kbd>): Sheger FM 102.1 (Kirar groove), Bisrat FM 101.1 (Tizita soul), Fana FM 98.1 (Chic-chic tempo), or Radio OFF.
   * Weyala conductor voice callouts ("መገናኛ! መገናኛ!", "ቀስ በል! ጉድጓድ አለ!", "ተሳፋሪ ወርዷል!") combined with mechanical sliding door thumps.
+* **Addis Light Rail Transit & Urban Crosswalks**:
+  * Animated green & white 3-car Addis Light Rail train gliding along elevated skyline viaducts with overhead electric catenary wire and glowing headlights.
+  * Authentic road zebra crossing markings (የእግረኛ ማቋረጫ) and traditional roadside pedestrian citizens dressed in white Gabi robes with woven Tibeb embroidery.
 * **Federal Police Checkpoints & Speed Traps**:
   * Roadside police checkpoints guarded by Federal Police patrol cruisers with alternating blue/red LED lightbars and warning cones.
   * Speed radar signs enforce 50 km/h zones: speeding (> 58 km/h) triggers siren alerts and 50 ETB fines; driving lawfully yields +30 ETB safe-driving bonuses.
@@ -105,3 +108,4 @@ npm run preview
 * `v1.9.0`: Thermal Radiator Overheating, Wheel Alignment Drift & Hazard Flashers
 * `v2.0.0`: Career Contracts & Commercial Delivery Missions
 * `v2.1.0`: Mobile & Tablet Touch HUD Feature Parity (Dedicated Hazard & Horn Controls)
+* `v2.2.0`: Addis Light Rail Transit (LRT) Train Animation & Pedestrian Zebra Crossings

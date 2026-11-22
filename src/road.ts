@@ -304,6 +304,25 @@ export class RoadManager {
       });
     }
 
+    // Urban Pedestrian Zebra Crossings ("የእግረኛ ማቋረጫ")
+    if (stage.id === 1 || stage.id === 2) {
+      const zebraLocations = [Math.floor(total * 0.16), Math.floor(total * 0.72)];
+      for (const loc of zebraLocations) {
+        for (let zi = 0; zi < 3; zi++) {
+          const zSeg = this.segments[loc + zi];
+          if (zSeg) {
+            zSeg.hasZebraCrossing = true;
+          }
+        }
+        if (this.segments[loc]) {
+          this.segments[loc].sprites.push({
+            type: 'SCENERY_ZEBRA_PEDESTRIAN',
+            offset: 1.25
+          });
+        }
+      }
+    }
+
     // Traffic Vehicles
     const trafficCount = stage.id === 1 ? 40 : stage.id === 2 ? 65 : 55;
     for (let t = 0; t < trafficCount; t++) {

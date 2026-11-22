@@ -1288,6 +1288,88 @@ class SpriteRegistry {
     this.cache.set('SCENERY_BILLBOARD', this.drawBillboard());
     this.cache.set('SCENERY_POLICE_CONE', this.drawPoliceCone());
     this.cache.set('SCENERY_RADAR_SIGN', this.drawRadarSign());
+    this.cache.set('SCENERY_ZEBRA_PEDESTRIAN', this.drawZebraPedestrian());
+  }
+
+  private drawZebraPedestrian(): RenderableSprite {
+    const w = 120;
+    const h = 160;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    ctx.translate(w / 2, h - 16);
+
+    // Drop shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(0, 8, 30, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 1. Blue Zebra Crosswalk Signpost on the curb
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(-38, -125, 4, 125);
+
+    // Blue square sign
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.roundRect(-52, -125, 32, 32, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // White pedestrian silhouette inside sign
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(-36, -118, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(-38, -113, 4, 10);
+    // Zebra stripes inside sign
+    ctx.fillRect(-48, -101, 24, 2);
+
+    // 2. Ethiopian Pedestrian waiting at curb
+    // Legs & leather sandals
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(4, -30);
+    ctx.lineTo(4, 6);
+    ctx.moveTo(16, -30);
+    ctx.lineTo(16, 6);
+    ctx.stroke();
+
+    // Traditional Gabi / Shamma Robe
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.roundRect(-6, -72, 30, 46, 6);
+    ctx.fill();
+
+    // Beautiful Tibeb embroidery hem (Green, Yellow, Red)
+    ctx.fillStyle = '#16a34a';
+    ctx.fillRect(-6, -38, 30, 2.5);
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(-6, -35.5, 30, 2.5);
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(-6, -33, 30, 2.5);
+
+    // Walking stick (beter)
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(22, -45);
+    ctx.lineTo(24, 8);
+    ctx.stroke();
+
+    // Head & hair
+    ctx.fillStyle = '#451a03';
+    ctx.beginPath();
+    ctx.arc(9, -82, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Gentle waiting pose
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.95 };
   }
 
   private drawPoliceCone(): RenderableSprite {

@@ -1289,6 +1289,84 @@ export class GameEngine {
         }
       }
     }
+
+    // 7. Addis Ababa Light Rail Transit (LRT) Viaduct & Train (ቀላል ባቡር)
+    if (this.stage.id === 1 || this.stage.id === 2) {
+      const viaductY = horizon - 16;
+      this.ctx.fillStyle = theme === 'night' ? '#0f172a' : '#334155';
+      this.ctx.fillRect(0, viaductY, w, 4);
+
+      const pierShift = (this.skyOffset * 38) % 120;
+      for (let px = -120; px < w + 120; px += 120) {
+        this.ctx.fillRect(px - pierShift + 55, viaductY, 10, 16);
+      }
+
+      this.ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, viaductY - 14);
+      this.ctx.lineTo(w, viaductY - 14);
+      this.ctx.stroke();
+
+      const trainCycle = (Date.now() * 0.045 + this.skyOffset * 15) % (w + 350);
+      const trainX = trainCycle - 180;
+      const trainY = viaductY - 11;
+      const trainW = 120;
+      const trainH = 11;
+
+      const carW = 36;
+      for (let c = 0; c < 3; c++) {
+        const cx = trainX + c * 40;
+        if (cx + carW < 0 || cx > w) continue;
+
+        this.ctx.fillStyle = '#f8fafc';
+        this.ctx.fillRect(cx, trainY, carW, trainH);
+
+        this.ctx.fillStyle = '#15803d';
+        this.ctx.fillRect(cx, trainY, carW, 2.5);
+        this.ctx.fillRect(cx, trainY + trainH - 2.5, carW, 2.5);
+
+        this.ctx.fillStyle = (theme === 'night' || theme === 'sunset') ? '#fef08a' : '#0284c7';
+        for (let win = 0; win < 3; win++) {
+          this.ctx.fillRect(cx + 4 + win * 10, trainY + 3.5, 7, 4);
+        }
+
+        if (c < 2) {
+          this.ctx.fillStyle = '#1e293b';
+          this.ctx.fillRect(cx + carW, trainY + 2, 4, trainH - 3);
+        }
+      }
+
+      if (trainX + trainW >= 0 && trainX + trainW <= w) {
+        this.ctx.fillStyle = '#fef08a';
+        this.ctx.beginPath();
+        this.ctx.arc(trainX + trainW, trainY + trainH - 4, 2, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        const beamGrad = this.ctx.createLinearGradient(trainX + trainW, trainY + trainH - 4, trainX + trainW + 35, trainY + trainH - 4);
+        beamGrad.addColorStop(0, 'rgba(254, 240, 138, 0.4)');
+        beamGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+        this.ctx.fillStyle = beamGrad;
+        this.ctx.beginPath();
+        this.ctx.moveTo(trainX + trainW, trainY + trainH - 6);
+        this.ctx.lineTo(trainX + trainW + 35, trainY + trainH - 12);
+        this.ctx.lineTo(trainX + trainW + 35, trainY + trainH + 4);
+        this.ctx.lineTo(trainX + trainW, trainY + trainH - 2);
+        this.ctx.closePath();
+        this.ctx.fill();
+      }
+
+      const pantoX = trainX + 58;
+      if (pantoX >= 0 && pantoX <= w) {
+        this.ctx.strokeStyle = '#94a3b8';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.moveTo(pantoX, trainY);
+        this.ctx.lineTo(pantoX + 3, trainY - 5);
+        this.ctx.lineTo(pantoX - 2, viaductY - 14);
+        this.ctx.stroke();
+      }
+    }
   }
 
   private renderRoad(w: number, h: number) {
@@ -1416,6 +1494,32 @@ export class GameEngine {
           );
           laneX1 += laneW1;
           laneX2 += laneW2;
+        }
+      }
+
+      // Pedestrian Zebra Crosswalk Markings ("የእግረኛ ማቋረጫ")
+      if (segment.hasZebraCrossing) {
+        const numBars = 12;
+        const totalW1 = p1.w * 1.84;
+        const totalW2 = p2.w * 1.84;
+        const startX1 = p1.x - p1.w * 0.92;
+        const startX2 = p2.x - p2.w * 0.92;
+
+        for (let b = 0; b < numBars; b++) {
+          const fracL = (b + 0.18) / numBars;
+          const fracR = (b + 0.82) / numBars;
+          const bx1L = startX1 + totalW1 * fracL;
+          const bx1R = startX1 + totalW1 * fracR;
+          const bx2L = startX2 + totalW2 * fracL;
+          const bx2R = startX2 + totalW2 * fracR;
+
+          this.renderPoly(
+            bx1L, p1.y,
+            bx1R, p1.y,
+            bx2R, p2.y,
+            bx2L, p2.y,
+            '#f8fafc'
+          );
         }
       }
 
