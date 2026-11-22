@@ -2,7 +2,7 @@ import { sound } from './audio';
 import { garage } from './garage';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
-import type { GameState, Particle, Player, ProjectedPoint, RoadSegment, RouteStage, SpriteInstance, VehicleId } from './types';
+import type { GameState, Particle, Player, ProjectedPoint, RoadSegment, RouteStage, SkidMark, SpriteInstance, VehicleId } from './types';
 import { ui } from './ui';
 
 export class GameEngine {
@@ -29,8 +29,9 @@ export class GameEngine {
   private lastTime: number = 0;
   private screenShake: number = 0;
 
-  // Particle System
+  // Particle & Skidmark Systems
   private particles: Particle[] = [];
+  private skidmarks: SkidMark[] = [];
 
   // Sky parallax offset
   private skyOffset: number = 0;
@@ -72,6 +73,18 @@ export class GameEngine {
       passengersOnBoard: 0,
       passengersTarget: this.stage ? this.stage.targetPassengers : 8,
       health: 100,
+
+      gear: 1,
+      rpm: 1000,
+      pitch: 0,
+      roll: 0,
+      bounce: 0,
+      bounceVelocity: 0,
+      steerAngle: 0,
+      skidding: false,
+      turnSignal: 'none',
+      turnSignalTimer: 0,
+
       driftAngle: 0,
       isDrifting: false,
       comboCount: 0,
@@ -99,7 +112,6 @@ export class GameEngine {
         sound.toggleMute();
       }
 
-      // Open / Close Garage
       if (e.key === 'g' || e.key === 'G') {
         if (this.state === 'TITLE' || this.state === 'PAUSED' || this.state === 'GAMEOVER' || this.state === 'STAGE_CLEAR') {
           this.openGarage();
@@ -108,15 +120,14 @@ export class GameEngine {
         }
       }
 
-      // Garage Navigation
       if (this.state === 'GARAGE') {
         const vehicleKeys = Object.keys(garage.vehicles);
         if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
           this.garageVehicleIndex = (this.garageVehicleIndex + 1) % vehicleKeys.length;
-          sound.playClick(0);
+          sound.playClick();
         } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
           this.garageVehicleIndex = (this.garageVehicleIndex - 1 + vehicleKeys.length) % vehicleKeys.length;
-          sound.playClick(0);
+          sound.playClick();
         } else if (e.key === 'Escape') {
           this.state = 'TITLE';
         }
@@ -167,7 +178,6 @@ export class GameEngine {
       if (this.state === 'GARAGE') {
         this.handleGarageClick(clickX, clickY);
       } else if (this.state === 'TITLE') {
-        // Check if clicked the Garage button
         const midX = this.width / 2;
         const midY = this.height / 2 - 25;
         if (clickX >= midX + 10 && clickX <= midX + 240 && clickY >= midY + 215 && clickY <= midY + 261) {
@@ -254,6 +264,7 @@ export class GameEngine {
     this.road.buildTrack(this.stage);
     this.timeLeft = this.stage.timeLimit;
     this.particles = [];
+    this.skidmarks = [];
     this.state = 'PLAYING';
     sound.startMusic();
   }
@@ -272,6 +283,7 @@ export class GameEngine {
       this.player.fuel = this.player.maxFuel;
       this.timeLeft = this.stage.timeLimit;
       this.particles = [];
+      this.skidmarks = [];
       this.road.buildTrack(this.stage);
       this.state = 'PLAYING';
     } else {
@@ -296,6 +308,7 @@ export class GameEngine {
   private update(dt: number) {
     ui.update(dt);
     this.updateParticles(dt);
+    this.updateSkidmarks(dt);
 
     if (this.nearMissCooldown > 0) {
       this.nearMissCooldown -= dt;
@@ -355,23 +368,27 @@ export class GameEngine {
     const left = this.keys['arrowleft'] || this.keys['a'];
     const right = this.keys['arrowright'] || this.keys['d'];
 
-    // Acceleration & Braking
+    // Realistic Acceleration & Deceleration with Pitch Dynamics
     if (up) {
       this.player.speed += this.player.accel * dt;
+      this.player.pitch = Math.max(-0.06, this.player.pitch - dt * 0.4); // Squat on acceleration
     } else if (down) {
       this.player.speed -= this.player.decel * dt;
+      this.player.pitch = Math.min(0.09, this.player.pitch + dt * 0.6); // Nose dive on braking
       if (this.player.speed > 2500) {
         this.spawnTireSmoke();
+        this.addSkidMark();
         sound.startTireScreech();
       } else {
         sound.stopTireScreech();
       }
     } else {
       this.player.speed -= (this.player.accel * 0.42) * dt;
+      this.player.pitch *= 0.85; // Pitch centers
       sound.stopTireScreech();
     }
 
-    // Off-road penalty
+    // Off-road penalty & Gravel vibration
     const isOffRoad = Math.abs(this.player.x) > 1.0;
     if (isOffRoad) {
       const offRoadMax = this.player.maxSpeed * 0.45;
@@ -379,42 +396,71 @@ export class GameEngine {
         this.player.speed -= this.player.decel * 1.3 * dt;
       }
       this.screenShake = 1.2;
+      this.player.bounceVelocity += (Math.random() - 0.5) * 8;
       this.spawnDust();
     }
 
     this.player.speed = Math.max(0, Math.min(this.player.speed, maxSpeed));
 
-    // Steering & Drifting
+    // Realistic Steering, Body Roll & Turn Signals
     const speedRatio = this.player.speed / this.player.maxSpeed;
     if (left) {
+      this.player.steerAngle = Math.max(-1, this.player.steerAngle - dt * 6);
       this.player.x -= this.player.turnSpeed * speedRatio * dt;
-    }
-    if (right) {
+      this.player.turnSignal = 'left';
+    } else if (right) {
+      this.player.steerAngle = Math.min(1, this.player.steerAngle + dt * 6);
       this.player.x += this.player.turnSpeed * speedRatio * dt;
+      this.player.turnSignal = 'right';
+    } else {
+      this.player.steerAngle *= 0.78; // Caster auto-centering
+      this.player.turnSignal = 'none';
     }
 
+    // Turn signal flasher sound
+    if (this.player.turnSignal !== 'none') {
+      this.player.turnSignalTimer += dt;
+      if (this.player.turnSignalTimer >= 0.35) {
+        this.player.turnSignalTimer = 0;
+        sound.playTurnSignalClick();
+      }
+    }
+
+    // Chassis body roll (leaning into / against centrifugal g-force)
+    const targetRoll = this.player.steerAngle * speedRatio * 0.14;
+    this.player.roll += (targetRoll - this.player.roll) * dt * 8;
+
+    // Suspension spring oscillation (Hooke's law with damping)
+    this.player.bounceVelocity += (-38 * this.player.bounce - 7 * this.player.bounceVelocity) * dt;
+    this.player.bounce += this.player.bounceVelocity * dt;
+
+    // Centrifugal curve drift
+    const currentSegment = this.road.findSegment(this.player.z);
+    this.player.x -= (currentSegment.curve * speedRatio * speedRatio * 1.75) * dt;
+
+    // High speed hard drift
     if ((left || right) && speedRatio > 0.72) {
       this.player.isDrifting = true;
       this.spawnTireSmoke();
+      this.addSkidMark();
       sound.startTireScreech();
     } else if (!down) {
       this.player.isDrifting = false;
       sound.stopTireScreech();
     }
 
-    // Centrifugal curve drift
-    const currentSegment = this.road.findSegment(this.player.z);
-    this.player.x -= (currentSegment.curve * speedRatio * speedRatio * 1.75) * dt;
-
     // Advance distance
     this.player.z += this.player.speed * dt;
     this.skyOffset += currentSegment.curve * speedRatio * 0.8;
+
+    // Realistic multi-gear calculation
+    this.updateRealisticGears(dt);
 
     if (speedRatio > 0.82) {
       this.spawnSpeedLines();
     }
 
-    sound.updateEngine(speedRatio, isBoosting);
+    // Update traffic
     this.road.updateTraffic(dt);
 
     // 4. Collisions, Pickups & Combos
@@ -426,6 +472,31 @@ export class GameEngine {
       this.state = 'STAGE_CLEAR';
       sound.stopEngine();
     }
+  }
+
+  // Realistic Gear Transmission & RPM Curve
+  private updateRealisticGears(dt: number) {
+    const kmh = (this.player.speed / this.player.maxSpeed) * 165;
+    let targetGear = 1;
+
+    if (kmh < 35) targetGear = 1;
+    else if (kmh < 70) targetGear = 2;
+    else if (kmh < 105) targetGear = 3;
+    else if (kmh < 140) targetGear = 4;
+    else targetGear = 5;
+
+    this.player.gear = targetGear;
+
+    // Compute RPM curve within current gear
+    const gearRatios = [1, 3.4, 2.1, 1.4, 1.0, 0.75];
+    const baseGearSpeed = [0, 0, 35, 70, 105, 140][targetGear];
+    const speedInGear = kmh - baseGearSpeed;
+
+    const targetRpm = Math.min(7400, Math.max(900, 1100 + speedInGear * (gearRatios[targetGear] * 80)));
+    this.player.rpm += (targetRpm - this.player.rpm) * dt * 10;
+
+    const isBoosting = this.player.boostRemaining > 0;
+    sound.updateEngineRealistic(this.player.rpm, this.player.gear, isBoosting);
   }
 
   private checkCollisions(playerSegment: RoadSegment) {
@@ -468,9 +539,9 @@ export class GameEngine {
           if (sprite.type === 'TRAFFIC_LADA' || sprite.type === 'TRAFFIC_BAJAJ' || sprite.type === 'TRAFFIC_ISUZU') {
             if (dx < hitboxW) {
               if (isPlow && sprite.type !== 'TRAFFIC_ISUZU') {
-                // Isuzu plow shoves aside smaller vehicles!
                 this.screenShake = 4.0;
                 sound.playCrash();
+                this.player.bounceVelocity += 14;
                 ui.addFloatingText('🚛 ገፍቶ አለፈ! (PLOWED THROUGH!)', this.width / 2, this.height / 2 - 40, '#facc15');
                 sprite.offset += sprite.offset < 0 ? -0.8 : 0.8;
                 sprite.zOffset = (sprite.zOffset || 0) + 300;
@@ -478,6 +549,7 @@ export class GameEngine {
                 this.player.speed = Math.min(this.player.speed * 0.22, 2200);
                 this.player.comboCount = 0;
                 this.screenShake = 6.5;
+                this.player.bounceVelocity += 22;
                 this.spawnSparks(this.width / 2, this.height - 60);
                 sound.playCrash();
                 ui.addFloatingText('💥 ግጭት! (CRASH!)', this.width / 2, this.height / 2 - 40, '#ef4444');
@@ -486,11 +558,13 @@ export class GameEngine {
             }
           }
 
-          // Pothole
+          // Pothole Impact (Suspension jolt!)
           else if (sprite.type === 'OBSTACLE_POTHOLE') {
             if (dx < hitboxW * 0.8) {
+              sound.playSuspensionThud();
+              this.player.bounceVelocity += 18; // Suspension jolt!
+
               if (isPlow) {
-                // Heavy truck rolls straight through potholes!
                 this.screenShake = 2.0;
                 ui.addFloatingText('💪 ጉድጓዱን ረገጠው! (OVER RUN!)', this.width / 2, this.height / 2, '#22c55e');
               } else {
@@ -510,6 +584,7 @@ export class GameEngine {
               this.player.speed = Math.min(this.player.speed * 0.38, 2400);
               this.player.comboCount = 0;
               this.screenShake = 4.5;
+              this.player.bounceVelocity += 12;
               sound.playCrash();
               if (sprite.type === 'OBSTACLE_COW') {
                 sound.playCowMoo();
@@ -580,7 +655,7 @@ export class GameEngine {
     const h = this.height;
     const carW = (w / 900) * 0.85 * 240;
     const carX = w / 2;
-    const carY = h - 35;
+    const carY = h - 35 + this.player.bounce;
 
     for (let i = 0; i < 2; i++) {
       this.particles.push({
@@ -589,12 +664,46 @@ export class GameEngine {
         vx: (Math.random() - 0.5) * 40,
         vy: -15 - Math.random() * 20,
         size: 8 + Math.random() * 8,
-        color: 'rgba(200, 210, 220, 0.6)',
+        color: 'rgba(210, 218, 226, 0.65)',
         alpha: 0.7,
         life: 0,
         maxLife: 0.35 + Math.random() * 0.2,
         type: 'smoke'
       });
+    }
+  }
+
+  private addSkidMark() {
+    const w = this.width;
+    const h = this.height;
+    const carW = (w / 900) * 0.85 * 240;
+    const carX = w / 2;
+    const carY = h - 30;
+
+    [-carW * 0.3, carW * 0.3].forEach(offset => {
+      this.skidmarks.push({
+        x1: carX + offset - 4,
+        y1: carY,
+        x2: carX + offset + 4,
+        y2: carY + 8,
+        alpha: 0.6
+      });
+    });
+
+    if (this.skidmarks.length > 50) {
+      this.skidmarks.shift();
+    }
+  }
+
+  private updateSkidmarks(dt: number) {
+    for (let i = this.skidmarks.length - 1; i >= 0; i--) {
+      const sm = this.skidmarks[i];
+      sm.y1 += (this.player.speed * 0.04) * dt;
+      sm.y2 += (this.player.speed * 0.04) * dt;
+      sm.alpha -= dt * 0.5;
+      if (sm.alpha <= 0 || sm.y1 > this.height) {
+        this.skidmarks.splice(i, 1);
+      }
     }
   }
 
@@ -620,7 +729,7 @@ export class GameEngine {
     const h = this.height;
     const carW = (w / 900) * 0.85 * 240;
     const carX = w / 2;
-    const carY = h - 25;
+    const carY = h - 25 + this.player.bounce;
 
     [-carW * 0.18, carW * 0.18].forEach(offsetX => {
       this.particles.push({
@@ -639,9 +748,9 @@ export class GameEngine {
   }
 
   private spawnSparks(x: number, y: number) {
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 14; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 60 + Math.random() * 120;
+      const speed = 70 + Math.random() * 140;
       this.particles.push({
         x,
         y,
@@ -731,23 +840,26 @@ export class GameEngine {
     // 1. Sky & Horizon
     this.renderSky(w, h);
 
-    // 2. Road & Sprites
+    // 2. Road & Sprites with atmospheric perspective
     this.renderRoad(w, h);
 
-    // 3. Night Headlights
+    // 3. Skidmarks
+    this.renderSkidmarks();
+
+    // 4. Night Headlights
     if (this.stage.skyTheme === 'night') {
       this.renderHeadlights(w, h);
     }
 
-    // 4. Player Vehicle
+    // 5. Player Vehicle with realistic pitch, roll & bounce
     this.renderPlayer(w, h);
 
-    // 5. Particles
+    // 6. Particles
     this.renderParticles();
 
     this.ctx.restore();
 
-    // 6. UI HUD & Screens
+    // 7. UI HUD
     const progress = this.player.z / this.road.trackLength;
     if (this.state === 'PLAYING') {
       ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, garage.highScore, garage.walletBalance);
@@ -770,12 +882,12 @@ export class GameEngine {
     const skyGrad = this.ctx.createLinearGradient(0, 0, 0, horizon);
     if (theme === 'day') {
       skyGrad.addColorStop(0, '#0284c7');
-      skyGrad.addColorStop(0.6, '#38bdf8');
+      skyGrad.addColorStop(0.55, '#38bdf8');
       skyGrad.addColorStop(1, '#bae6fd');
     } else if (theme === 'sunset') {
       skyGrad.addColorStop(0, '#4c1d95');
-      skyGrad.addColorStop(0.4, '#c026d3');
-      skyGrad.addColorStop(0.7, '#ea580c');
+      skyGrad.addColorStop(0.38, '#c026d3');
+      skyGrad.addColorStop(0.72, '#ea580c');
       skyGrad.addColorStop(1, '#fde047');
     } else {
       skyGrad.addColorStop(0, '#020617');
@@ -869,11 +981,27 @@ export class GameEngine {
 
       if (p1.y >= maxy || p2.y >= p1.y) continue;
 
-      // Grass
+      // 1. Grass
       this.ctx.fillStyle = segment.color.grass;
       this.ctx.fillRect(0, p2.y, w, p1.y - p2.y);
 
-      // Kerbs
+      // 2. Earthy Gravel Road Shoulder (Realistic verge)
+      this.renderPoly(
+        p1.x - p1.w * 1.35, p1.y,
+        p1.x - p1.w * 1.15, p1.y,
+        p2.x - p2.w * 1.15, p2.y,
+        p2.x - p2.w * 1.35, p2.y,
+        segment.color.shoulder
+      );
+      this.renderPoly(
+        p1.x + p1.w * 1.15, p1.y,
+        p1.x + p1.w * 1.35, p1.y,
+        p2.x + p2.w * 1.35, p2.y,
+        p2.x + p2.w * 1.15, p2.y,
+        segment.color.shoulder
+      );
+
+      // 3. Weathered Kerbs
       this.renderPoly(
         p1.x - p1.w * 1.15, p1.y,
         p1.x - p1.w, p1.y,
@@ -889,7 +1017,7 @@ export class GameEngine {
         segment.color.kerb
       );
 
-      // Road Asphalt
+      // 4. Road Asphalt Surface
       this.renderPoly(
         p1.x - p1.w, p1.y,
         p1.x + p1.w, p1.y,
@@ -898,24 +1026,51 @@ export class GameEngine {
         segment.color.road
       );
 
-      // Lane Lines
-      if (segment.color.lane) {
-        const laneW1 = (p1.w * 2) / ROAD.LANES;
-        const laneW2 = (p2.w * 2) / ROAD.LANES;
+      // 5. Realistic Dark Tire Groove Tracks (Rubber wear from traffic)
+      const laneW1 = (p1.w * 2) / ROAD.LANES;
+      const laneW2 = (p2.w * 2) / ROAD.LANES;
+      for (let l = 0; l < ROAD.LANES; l++) {
+        const laneMid1 = p1.x - p1.w + laneW1 * (l + 0.5);
+        const laneMid2 = p2.x - p2.w + laneW2 * (l + 0.5);
+
+        // Left & right tire tracks within each lane
+        [-laneW1 * 0.28, laneW1 * 0.28].forEach(trackOff1 => {
+          const trackOff2 = (trackOff1 / laneW1) * laneW2;
+          this.renderPoly(
+            laneMid1 + trackOff1 - 3, p1.y,
+            laneMid1 + trackOff1 + 3, p1.y,
+            laneMid2 + trackOff2 + 3, p2.y,
+            laneMid2 + trackOff2 - 3, p2.y,
+            'rgba(18, 20, 24, 0.45)'
+          );
+        });
+      }
+
+      // 6. Dash Lane Line Stripes (Reflective highway paint)
+      if (segment.color.lane && segment.color.lane !== 'transparent') {
         let laneX1 = p1.x - p1.w + laneW1;
         let laneX2 = p2.x - p2.w + laneW2;
 
         for (let l = 1; l < ROAD.LANES; l++) {
           this.renderPoly(
-            laneX1 - 3, p1.y,
-            laneX1 + 3, p1.y,
-            laneX2 + 3, p2.y,
-            laneX2 - 3, p2.y,
+            laneX1 - 2.5, p1.y,
+            laneX1 + 2.5, p1.y,
+            laneX2 + 2.5, p2.y,
+            laneX2 - 2.5, p2.y,
             segment.color.lane
           );
           laneX1 += laneW1;
           laneX2 += laneW2;
         }
+      }
+
+      // 7. Distance Atmospheric Fog Haze
+      const fogRatio = Math.min(1, Math.max(0, (n - 60) / (ROAD.DRAW_DISTANCE - 70)));
+      if (fogRatio > 0) {
+        this.ctx.fillStyle = this.stage.fogColor;
+        this.ctx.globalAlpha = fogRatio * 0.85;
+        this.ctx.fillRect(0, p2.y, w, p1.y - p2.y + 1);
+        this.ctx.globalAlpha = 1.0;
       }
 
       maxy = p1.y;
@@ -943,6 +1098,7 @@ export class GameEngine {
       }
     }
 
+    // Render sprites Back-to-Front
     visibleSprites.sort((a, b) => a.scale - b.scale);
 
     for (const item of visibleSprites) {
@@ -981,7 +1137,7 @@ export class GameEngine {
   private renderHeadlights(w: number, h: number) {
     this.ctx.save();
     const carX = w / 2;
-    const carY = h - 60;
+    const carY = h - 60 + this.player.bounce;
 
     const grad = this.ctx.createLinearGradient(0, h * 0.5, 0, carY);
     grad.addColorStop(0, 'rgba(254, 240, 138, 0.0)');
@@ -1000,6 +1156,19 @@ export class GameEngine {
     this.ctx.restore();
   }
 
+  private renderSkidmarks() {
+    this.ctx.save();
+    for (const sm of this.skidmarks) {
+      this.ctx.strokeStyle = `rgba(10, 10, 12, ${sm.alpha})`;
+      this.ctx.lineWidth = 4;
+      this.ctx.beginPath();
+      this.ctx.moveTo(sm.x1, sm.y1);
+      this.ctx.lineTo(sm.x2, sm.y2);
+      this.ctx.stroke();
+    }
+    this.ctx.restore();
+  }
+
   private renderPlayer(w: number, h: number) {
     const isBoosting = this.player.boostRemaining > 0;
     const down = this.keys['arrowdown'] || this.keys['s'];
@@ -1012,15 +1181,35 @@ export class GameEngine {
     const spr = sprites.get(key) || sprites.get(`PLAYER_${vId}_STRAIGHT`) || sprites.get('PLAYER_TAXI_STRAIGHT');
     if (!spr) return;
 
-    const bounce = this.player.speed > 500 ? (Math.sin(Date.now() / 45) * (this.player.speed / this.player.maxSpeed) * 3) : 0;
+    this.ctx.save();
 
+    // Scale calculation
     const carScale = (w / 900) * 0.85;
     const carW = spr.width * carScale;
     const carH = spr.height * carScale;
-    const carX = w / 2 - carW / 2;
-    const carY = h - carH - 12 + bounce;
+    const carX = w / 2;
+    const carY = h - 22 + this.player.bounce;
 
-    this.ctx.drawImage(spr.canvas, carX, carY, carW, carH);
+    this.ctx.translate(carX, carY);
+
+    // Realistic Chassis Roll (leaning when steering) & Pitch (dive/squat)
+    this.ctx.rotate(this.player.roll);
+    this.ctx.scale(1.0, 1.0 + this.player.pitch);
+
+    // Dynamic Brake Light Glow cast onto the road surface behind the vehicle
+    if (down && this.player.speed > 50) {
+      const brakeGlow = this.ctx.createRadialGradient(0, 8, 10, 0, 16, 90);
+      brakeGlow.addColorStop(0, 'rgba(239, 68, 68, 0.45)');
+      brakeGlow.addColorStop(0.6, 'rgba(220, 38, 38, 0.2)');
+      brakeGlow.addColorStop(1, 'rgba(220, 38, 38, 0)');
+      this.ctx.fillStyle = brakeGlow;
+      this.ctx.beginPath();
+      this.ctx.ellipse(0, 14, 90, 24, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+
+    this.ctx.drawImage(spr.canvas, -carW / 2, -carH, carW, carH);
+    this.ctx.restore();
   }
 
   private renderParticles() {

@@ -59,202 +59,153 @@ export class UIManager {
     stage: RouteStage,
     timeLeft: number,
     progressRatio: number,
-    isMuted: boolean,
+    _isMuted: boolean,
     highScore: number,
     walletBalance: number
   ) {
     ctx.save();
 
-    // 1. Top Status Banner (Addis Blue & Gold Header)
-    const headerH = 72;
-    const headerGrad = ctx.createLinearGradient(0, 0, 0, headerH);
-    headerGrad.addColorStop(0, 'rgba(15, 23, 42, 0.94)');
-    headerGrad.addColorStop(1, 'rgba(15, 23, 42, 0.75)');
+    // 1. Sleek Top Status Bar (Transparent dark gradient with no overlap)
+    const headerH = 54;
+    const headerGrad = ctx.createLinearGradient(0, 0, 0, headerH + 20);
+    headerGrad.addColorStop(0, 'rgba(10, 15, 26, 0.95)');
+    headerGrad.addColorStop(0.7, 'rgba(10, 15, 26, 0.7)');
+    headerGrad.addColorStop(1, 'rgba(10, 15, 26, 0)');
     ctx.fillStyle = headerGrad;
-    ctx.fillRect(0, 0, width, headerH);
+    ctx.fillRect(0, 0, width, headerH + 20);
 
-    // Ethiopian Tricolor Ribbon
+    // Subtle Ethiopian flag hairline ribbon across top
     const ribW = width / 3;
     ctx.fillStyle = '#16a34a';
-    ctx.fillRect(0, headerH - 4, ribW, 4);
+    ctx.fillRect(0, 0, ribW, 3);
     ctx.fillStyle = '#facc15';
-    ctx.fillRect(ribW, headerH - 4, ribW, 4);
+    ctx.fillRect(ribW, 0, ribW, 3);
     ctx.fillStyle = '#dc2626';
-    ctx.fillRect(ribW * 2, headerH - 4, ribW, 4);
+    ctx.fillRect(ribW * 2, 0, ribW, 3);
 
-    // Route title & subtitle
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(`${stage.nameAmharic} (${stage.name})`, 20, 28);
+    // Left: Route Title Badge
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.beginPath();
+    ctx.roundRect(16, 10, 260, 36, 6);
+    ctx.fill();
 
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '12px "Chakra Petch", sans-serif';
-    ctx.fillText(stage.subtitle, 20, 48);
-
-    // High score & Wallet badges
     ctx.fillStyle = '#facc15';
-    ctx.font = 'bold 11px "Chakra Petch", sans-serif';
-    ctx.fillText(`👑 BEST: ${highScore} ETB  |  💼 WALLET: ${walletBalance} ETB`, 20, 64);
+    ctx.font = 'bold 13px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${stage.nameAmharic}`, 26, 26);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px "Chakra Petch", sans-serif';
+    ctx.fillText(`${stage.name}  |  💼 ${walletBalance} ETB  |  👑 ${highScore}`, 26, 39);
 
-    // Stats Grid on Right: Time, Passengers, Fare
-    const statsX = Math.max(width - 450, width * 0.44);
+    // Center: Modern Slim Progress Bar
+    const progW = Math.min(260, width * 0.28);
+    const progX = (width - progW) / 2;
+    const progY = 22;
 
-    // Time Remaining
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.beginPath();
+    ctx.roundRect(progX, progY, progW, 8, 4);
+    ctx.fill();
+
+    const fillProg = Math.max(0, Math.min(1, progressRatio));
+    const progGrad = ctx.createLinearGradient(progX, 0, progX + progW, 0);
+    progGrad.addColorStop(0, '#10b981');
+    progGrad.addColorStop(0.5, '#facc15');
+    progGrad.addColorStop(1, '#ef4444');
+    ctx.fillStyle = progGrad;
+    ctx.beginPath();
+    ctx.roundRect(progX, progY, progW * fillProg, 8, 4);
+    ctx.fill();
+
+    // Destination Pin
+    const pinX = progX + progW * fillProg;
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.arc(pinX, progY + 4, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Right: Essential Objectives (Shifted left of the arcade buttons so there is ZERO overlap!)
+    const statsX = width - 360;
+
+    // Time Left Badge
     const timeColor = timeLeft < 15 ? '#ef4444' : '#facc15';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(statsX - 85, 10, 75, 36, 6);
+    ctx.fill();
+    ctx.strokeStyle = timeColor;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
     ctx.fillStyle = timeColor;
-    ctx.font = 'bold 18px "Chakra Petch", monospace';
+    ctx.font = 'bold 15px "Chakra Petch", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`⏱️ ${Math.max(0, Math.ceil(timeLeft))}s`, statsX + 50, 32);
+    ctx.fillText(`${Math.max(0, Math.ceil(timeLeft))}s`, statsX - 47, 28);
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '10px sans-serif';
-    ctx.fillText('TIME LEFT', statsX + 50, 48);
+    ctx.font = '8px "Chakra Petch", sans-serif';
+    ctx.fillText('TIME', statsX - 47, 39);
 
-    // Passengers Picked
+    // Passengers Delivered Badge
     const passTargetMet = player.passengersOnBoard >= stage.targetPassengers;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(statsX, 10, 85, 36, 6);
+    ctx.fill();
+    ctx.strokeStyle = passTargetMet ? '#22c55e' : '#38bdf8';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
     ctx.fillStyle = passTargetMet ? '#22c55e' : '#38bdf8';
-    ctx.font = 'bold 18px "Chakra Petch", monospace';
-    ctx.fillText(`👥 ${player.passengersOnBoard}/${stage.targetPassengers}`, statsX + 170, 32);
+    ctx.font = 'bold 14px "Chakra Petch", monospace';
+    ctx.fillText(`👥 ${player.passengersOnBoard}/${stage.targetPassengers}`, statsX + 42, 27);
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '10px sans-serif';
-    ctx.fillText(passTargetMet ? 'GOAL MET! ✔️' : 'PASSENGERS', statsX + 170, 48);
+    ctx.font = '8px "Chakra Petch", sans-serif';
+    ctx.fillText(passTargetMet ? 'GOAL MET' : 'PASSENGERS', statsX + 42, 39);
 
-    // Fare Collected
-    ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 18px "Chakra Petch", monospace';
-    ctx.fillText(`💵 ${player.fareCollected} ETB`, statsX + 310, 32);
+    // Fare Earned Badge
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(statsX + 95, 10, 105, 36, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#eab308';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#facc15';
+    ctx.font = 'bold 14px "Chakra Petch", monospace';
+    ctx.fillText(`💵 ${player.fareCollected} ETB`, statsX + 147, 27);
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '10px sans-serif';
-    ctx.fillText('SHIFT EARNINGS', statsX + 310, 48);
+    ctx.font = '8px "Chakra Petch", sans-serif';
+    ctx.fillText('SHIFT FARE', statsX + 147, 39);
 
-    // 2. Combo / Multiplier Banner
+    // 2. Active Speed Combo Floating Pill
     if (player.comboCount > 1) {
       ctx.save();
       const comboX = width / 2;
-      const comboY = headerH + 38;
+      const comboY = headerH + 34;
 
       ctx.fillStyle = 'rgba(234, 88, 12, 0.9)';
       ctx.beginPath();
-      ctx.roundRect(comboX - 110, comboY - 18, 220, 32, 16);
+      ctx.roundRect(comboX - 100, comboY - 16, 200, 30, 15);
       ctx.fill();
       ctx.strokeStyle = '#facc15';
       ctx.lineWidth = 2;
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 14px "Chakra Petch", sans-serif';
+      ctx.font = 'bold 13px "Chakra Petch", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`🔥 SPEED COMBO x${player.comboCount}!`, comboX, comboY + 3);
+      ctx.fillText(`🔥 SPEED COMBO x${player.comboCount}!`, comboX, comboY + 4);
       ctx.restore();
     }
 
-    // 3. Route Progress Bar
-    const progW = Math.min(280, width * 0.38);
-    const progX = (width - progW) / 2;
-    const progY = headerH + 10;
+    // 3. REALISTIC VEHICULAR COCKPIT DASHBOARD (Center Bottom)
+    this.renderRealisticCockpit(ctx, width, height, player);
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-    ctx.beginPath();
-    ctx.roundRect(progX, progY, progW, 10, 5);
-    ctx.fill();
-
-    const fillProg = Math.max(0, Math.min(1, progressRatio));
-    const progFillGrad = ctx.createLinearGradient(progX, 0, progX + progW, 0);
-    progFillGrad.addColorStop(0, '#16a34a');
-    progFillGrad.addColorStop(0.5, '#facc15');
-    progFillGrad.addColorStop(1, '#dc2626');
-    ctx.fillStyle = progFillGrad;
-    ctx.beginPath();
-    ctx.roundRect(progX, progY, progW * fillProg, 10, 5);
-    ctx.fill();
-
-    const pinX = progX + progW * fillProg;
-    ctx.fillStyle = '#0284c7';
-    ctx.beginPath();
-    ctx.arc(pinX, progY + 5, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // 4. Bottom Dashboard Gauges (Speedometer, Fuel, Nitro)
-    const speedKmh = Math.floor((player.speed / player.maxSpeed) * 160);
-    const dashY = height - 76;
-
-    // Speedometer Card
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    ctx.beginPath();
-    ctx.roundRect(20, dashY, 170, 62, 8);
-    ctx.fill();
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 28px "Chakra Petch", monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText(`${speedKmh}`, 36, dashY + 40);
-    ctx.font = '12px "Chakra Petch", sans-serif';
-    ctx.fillStyle = '#38bdf8';
-    ctx.fillText('KM/H', 98, dashY + 38);
-
-    const speedRatio = player.speed / player.maxSpeed;
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(36, dashY + 48, 136, 5);
-    ctx.fillStyle = speedRatio > 0.8 ? '#ef4444' : '#38bdf8';
-    ctx.fillRect(36, dashY + 48, 136 * speedRatio, 5);
-
-    // Fuel Gauge
-    const fuelW = 150;
-    const fuelX = 205;
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    ctx.beginPath();
-    ctx.roundRect(fuelX, dashY, fuelW, 62, 8);
-    ctx.fill();
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    const fuelRatio = Math.max(0, player.fuel / player.maxFuel);
-    ctx.fillStyle = fuelRatio < 0.25 ? '#ef4444' : '#10b981';
-    ctx.font = 'bold 12px "Chakra Petch", sans-serif';
-    ctx.fillText(`⛽ FUEL: ${Math.round(fuelRatio * 100)}%`, fuelX + 16, dashY + 26);
-
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(fuelX + 16, dashY + 36, fuelW - 32, 10);
-    ctx.fillStyle = fuelRatio < 0.25 ? '#ef4444' : '#10b981';
-    ctx.fillRect(fuelX + 16, dashY + 36, (fuelW - 32) * fuelRatio, 10);
-
-    // Bunna Turbo Boost Indicator
-    const nitroW = 175;
-    const nitroX = fuelX + fuelW + 15;
-    if (nitroX + nitroW < width - 110) {
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-      ctx.beginPath();
-      ctx.roundRect(nitroX, dashY, nitroW, 62, 8);
-      ctx.fill();
-      ctx.strokeStyle = player.boostRemaining > 0 ? '#f97316' : '#334155';
-      ctx.lineWidth = player.boostRemaining > 0 ? 2.5 : 1;
-      ctx.stroke();
-
-      const boostRatio = player.boostRemaining / player.boostMax;
-      ctx.fillStyle = '#f97316';
-      ctx.font = 'bold 12px "Chakra Petch", sans-serif';
-      ctx.fillText(player.boostRemaining > 0 ? '☕ BUNNA NITRO (ON!)' : '☕ BUNNA READY', nitroX + 14, dashY + 26);
-
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(nitroX + 14, dashY + 36, nitroW - 28, 10);
-      ctx.fillStyle = '#f97316';
-      ctx.fillRect(nitroX + 14, dashY + 36, (nitroW - 28) * boostRatio, 10);
-    }
-
-    // Audio & Horn Hints
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '11px "Chakra Petch", sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(`[M] ${isMuted ? 'UNMUTE 🔇' : 'SOUND 🔊'} | [H / SPACE] HORN 📢 | [P] PAUSE ⏸️`, width - 20, height - 16);
-
-    // 5. Render Floating Texts
+    // 4. Render Floating Texts
     this.floatingTexts.forEach(ft => {
       ctx.save();
       ctx.globalAlpha = Math.max(0, ft.alpha);
@@ -270,11 +221,160 @@ export class UIManager {
     ctx.restore();
   }
 
+  // Realistic Cockpit Instrument Binnacle
+  private renderRealisticCockpit(ctx: CanvasRenderingContext2D, width: number, height: number, player: Player) {
+    ctx.save();
+
+    const speedKmh = Math.floor((player.speed / player.maxSpeed) * 165);
+    const rpmRatio = Math.min(1, Math.max(0.12, player.rpm / 7500));
+
+    // Dashboard Binnacle Dimensions
+    const binnacleW = Math.min(680, width * 0.78);
+    const binnacleH = 82;
+    const binnacleX = (width - binnacleW) / 2;
+    const binnacleY = height - binnacleH - 12;
+
+    // Dark brushed carbon cockpit frame with glass reflection
+    const dashGrad = ctx.createLinearGradient(0, binnacleY, 0, binnacleY + binnacleH);
+    dashGrad.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
+    dashGrad.addColorStop(0.5, 'rgba(10, 15, 28, 0.96)');
+    dashGrad.addColorStop(1, 'rgba(4, 7, 14, 0.98)');
+    ctx.fillStyle = dashGrad;
+    ctx.beginPath();
+    ctx.roundRect(binnacleX, binnacleY, binnacleW, binnacleH, 14);
+    ctx.fill();
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Subtle glass specular shine on top rim
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(binnacleX + 16, binnacleY + 1);
+    ctx.lineTo(binnacleX + binnacleW - 16, binnacleY + 1);
+    ctx.stroke();
+
+    // 1. LEFT DIAL: Speedometer Dial & Digital LCD
+    const spdX = binnacleX + 75;
+    const spdY = binnacleY + 44;
+
+    // Outer Speedometer Arc
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.arc(spdX, spdY, 32, Math.PI * 0.75, Math.PI * 2.25);
+    ctx.stroke();
+
+    // Active Speed Arc Fill
+    const speedRatio = Math.min(1, player.speed / player.maxSpeed);
+    const spdGrad = ctx.createLinearGradient(spdX - 32, spdY, spdX + 32, spdY);
+    spdGrad.addColorStop(0, '#38bdf8');
+    spdGrad.addColorStop(0.7, '#facc15');
+    spdGrad.addColorStop(1, '#ef4444');
+    ctx.strokeStyle = spdGrad;
+    ctx.beginPath();
+    ctx.arc(spdX, spdY, 32, Math.PI * 0.75, Math.PI * (0.75 + speedRatio * 1.5));
+    ctx.stroke();
+
+    // Digital Speed Number
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 24px "Chakra Petch", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${speedKmh}`, spdX, spdY + 5);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '8px "Chakra Petch", sans-serif';
+    ctx.fillText('KM/H', spdX, spdY + 16);
+
+    // 2. CENTER SECTION: Gear Selector, Turn Signals, Fuel, and Boost
+    const midX = binnacleX + binnacleW / 2;
+
+    // Turn Signals (blinking green arrows)
+    const isLeftSig = player.turnSignal === 'left' && Math.floor(Date.now() / 350) % 2 === 0;
+    const isRightSig = player.turnSignal === 'right' && Math.floor(Date.now() / 350) % 2 === 0;
+
+    ctx.fillStyle = isLeftSig ? '#22c55e' : 'rgba(34, 197, 94, 0.15)';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('◀', midX - 90, binnacleY + 24);
+
+    ctx.fillStyle = isRightSig ? '#22c55e' : 'rgba(34, 197, 94, 0.15)';
+    ctx.fillText('▶', midX + 90, binnacleY + 24);
+
+    // Automatic Gear Indicator
+    ctx.font = 'bold 11px "Chakra Petch", monospace';
+
+    [-45, -22, 0, 22, 45].forEach((offset, idx) => {
+      const gLabel = idx === 0 ? 'P' : idx === 1 ? 'R' : idx === 2 ? 'N' : idx === 3 ? 'D' : `${player.gear}`;
+      const isActive = (idx === 3 && player.speed >= 20) || (idx === 2 && player.speed < 20);
+
+      ctx.fillStyle = isActive ? '#22c55e' : 'rgba(148, 163, 184, 0.4)';
+      ctx.fillText(gLabel, midX + offset, binnacleY + 24);
+    });
+
+    // Dual Slim Gauges: Fuel (Left) & Bunna Turbo (Right)
+    const gaugeW = 120;
+    const gaugeY = binnacleY + 48;
+
+    // Fuel Gauge
+    const fuelRatio = Math.max(0, Math.min(1, player.fuel / player.maxFuel));
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '9px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`⛽ FUEL`, midX - gaugeW - 10, gaugeY - 4);
+
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(midX - gaugeW - 10, gaugeY, gaugeW, 8);
+    ctx.fillStyle = fuelRatio < 0.25 ? '#ef4444' : '#10b981';
+    ctx.fillRect(midX - gaugeW - 10, gaugeY, gaugeW * fuelRatio, 8);
+
+    // Bunna Boost Gauge
+    const boostRatio = Math.max(0, Math.min(1, player.boostRemaining / player.boostMax));
+    ctx.fillStyle = '#f97316';
+    ctx.font = '9px "Chakra Petch", sans-serif';
+    ctx.fillText(`☕ BUNNA TURBO`, midX + 10, gaugeY - 4);
+
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(midX + 10, gaugeY, gaugeW, 8);
+    ctx.fillStyle = player.boostRemaining > 0 ? '#ff5500' : '#f97316';
+    ctx.fillRect(midX + 10, gaugeY, gaugeW * boostRatio, 8);
+
+    // 3. RIGHT DIAL: Tachometer (RPM Dial)
+    const rpmX = binnacleX + binnacleW - 75;
+    const rpmY = binnacleY + 44;
+
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.arc(rpmX, rpmY, 32, Math.PI * 0.75, Math.PI * 2.25);
+    ctx.stroke();
+
+    // Active RPM Arc
+    const rpmGrad = ctx.createLinearGradient(rpmX - 32, rpmY, rpmX + 32, rpmY);
+    rpmGrad.addColorStop(0, '#38bdf8');
+    rpmGrad.addColorStop(0.7, '#facc15');
+    rpmGrad.addColorStop(1, '#ef4444');
+    ctx.strokeStyle = rpmGrad;
+    ctx.beginPath();
+    ctx.arc(rpmX, rpmY, 32, Math.PI * 0.75, Math.PI * (0.75 + rpmRatio * 1.5));
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 18px "Chakra Petch", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${Math.round(player.rpm)}`, rpmX, rpmY + 5);
+    ctx.fillStyle = rpmRatio > 0.85 ? '#ef4444' : '#94a3b8';
+    ctx.font = '8px "Chakra Petch", sans-serif';
+    ctx.fillText('RPM', rpmX, rpmY + 16);
+
+    ctx.restore();
+  }
+
   public renderTitleScreen(ctx: CanvasRenderingContext2D, width: number, height: number, highScore: number, walletBalance: number) {
     ctx.save();
     this.garageHitboxes = [];
 
-    ctx.fillStyle = 'rgba(10, 15, 30, 0.88)';
+    ctx.fillStyle = 'rgba(8, 12, 22, 0.9)';
     ctx.fillRect(0, 0, width, height);
 
     const midX = width / 2;
@@ -290,7 +390,6 @@ export class UIManager {
     ctx.fillStyle = '#dc2626';
     ctx.fillRect(startRibX + (ribW / 3) * 2, midY - 148, ribW / 3, 6);
 
-    // Big Amharic Title
     ctx.fillStyle = '#facc15';
     ctx.font = '900 46px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
@@ -298,14 +397,12 @@ export class UIManager {
     ctx.shadowBlur = 16;
     ctx.fillText('አዲስ ታክሲ ራሽ', midX, midY - 84);
 
-    // English Subtitle
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 28px "Chakra Petch", sans-serif';
     ctx.shadowColor = '#000000';
     ctx.shadowBlur = 8;
     ctx.fillText('ADDIS TAXI RUSH', midX, midY - 44);
 
-    // Selected vehicle badge
     const selV = garage.selectedVehicle;
     ctx.fillStyle = '#38bdf8';
     ctx.font = 'bold 15px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
@@ -330,13 +427,11 @@ export class UIManager {
     ctx.fillText('☕ Collect steaming Bunna (ቡና) cups for extreme Turbo Boost!', leftPad, midY + 114);
     ctx.fillText('🔥 Near-miss overtakes build Speed Combos for massive fares!', leftPad, midY + 140);
 
-    // Wallet & Best Stats
     ctx.fillStyle = '#facc15';
     ctx.font = 'bold 15px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(`💼 WALLET: ${walletBalance} ETB  |  👑 RECORD: ${highScore} ETB`, midX, midY + 195);
 
-    // Pulsing Drive & Garage Buttons
     const pulse = 0.75 + 0.25 * Math.sin(Date.now() / 200);
 
     // [START DRIVING] Button
@@ -368,7 +463,6 @@ export class UIManager {
     ctx.save();
     this.garageHitboxes = [];
 
-    // Background
     ctx.fillStyle = 'rgba(10, 15, 30, 0.94)';
     ctx.fillRect(0, 0, width, height);
 
@@ -376,7 +470,6 @@ export class UIManager {
     const currentId = vehicleKeys[activeVehicleIndex % vehicleKeys.length];
     const vehicle = garage.vehicles[currentId];
 
-    // 1. Header with Ethiopian tricolor and Wallet balance
     const headerH = 68;
     ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
     ctx.fillRect(0, 0, width, headerH);
@@ -398,7 +491,7 @@ export class UIManager {
     ctx.textAlign = 'right';
     ctx.fillText(`💼 WALLET: ${garage.walletBalance} ETB`, width - 24, 40);
 
-    // 2. Vehicle Selector Tabs
+    // Vehicle Selector Tabs
     const tabW = Math.min(180, (width - 48) / vehicleKeys.length - 10);
     const tabsStartX = (width - (tabW + 10) * vehicleKeys.length) / 2;
     const tabsY = headerH + 16;
@@ -423,7 +516,6 @@ export class UIManager {
       const label = garage.vehicles[key].name;
       ctx.fillText(label, tabX + tabW / 2, tabsY + 22);
 
-      // Register Hitbox
       this.garageHitboxes.push({
         id: `tab_${key}`,
         x: tabX,
@@ -434,7 +526,6 @@ export class UIManager {
       });
     });
 
-    // 3. Main Stage: Left = Vehicle Preview & Stats, Right = Upgrades Panel
     const mainY = tabsY + 52;
     const mainH = height - mainY - 68;
     const colW = (width - 60) / 2;
@@ -448,7 +539,6 @@ export class UIManager {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Vehicle Name & Tagline
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 22px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
@@ -461,7 +551,6 @@ export class UIManager {
     ctx.font = '12px "Chakra Petch", sans-serif';
     ctx.fillText(vehicle.tagline, 44, mainY + 76);
 
-    // Big Vehicle Sprite Drawing
     const previewSprite = sprites.get(`PLAYER_${vehicle.id}_STRAIGHT`);
     if (previewSprite) {
       const prevScale = Math.min(1.4, (colW - 80) / previewSprite.width);
@@ -472,13 +561,11 @@ export class UIManager {
       ctx.drawImage(previewSprite.canvas, px, py, pw, ph);
     }
 
-    // Vehicle Base Stat Bars
     const statY = mainY + mainH - 120;
     this.renderStatBar(ctx, 44, statY, colW - 88, 'SPEED (ፍጥነት)', vehicle.baseMaxSpeed / 16000, '#38bdf8');
     this.renderStatBar(ctx, 44, statY + 28, colW - 88, 'HANDLING (መሪ)', vehicle.baseTurnSpeed / 4.2, '#22c55e');
     this.renderStatBar(ctx, 44, statY + 56, colW - 88, 'FUEL CAPACITY (ታንከር)', vehicle.baseMaxFuel / 160, '#facc15');
 
-    // Select / Unlock Action Button
     const actBtnY = mainY + mainH - 42;
     const isSelected = vehicle.id === garage.selectedVehicleId;
     const isUnlocked = vehicle.unlocked;
@@ -550,7 +637,6 @@ export class UIManager {
     ctx.font = '12px "Chakra Petch", sans-serif';
     ctx.fillText('Tune this ride to dominate the Addis highways and hills', rightX + 24, mainY + 56);
 
-    // Upgrades list
     const upgrades: { key: 'engine' | 'steering' | 'fuel' | 'turbo'; name: string; nameAmh: string; icon: string; desc: string }[] = [
       { key: 'engine', name: 'Engine Tuning', nameAmh: 'ሞተር ማሻሻያ', icon: '⚡', desc: '+12% Top Speed & Acceleration per level' },
       { key: 'steering', name: 'Power Steering', nameAmh: 'ሃይል መሪ', icon: '🕹️', desc: '+14% Cornering Agility & Drift Control' },
@@ -564,7 +650,7 @@ export class UIManager {
       upY += 68;
     });
 
-    // 4. Bottom Navigation Bar
+    // Bottom Navigation Bar
     const btmY = height - 52;
     ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
     ctx.fillRect(0, btmY, width, 52);
@@ -574,7 +660,6 @@ export class UIManager {
     ctx.textAlign = 'left';
     ctx.fillText('◀ / ▶ : Switch Vehicle  |  G / ESC : Close Garage', 24, btmY + 30);
 
-    // [BACK TO TITLE] & [START DRIVING] buttons
     const btnW = 160;
     ctx.fillStyle = '#334155';
     ctx.beginPath();
@@ -649,7 +734,6 @@ export class UIManager {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Icon & Label
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 14px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
@@ -659,13 +743,11 @@ export class UIManager {
     ctx.font = '11px "Chakra Petch", sans-serif';
     ctx.fillText(u.desc, x + 12, y + 42);
 
-    // Star levels
     const stars = ['★', '★', '★'].map((_, i) => (i < level ? '★' : '☆')).join(' ');
     ctx.fillStyle = '#facc15';
     ctx.font = '16px monospace';
     ctx.fillText(stars, x + w - 195, y + 34);
 
-    // Upgrade Button
     const btnW = 105;
     const btnX = x + w - btnW - 12;
     const btnY = y + 12;

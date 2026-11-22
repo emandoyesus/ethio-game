@@ -41,6 +41,7 @@ export interface ProjectedPoint {
 export interface RoadSegmentColor {
   road: string;
   grass: string;
+  shoulder: string;
   kerb: string;
   lane: string;
 }
@@ -99,6 +100,14 @@ export interface Particle {
   type: 'smoke' | 'spark' | 'flame' | 'dust' | 'speedline';
 }
 
+export interface SkidMark {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  alpha: number;
+}
+
 export interface Player {
   vehicleId: VehicleId;
   x: number; // -1 to 1 across the road
@@ -116,8 +125,21 @@ export interface Player {
   passengersOnBoard: number;
   passengersTarget: number;
   health: number;
+
+  // Realistic vehicle dynamics
+  gear: number; // 1..5
+  rpm: number; // 1000..7500
+  pitch: number; // -1 (squat) to 1 (dive)
+  roll: number; // -1 to 1 chassis body roll
+  bounce: number; // suspension vertical displacement
+  bounceVelocity: number;
+  steerAngle: number;
+  skidding: boolean;
   driftAngle: number;
   isDrifting: boolean;
+  turnSignal: 'none' | 'left' | 'right';
+  turnSignalTimer: number;
+
   comboCount: number;
   comboTimer: number;
   comboMultiplier: number;
@@ -132,6 +154,7 @@ export interface RouteStage {
   targetPassengers: number;
   timeLimit: number;
   skyTheme: 'day' | 'sunset' | 'night';
+  fogColor: string;
 }
 
 export interface GameSaveData {

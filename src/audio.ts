@@ -1,40 +1,26 @@
-// Polished Web Audio API synthesizer for Addis Taxi Rush
-// Features dynamic engine synthesis, dual-tone horns, animal bleats, tire squeals, and Eskista groove
+// Realistic Web Audio API Synthesizer
+// Features multi-harmonic combustion engine with gear shifts, suspension thuds, flasher relays, and tire squeal
 
 class SoundManager {
   private ctx: AudioContext | null = null;
-  private engineOsc: OscillatorNode | null = null;
+
+  // Multi-harmonic engine nodes
+  private engineOsc1: OscillatorNode | null = null;
+  private engineOsc2: OscillatorNode | null = null;
   private engineGain: GainNode | null = null;
   private engineFilter: BiquadFilterNode | null = null;
+
   private screechOsc: OscillatorNode | null = null;
   private screechGain: GainNode | null = null;
   private musicInterval: number | null = null;
   public isMuted: boolean = false;
   private musicStep: number = 0;
 
-  // Ethiopian pentatonic scale frequencies (Tizita Minor & Ambassel flavor)
-  private readonly notes = [
-    261.63, // C4
-    293.66, // D4
-    311.13, // Eb4
-    392.00, // G4
-    415.30, // Ab4
-    523.25, // C5
-    587.33, // D5
-    622.25, // Eb5
-    784.00  // G5
-  ];
+  private lastGear: number = 1;
 
-  private readonly bassNotes = [
-    130.81, // C3
-    130.81,
-    155.56, // Eb3
-    196.00, // G3
-    130.81,
-    207.65, // Ab3
-    196.00,
-    155.56
-  ];
+  // Ethiopian pentatonic scale
+  private readonly notes = [261.63, 293.66, 311.13, 392.00, 415.30, 523.25, 587.33, 622.25, 784.00];
+  private readonly bassNotes = [130.81, 130.81, 155.56, 196.00, 130.81, 207.65, 196.00, 155.56];
 
   public init() {
     if (!this.ctx) {
@@ -48,41 +34,56 @@ class SoundManager {
   }
 
   private initEngine() {
-    if (!this.ctx || this.engineOsc) return;
+    if (!this.ctx || this.engineOsc1) return;
 
     try {
-      this.engineOsc = this.ctx.createOscillator();
-      this.engineGain = this.ctx.createGain();
+      // Cylinder firing oscillator 1 (sawtooth for combustion bite)
+      this.engineOsc1 = this.ctx.createOscillator();
+      this.engineOsc1.type = 'sawtooth';
+      this.engineOsc1.frequency.setValueAtTime(45, this.ctx.currentTime);
+
+      // Low sub-bass rumble oscillator 2 (triangle for displacement)
+      this.engineOsc2 = this.ctx.createOscillator();
+      this.engineOsc2.type = 'triangle';
+      this.engineOsc2.frequency.setValueAtTime(22.5, this.ctx.currentTime);
+
       this.engineFilter = this.ctx.createBiquadFilter();
-
-      this.engineOsc.type = 'sawtooth';
-      this.engineOsc.frequency.setValueAtTime(60, this.ctx.currentTime);
-
       this.engineFilter.type = 'lowpass';
-      this.engineFilter.frequency.setValueAtTime(320, this.ctx.currentTime);
+      this.engineFilter.frequency.setValueAtTime(280, this.ctx.currentTime);
 
+      this.engineGain = this.ctx.createGain();
       this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
 
-      this.engineOsc.connect(this.engineFilter);
+      this.engineOsc1.connect(this.engineFilter);
+      this.engineOsc2.connect(this.engineFilter);
       this.engineFilter.connect(this.engineGain);
       this.engineGain.connect(this.ctx.destination);
 
-      this.engineOsc.start();
+      this.engineOsc1.start();
+      this.engineOsc2.start();
     } catch {
-      // Audio setup fallback
+      // Audio fallback
     }
   }
 
-  public updateEngine(speedRatio: number, isBoosting: boolean) {
-    if (!this.ctx || !this.engineOsc || !this.engineGain || !this.engineFilter || this.isMuted) return;
+  public updateEngineRealistic(rpm: number, gear: number, isBoosting: boolean) {
+    if (!this.ctx || !this.engineOsc1 || !this.engineOsc2 || !this.engineGain || !this.engineFilter || this.isMuted) return;
 
-    const baseFreq = isBoosting ? 140 + speedRatio * 190 : 55 + speedRatio * 155;
-    const filterFreq = isBoosting ? 1400 : 260 + speedRatio * 900;
-    const gainVal = speedRatio > 0.04 ? Math.min(0.2, 0.04 + speedRatio * 0.14) : 0.02;
+    // Detect gear shift and trigger clutch exhaust pop
+    if (gear !== this.lastGear) {
+      this.lastGear = gear;
+      this.playGearShift();
+    }
+
+    // Engine combustion frequency derived from actual RPM (4-cylinder: RPM / 120 * cylinders)
+    const baseFreq = isBoosting ? (rpm / 60) * 1.6 : (rpm / 60) * 1.15;
+    const filterFreq = isBoosting ? 1600 : 220 + (rpm / 7500) * 950;
+    const gainVal = Math.min(0.22, 0.05 + (rpm / 7500) * 0.14);
 
     const t = this.ctx.currentTime;
-    this.engineOsc.frequency.setTargetAtTime(baseFreq, t, 0.04);
-    this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.04);
+    this.engineOsc1.frequency.setTargetAtTime(Math.max(35, baseFreq), t, 0.04);
+    this.engineOsc2.frequency.setTargetAtTime(Math.max(18, baseFreq * 0.5), t, 0.04);
+    this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.05);
     this.engineGain.gain.setTargetAtTime(gainVal, t, 0.04);
   }
 
@@ -91,6 +92,59 @@ class SoundManager {
       this.engineGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
     }
     this.stopTireScreech();
+  }
+
+  private playGearShift() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    // Quick exhaust pop on upshift
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(90, t);
+    osc.frequency.exponentialRampToValueAtTime(30, t + 0.08);
+
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.1);
+  }
+
+  public playSuspensionThud() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(110, t);
+    osc.frequency.exponentialRampToValueAtTime(35, t + 0.18);
+
+    gain.gain.setValueAtTime(0.28, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.21);
+  }
+
+  public playTurnSignalClick() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(920, t);
+    gain.gain.setValueAtTime(0.06, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.03);
   }
 
   public startTireScreech() {
@@ -103,13 +157,13 @@ class SoundManager {
       const filter = this.ctx.createBiquadFilter();
 
       this.screechOsc.type = 'sawtooth';
-      this.screechOsc.frequency.setValueAtTime(840, this.ctx.currentTime);
+      this.screechOsc.frequency.setValueAtTime(780, this.ctx.currentTime);
 
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1100, this.ctx.currentTime);
-      filter.Q.setValueAtTime(4.0, this.ctx.currentTime);
+      filter.frequency.setValueAtTime(1150, this.ctx.currentTime);
+      filter.Q.setValueAtTime(3.5, this.ctx.currentTime);
 
-      this.screechGain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+      this.screechGain.gain.setValueAtTime(0.09, this.ctx.currentTime);
 
       this.screechOsc.connect(filter);
       filter.connect(this.screechGain);
@@ -142,7 +196,6 @@ class SoundManager {
     this.init();
 
     const t = this.ctx.currentTime;
-    // Classic dual-tone Minibus Taxi Horn: 440Hz + 554Hz with vibrato
     [440, 554].forEach(freq => {
       const osc = this.ctx!.createOscillator();
       const gain = this.ctx!.createGain();
@@ -194,7 +247,6 @@ class SoundManager {
     const gain = this.ctx.createGain();
 
     osc.type = 'triangle';
-    // Vibrato bleat
     osc.frequency.setValueAtTime(420, t);
     osc.frequency.linearRampToValueAtTime(520, t + 0.08);
     osc.frequency.linearRampToValueAtTime(460, t + 0.16);
@@ -246,8 +298,8 @@ class SoundManager {
     const gain = this.ctx.createGain();
 
     osc.type = 'square';
-    osc.frequency.setValueAtTime(1046.5, t); // C6
-    osc.frequency.setValueAtTime(1396.9, t + 0.08); // F6
+    osc.frequency.setValueAtTime(1046.5, t);
+    osc.frequency.setValueAtTime(1396.9, t + 0.08);
 
     gain.gain.setValueAtTime(0.12, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
@@ -264,10 +316,8 @@ class SoundManager {
     this.init();
 
     const t = this.ctx.currentTime;
-    // Sliding door latch click
     this.playClick(t);
 
-    // Weyala Whistle + Joyful chime
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
@@ -383,7 +433,7 @@ class SoundManager {
     this.musicInterval = window.setInterval(() => {
       if (this.isMuted || !this.ctx) return;
       this.playMusicStep();
-    }, 160); // Energetic ~185 BPM Eskista pace
+    }, 160);
   }
 
   public stopMusic() {
@@ -400,16 +450,14 @@ class SoundManager {
     const step = this.musicStep % 16;
     this.musicStep++;
 
-    // 1. Kebero Drum Synthesizer (African Kick & Rimshot)
     if (step === 0 || step === 6 || step === 10) {
-      // Kebero deep resonant thud
       const kickOsc = this.ctx.createOscillator();
       const kickGain = this.ctx.createGain();
       kickOsc.type = 'sine';
       kickOsc.frequency.setValueAtTime(140, t);
       kickOsc.frequency.exponentialRampToValueAtTime(48, t + 0.14);
 
-      kickGain.gain.setValueAtTime(0.2, t);
+      kickGain.gain.setValueAtTime(0.18, t);
       kickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
 
       kickOsc.connect(kickGain);
@@ -417,14 +465,13 @@ class SoundManager {
       kickOsc.start(t);
       kickOsc.stop(t + 0.17);
     } else if (step === 4 || step === 12) {
-      // Kebero sharp slap / rimshot
       const rimOsc = this.ctx.createOscillator();
       const rimGain = this.ctx.createGain();
       rimOsc.type = 'triangle';
       rimOsc.frequency.setValueAtTime(320, t);
       rimOsc.frequency.exponentialRampToValueAtTime(90, t + 0.08);
 
-      rimGain.gain.setValueAtTime(0.12, t);
+      rimGain.gain.setValueAtTime(0.1, t);
       rimGain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
 
       rimOsc.connect(rimGain);
@@ -433,7 +480,6 @@ class SoundManager {
       rimOsc.stop(t + 0.1);
     }
 
-    // 2. Syncopated Bassline (Eskista shoulder-shake groove)
     if (step % 2 === 0 || step === 7 || step === 11) {
       const bassNote = this.bassNotes[Math.floor(step / 2) % this.bassNotes.length];
       const osc = this.ctx.createOscillator();
@@ -445,7 +491,7 @@ class SoundManager {
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(420, t);
 
-      gain.gain.setValueAtTime(0.09, t);
+      gain.gain.setValueAtTime(0.08, t);
       gain.gain.exponentialRampToValueAtTime(0.005, t + 0.14);
 
       osc.connect(filter);
@@ -456,7 +502,6 @@ class SoundManager {
       osc.stop(t + 0.15);
     }
 
-    // 3. Kirar Pluck / Ethiopian pentatonic lead melody
     const notePattern = [0, 2, 4, 6, 5, 4, 2, 1, 0, 4, 6, 8, 7, 5, 2, 0];
     const noteIdx = notePattern[step] % this.notes.length;
     const freq = this.notes[noteIdx];
@@ -466,7 +511,7 @@ class SoundManager {
     leadOsc.type = 'triangle';
     leadOsc.frequency.setValueAtTime(freq, t);
 
-    leadGain.gain.setValueAtTime(0.045, t);
+    leadGain.gain.setValueAtTime(0.04, t);
     leadGain.gain.exponentialRampToValueAtTime(0.002, t + 0.13);
 
     leadOsc.connect(leadGain);

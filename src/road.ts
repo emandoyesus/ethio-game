@@ -7,7 +7,7 @@ export const ROAD = {
   ROAD_WIDTH: 2000,
   CAMERA_HEIGHT: 1000,
   CAMERA_DEPTH: 0.84,
-  DRAW_DISTANCE: 260
+  DRAW_DISTANCE: 280
 };
 
 export const STAGES: RouteStage[] = [
@@ -19,17 +19,19 @@ export const STAGES: RouteStage[] = [
     trackLength: 1600,
     targetPassengers: 8,
     timeLimit: 75,
-    skyTheme: 'day'
+    skyTheme: 'day',
+    fogColor: '#7ba6d4'
   },
   {
     id: 2,
     name: 'Bole to Meskel Square',
     nameAmharic: 'ቦሌ ➔ መስቀል አደባባይ',
-    subtitle: 'Wide Boulevards & Speed Runs',
+    subtitle: 'Wide Boulevards & High Speed Runs',
     trackLength: 2200,
     targetPassengers: 12,
     timeLimit: 85,
-    skyTheme: 'sunset'
+    skyTheme: 'sunset',
+    fogColor: '#8a4066'
   },
   {
     id: 3,
@@ -39,7 +41,8 @@ export const STAGES: RouteStage[] = [
     trackLength: 2600,
     targetPassengers: 14,
     timeLimit: 95,
-    skyTheme: 'night'
+    skyTheme: 'night',
+    fogColor: '#0b1322'
   }
 ];
 
@@ -55,11 +58,20 @@ export class RoadManager {
       const n = this.segments.length;
       const isRumble = Math.floor(n / ROAD.RUMBLE_LENGTH) % 2 === 0;
 
+      // Realistic asphalt, gravel shoulder, concrete/weathered curb, and grass
+      const isNight = stage.skyTheme === 'night';
+      const isSunset = stage.skyTheme === 'sunset';
+
       const color = {
-        road: isRumble ? '#374151' : '#333b47',
-        grass: stage.skyTheme === 'night' ? (isRumble ? '#064e3b' : '#022c22') : (isRumble ? '#15803d' : '#166534'),
-        kerb: isRumble ? '#dc2626' : '#facc15',
-        lane: isRumble ? '#f8fafc' : '#374151'
+        road: isRumble ? '#2b2e35' : '#25282f', // Realistic worn dark asphalt
+        shoulder: isSunset ? '#62412e' : isNight ? '#2a2018' : '#7d593f', // Earthy gravel/red Ethiopian soil shoulder
+        grass: isNight
+          ? (isRumble ? '#063a24' : '#042b1a')
+          : isSunset
+          ? (isRumble ? '#2a4c28' : '#1e381c')
+          : (isRumble ? '#1f7032' : '#195c29'),
+        kerb: isRumble ? '#c22828' : '#d49e15', // Weathered road kerbs
+        lane: isRumble ? 'rgba(255, 255, 255, 0.85)' : 'transparent' // Reflective dashed road stripes
       };
 
       const prevY = n > 0 ? this.segments[n - 1].p2.y : 0;
@@ -166,7 +178,7 @@ export class RoadManager {
       });
     }
 
-    // Roadside Scenery
+    // Roadside Scenery (Trees, Lights, Billboards)
     for (let i = 10; i < total - 30; i += 4) {
       const seg = this.segments[i];
       const isLeft = (i / 4) % 2 === 0;
@@ -202,7 +214,6 @@ export class RoadManager {
     const passengerStep = Math.floor((total - 100) / (stage.targetPassengers + 6));
     let destCounter = 0;
     for (let i = 60; i < total - 50; i += passengerStep) {
-      // Put a Taxi Stop sign 2 segments before passenger
       const signSeg = this.segments[i - 2];
       if (signSeg) {
         signSeg.sprites.push({
@@ -328,9 +339,8 @@ export class RoadManager {
     let scariedCount = 0;
     let clearedAnimals = false;
 
-    // Look ahead 2,000 units on road
     const startIdx = Math.floor(playerZ / ROAD.SEGMENT_LENGTH);
-    const lookAhead = 12;
+    const lookAhead = 14;
 
     for (let n = 0; n < lookAhead; n++) {
       const seg = this.segments[(startIdx + n) % this.totalSegments];
@@ -340,13 +350,11 @@ export class RoadManager {
         if (spr.collected) continue;
 
         if (spr.type === 'OBSTACLE_GOAT' || spr.type === 'OBSTACLE_COW') {
-          // Animals scurry off the road!
           spr.targetOffset = spr.offset < 0 ? -1.65 : 1.65;
           clearedAnimals = true;
           scariedCount++;
         } else if (spr.type === 'TRAFFIC_BAJAJ' || spr.type === 'TRAFFIC_LADA') {
-          // Traffic vehicle yields lane
-          if (Math.abs(spr.offset - playerX) < 0.5) {
+          if (Math.abs(spr.offset - playerX) < 0.55) {
             spr.targetOffset = spr.offset < 0 ? 0.65 : -0.65;
             spr.alertTimer = 1.8;
             scariedCount++;
@@ -364,7 +372,6 @@ export class RoadManager {
       for (let j = seg.sprites.length - 1; j >= 0; j--) {
         const sprite = seg.sprites[j];
 
-        // Smooth lane change toward targetOffset if perturbed by horn or steering
         if (sprite.targetOffset !== undefined && Math.abs(sprite.offset - sprite.targetOffset) > 0.02) {
           const shiftSpeed = (sprite.type === 'OBSTACLE_GOAT' || sprite.type === 'OBSTACLE_COW') ? 3.5 : 1.8;
           sprite.offset += Math.sign(sprite.targetOffset - sprite.offset) * shiftSpeed * dt;
