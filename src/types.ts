@@ -97,7 +97,16 @@ export interface Particle {
   alpha: number;
   life: number;
   maxLife: number;
-  type: 'smoke' | 'spark' | 'flame' | 'dust' | 'speedline';
+  type: 'smoke' | 'spark' | 'flame' | 'dust' | 'speedline' | 'spray' | 'splash';
+}
+
+export interface RainDrop {
+  x: number;
+  y: number;
+  length: number;
+  vy: number;
+  vx: number;
+  alpha: number;
 }
 
 export interface SkidMark {
@@ -155,6 +164,8 @@ export interface RouteStage {
   timeLimit: number;
   skyTheme: 'day' | 'sunset' | 'night';
   fogColor: string;
+  weather: 'clear' | 'sunshower' | 'rain' | 'fog';
+  isWetRoad: boolean;
 }
 
 export interface GameSaveData {

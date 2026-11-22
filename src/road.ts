@@ -20,7 +20,9 @@ export const STAGES: RouteStage[] = [
     targetPassengers: 8,
     timeLimit: 75,
     skyTheme: 'day',
-    fogColor: '#93c5fd'
+    fogColor: '#93c5fd',
+    weather: 'clear',
+    isWetRoad: false
   },
   {
     id: 2,
@@ -31,7 +33,9 @@ export const STAGES: RouteStage[] = [
     targetPassengers: 12,
     timeLimit: 85,
     skyTheme: 'sunset',
-    fogColor: '#f97316'
+    fogColor: '#f97316',
+    weather: 'sunshower',
+    isWetRoad: true
   },
   {
     id: 3,
@@ -42,7 +46,9 @@ export const STAGES: RouteStage[] = [
     targetPassengers: 14,
     timeLimit: 95,
     skyTheme: 'night',
-    fogColor: '#0f172a'
+    fogColor: '#0f172a',
+    weather: 'rain',
+    isWetRoad: true
   }
 ];
 

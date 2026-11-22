@@ -10,6 +10,11 @@ class SoundManager {
   private engineGain: GainNode | null = null;
   private engineFilter: BiquadFilterNode | null = null;
 
+  // Weather audio nodes
+  private rainSource: AudioBufferSourceNode | null = null;
+  private rainGain: GainNode | null = null;
+  private rainFilter: BiquadFilterNode | null = null;
+
   private screechOsc: OscillatorNode | null = null;
   private screechGain: GainNode | null = null;
   private musicInterval: number | null = null;
@@ -92,6 +97,74 @@ class SoundManager {
       this.engineGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
     }
     this.stopTireScreech();
+  }
+
+  public startRainAudio(intensity: number = 0.5) {
+    if (!this.ctx || this.isMuted) return;
+    if (this.rainGain) {
+      this.rainGain.gain.setTargetAtTime(Math.min(0.18, intensity * 0.18), this.ctx.currentTime, 0.2);
+      return;
+    }
+    try {
+      const bufferSize = this.ctx.sampleRate * 2;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      this.rainSource = this.ctx.createBufferSource();
+      this.rainSource.buffer = buffer;
+      this.rainSource.loop = true;
+
+      this.rainFilter = this.ctx.createBiquadFilter();
+      this.rainFilter.type = 'lowpass';
+      this.rainFilter.frequency.setValueAtTime(1400, this.ctx.currentTime);
+
+      this.rainGain = this.ctx.createGain();
+      this.rainGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      this.rainGain.gain.setTargetAtTime(Math.min(0.18, intensity * 0.18), this.ctx.currentTime, 0.4);
+
+      this.rainSource.connect(this.rainFilter);
+      this.rainFilter.connect(this.rainGain);
+      this.rainGain.connect(this.ctx.destination);
+      this.rainSource.start();
+    } catch {
+      // Audio fallback
+    }
+  }
+
+  public stopRainAudio() {
+    if (this.rainGain && this.ctx) {
+      this.rainGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3);
+    }
+  }
+
+  public playThunder() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(65, t);
+      osc.frequency.exponentialRampToValueAtTime(20, t + 1.2);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(140, t);
+
+      gain.gain.setValueAtTime(0.24, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 1.5);
+    } catch {
+      // Audio fallback
+    }
   }
 
   private playGearShift() {

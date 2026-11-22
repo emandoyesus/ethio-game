@@ -2,7 +2,7 @@ import { sound } from './audio';
 import { garage } from './garage';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
-import type { GameState, Particle, Player, ProjectedPoint, RoadSegment, RouteStage, SkidMark, SpriteInstance, VehicleId } from './types';
+import type { GameState, Particle, Player, ProjectedPoint, RainDrop, RoadSegment, RouteStage, SkidMark, SpriteInstance, VehicleId } from './types';
 import { ui } from './ui';
 
 export class GameEngine {
@@ -32,6 +32,11 @@ export class GameEngine {
   // Particle & Skidmark Systems
   private particles: Particle[] = [];
   private skidmarks: SkidMark[] = [];
+
+  // Weather System
+  private rainDrops: RainDrop[] = [];
+  private lightningFlash: number = 0;
+  private thunderTimer: number = 8;
 
   // Sky parallax offset
   private skyOffset: number = 0;
@@ -309,6 +314,7 @@ export class GameEngine {
     ui.update(dt);
     this.updateParticles(dt);
     this.updateSkidmarks(dt);
+    this.updateWeather(dt);
 
     if (this.nearMissCooldown > 0) {
       this.nearMissCooldown -= dt;
@@ -458,6 +464,11 @@ export class GameEngine {
 
     if (speedRatio > 0.82) {
       this.spawnSpeedLines();
+    }
+
+    // Wet asphalt water spray
+    if (this.stage.isWetRoad && this.player.speed > 2200) {
+      this.spawnWaterSpray();
     }
 
     // Update traffic
@@ -786,13 +797,84 @@ export class GameEngine {
     }
   }
 
+  private spawnWaterSpray() {
+    const w = this.width;
+    const h = this.height;
+    const carW = (w / 900) * 0.85 * 240;
+    const carX = w / 2;
+    const carY = h - 28 + this.player.bounce;
+
+    [-carW * 0.3, carW * 0.3].forEach(offset => {
+      for (let i = 0; i < 2; i++) {
+        this.particles.push({
+          x: carX + offset + (Math.random() - 0.5) * 8,
+          y: carY + 8 + (Math.random() - 0.5) * 4,
+          vx: (offset > 0 ? 35 : -35) + (Math.random() - 0.5) * 45,
+          vy: -25 - Math.random() * 35,
+          size: 7 + Math.random() * 8,
+          color: 'rgba(224, 242, 254, 0.45)',
+          alpha: 0.6,
+          life: 0,
+          maxLife: 0.28,
+          type: 'spray'
+        });
+      }
+    });
+  }
+
+  private updateWeather(dt: number) {
+    const weather = this.stage.weather;
+    if (this.state === 'PLAYING' && (weather === 'rain' || weather === 'sunshower')) {
+      const targetCount = weather === 'rain' ? 220 : 90;
+      sound.startRainAudio(weather === 'rain' ? 0.7 : 0.35);
+
+      // Thunder in heavy mountain rain
+      if (weather === 'rain') {
+        this.thunderTimer -= dt;
+        if (this.thunderTimer <= 0) {
+          this.thunderTimer = 14 + Math.random() * 18;
+          sound.playThunder();
+          this.lightningFlash = 0.65;
+        }
+      }
+
+      while (this.rainDrops.length < targetCount) {
+        this.rainDrops.push({
+          x: Math.random() * this.width,
+          y: -20 - Math.random() * 100,
+          length: 14 + Math.random() * 16,
+          vy: 680 + Math.random() * 260,
+          vx: -120 - Math.random() * 60,
+          alpha: 0.35 + Math.random() * 0.4
+        });
+      }
+
+      for (let i = this.rainDrops.length - 1; i >= 0; i--) {
+        const drop = this.rainDrops[i];
+        drop.x += drop.vx * dt;
+        drop.y += drop.vy * dt;
+        if (drop.y > this.height) {
+          this.rainDrops.splice(i, 1);
+        }
+      }
+    } else {
+      sound.stopRainAudio();
+      this.rainDrops = [];
+    }
+
+    if (this.lightningFlash > 0) {
+      this.lightningFlash -= dt * 3.5;
+      if (this.lightningFlash < 0) this.lightningFlash = 0;
+    }
+  }
+
   private updateParticles(dt: number) {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life += dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.size += (p.type === 'smoke' || p.type === 'dust' ? 14 : -3) * dt;
+      p.size += (p.type === 'smoke' || p.type === 'dust' || p.type === 'spray' ? 14 : -3) * dt;
       p.alpha = Math.max(0, 1 - p.life / p.maxLife);
 
       if (p.life >= p.maxLife || p.size <= 0) {
@@ -856,6 +938,9 @@ export class GameEngine {
 
     // 6. Particles
     this.renderParticles();
+
+    // 7. Dynamic Rain & Weather Overlay
+    this.renderRain(w, h);
 
     this.ctx.restore();
 
@@ -1216,6 +1301,17 @@ export class GameEngine {
         });
       }
 
+      // Wet road specular sheen (highland rain / sunshower reflection)
+      if (this.stage.isWetRoad) {
+        this.renderPoly(
+          p1.x - p1.w * 0.8, p1.y,
+          p1.x + p1.w * 0.8, p1.y,
+          p2.x + p2.w * 0.8, p2.y,
+          p2.x - p2.w * 0.8, p2.y,
+          this.stage.weather === 'sunshower' ? 'rgba(253, 224, 71, 0.08)' : 'rgba(186, 230, 253, 0.07)'
+        );
+      }
+
       // 6. Dash Lane Line Stripes (Reflective highway paint)
       if (segment.color.lane && segment.color.lane !== 'transparent') {
         let laneX1 = p1.x - p1.w + laneW1;
@@ -1396,6 +1492,30 @@ export class GameEngine {
         this.ctx.fill();
       }
     }
+    this.ctx.restore();
+  }
+
+  private renderRain(w: number, h: number) {
+    if (this.rainDrops.length === 0 && this.lightningFlash <= 0) return;
+
+    this.ctx.save();
+
+    // Lightning Flash illumination
+    if (this.lightningFlash > 0) {
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${this.lightningFlash * 0.55})`;
+      this.ctx.fillRect(0, 0, w, h);
+    }
+
+    // Slanted rain drop streaks
+    this.ctx.strokeStyle = this.stage.weather === 'sunshower' ? 'rgba(254, 240, 138, 0.45)' : 'rgba(224, 242, 254, 0.55)';
+    this.ctx.lineWidth = 1.25;
+    this.ctx.beginPath();
+    for (const drop of this.rainDrops) {
+      this.ctx.moveTo(drop.x, drop.y);
+      this.ctx.lineTo(drop.x + (drop.vx * 0.022), drop.y + drop.length);
+    }
+    this.ctx.stroke();
+
     this.ctx.restore();
   }
 }
