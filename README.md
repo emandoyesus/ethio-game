@@ -21,10 +21,26 @@ An authentic retro pseudo-3D Ethiopian highway arcade racer built with vanilla T
   * Chassis pitch (dive on braking, squat on acceleration) and body roll.
   * Dynamic suspension dampening with vertical jolts over potholes.
   * Persistent fading rubber skidmarks and brake light road reflections.
+* **Dynamic Weather & Keremt Storms**:
+  * Real-time rain simulation with lightning illumination and procedural thunder claps.
+  * Wet road surface physics: tire spray mist, increased stopping distances, and specular road sheen.
+* **Addis Taxi FM Radio & Weyala Street Audio**:
+  * 4-station in-cab radio (<kbd>R</kbd>): Sheger FM 102.1 (Kirar groove), Bisrat FM 101.1 (Tizita soul), Fana FM 98.1 (Chic-chic tempo), or Radio OFF.
+  * Weyala conductor voice callouts ("መገናኛ! መገናኛ!", "ቀስ በል! ጉድጓድ አለ!", "ተሳፋሪ ወርዷል!") combined with mechanical sliding door thumps.
+* **Federal Police Checkpoints & Speed Traps**:
+  * Roadside police checkpoints guarded by Federal Police patrol cruisers with alternating blue/red LED lightbars and warning cones.
+  * Speed radar signs enforce 50 km/h zones: speeding (> 58 km/h) triggers siren alerts and 50 ETB fines; driving lawfully yields +30 ETB safe-driving bonuses.
+* **Vehicle Mechanical Simulation**:
+  * Dynamic radiator water temperature (°C) that heats up during high-speed redlining and Bunna turbo boosts.
+  * Suspension alignment bias and wheel pull after rough pothole impacts.
+  * 4-way emergency hazard flashers (<kbd>F</kbd>) with synchronized instrument blinkers.
+* **Career Contracts & Delivery Missions**:
+  * Special commercial missions with unique conditions (*Fresh Injera Morning Run*, *Diplomat Airport Express*, *Merkato Wholesale Freight*).
+  * Direct ETB cash payouts into your driver wallet upon route completion.
 * **Automotive Cockpit HUD**:
-  * Glowing speedometer and tachometer dials.
-  * Turn signal indicators with mechanical flasher audio.
-  * Low-fuel warnings and Bunna turbo nitro boost meter.
+  * Glowing dual-cluster instrument binnacles (left: Diagnostics & Nitro; right: Speedometer, Gear, RPM).
+  * Turn signal indicators and hazard blinkers with mechanical flasher audio.
+  * Non-overlapping notification toast alerts below route progress bar.
 * **Reactive Traffic AI**: Honking the horn (<kbd>H</kbd> / <kbd>Space</kbd>) clears wandering cattle, goats, and alerts traffic.
 * **Garage & Tuning**: Persistent wallet balance, vehicle unlock system, and performance upgrades (Engine, Steering, Fuel, Turbo).
 * **Web Audio Synthesis**: Synthesized multi-harmonic combustion engine, tire screech, Eskista Kirar melodies, Kebero drum beats, animal bleats, and dual-tone taxi horns with zero external audio assets required.
@@ -39,6 +55,8 @@ An authentic retro pseudo-3D Ethiopian highway arcade racer built with vanilla T
 | **Brake / Reverse** | <kbd>▼</kbd> or <kbd>S</kbd> | `🛑 BRAKE` |
 | **Steer Left / Right** | <kbd>◀</kbd> / <kbd>▶</kbd> or <kbd>A</kbd> / <kbd>D</kbd> | `◀` / `▶` |
 | **Taxi Horn** | <kbd>H</kbd> or <kbd>Space</kbd> | `📢 HORN` |
+| **Taxi FM Radio** | <kbd>R</kbd> | `📻 RADIO` |
+| **Hazard Flashers** | <kbd>F</kbd> | `⚠️ HAZARDS` |
 | **Garage & Upgrades** | <kbd>G</kbd> | `🚗 GARAGE` |
 | **Pause Game** | <kbd>P</kbd> or <kbd>Escape</kbd> | `⏸️ PAUSE` |
 | **Toggle Sound** | <kbd>M</kbd> | `🔊 AUDIO` |
@@ -79,3 +97,10 @@ npm run preview
 * `v1.1.0`: Impeccable Polish, Audio & Near-Miss Combos
 * `v1.2.0`: Vehicle Garage & Upgrades Workshop
 * `v1.3.0`: Realistic Cockpit HUD & Physics Overhaul
+* `v1.4.0`: Cockpit UI Overhaul, Clean Binnacles & Non-Overlapping Toast System
+* `v1.5.0`: Scenery & Environmental Realism (CBE Tower, Light Rail, Highland Horizons)
+* `v1.6.0`: Dynamic Weather & Wet Road Physics (Keremt Storms, Water Spray, Lightning)
+* `v1.7.0`: Addis Taxi FM Multi-Station Radio & Weyala Street Conductor Audio
+* `v1.8.0`: Federal Police Roadside Checkpoints & Speed Trap Radar System
+* `v1.9.0`: Thermal Radiator Overheating, Wheel Alignment Drift & Hazard Flashers
+* `v2.0.0`: Career Contracts & Commercial Delivery Missions

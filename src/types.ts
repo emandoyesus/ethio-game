@@ -176,9 +176,23 @@ export interface RouteStage {
   isWetRoad: boolean;
 }
 
+export interface CareerContract {
+  id: string;
+  title: string;
+  titleAmharic: string;
+  client: string;
+  clientAmharic: string;
+  description: string;
+  targetStageId: number;
+  rewardETB: number;
+  bonusCondition: string;
+  completed: boolean;
+}
+
 export interface GameSaveData {
   highScore: number;
   walletBalance: number;
   selectedVehicle: VehicleId;
   vehicles: { [key in VehicleId]?: { unlocked: boolean; upgrades: { engine: number; steering: number; fuel: number; turbo: number } } };
+  completedContracts?: string[];
 }

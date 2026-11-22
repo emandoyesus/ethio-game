@@ -510,6 +510,10 @@ export class GameEngine {
     // 5. Stage Finish Check
     if (this.player.z >= this.road.trackLength - 20 * ROAD.SEGMENT_LENGTH) {
       if (this.player.fareCollected > 0) garage.addEarnings(this.player.fareCollected);
+      const finishedContracts = garage.checkContractCompletion(this.stage.id, this.player.passengersOnBoard, this.timeLeft);
+      finishedContracts.forEach(c => {
+        ui.showToast(`🎉 ${c.titleAmharic} (+${c.rewardETB} ETB REWARD!)`, '🎉', '#22c55e');
+      });
       this.state = 'STAGE_CLEAR';
       sound.stopEngine();
     }

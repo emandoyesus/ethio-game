@@ -1,5 +1,44 @@
 import { sound } from './audio';
-import type { GameSaveData, Player, VehicleDef, VehicleId } from './types';
+import type { CareerContract, GameSaveData, Player, VehicleDef, VehicleId } from './types';
+
+export const INITIAL_CONTRACTS: CareerContract[] = [
+  {
+    id: 'CONTRACT_INJERA',
+    title: 'Fresh Injera Morning Run',
+    titleAmharic: 'ትኩስ እንጀራ ማከፋፈል',
+    client: 'Megenagna Bakery Union',
+    clientAmharic: 'የመገናኛ እንጀራ ማዕከል',
+    description: 'Rush freshly baked Injera from Megenagna to Piazza heritage hotels.',
+    targetStageId: 1,
+    rewardETB: 280,
+    bonusCondition: 'Deliver at least 8 passengers on schedule',
+    completed: false
+  },
+  {
+    id: 'CONTRACT_DIPLOMAT',
+    title: 'Diplomat Airport Express',
+    titleAmharic: 'የአምባሳደር ፈጣን ጉዞ',
+    client: 'Ministry of Foreign Affairs',
+    clientAmharic: 'የውጭ ጉዳይ ሚኒስቴር',
+    description: 'High-speed VIP escort along Bole Boulevard directly to the airport terminal.',
+    targetStageId: 2,
+    rewardETB: 380,
+    bonusCondition: 'Deliver at least 12 passengers on schedule',
+    completed: false
+  },
+  {
+    id: 'CONTRACT_MERKATO',
+    title: 'Merkato Wholesale Freight',
+    titleAmharic: 'የመርካቶ ንግድ ጭነት',
+    client: 'Merkato Traders Guild',
+    clientAmharic: 'መርካቶ ጅምላ ንግድ ማኅበር',
+    description: 'Climb steep Entoto mountain curves through nighttime Keremt downpour.',
+    targetStageId: 3,
+    rewardETB: 480,
+    bonusCondition: 'Reach Entoto summit with at least 15s remaining',
+    completed: false
+  }
+];
 
 export const VEHICLE_CATALOG: Record<VehicleId, Omit<VehicleDef, 'unlocked' | 'upgrades'>> = {
   MINIBUS: {
@@ -68,10 +107,34 @@ export class GarageManager {
   public highScore: number = 0;
   public selectedVehicleId: VehicleId = 'MINIBUS';
   public vehicles: Record<VehicleId, VehicleDef>;
+  public contracts: CareerContract[] = [...INITIAL_CONTRACTS];
 
   constructor() {
     this.vehicles = this.initVehicles();
     this.load();
+  }
+
+  public checkContractCompletion(stageId: number, passengers: number, timeLeft: number): CareerContract[] {
+    const newlyCompleted: CareerContract[] = [];
+    for (const c of this.contracts) {
+      if (c.completed) continue;
+      if (c.targetStageId === stageId) {
+        let success = false;
+        if (c.id === 'CONTRACT_INJERA' && passengers >= 8) success = true;
+        else if (c.id === 'CONTRACT_DIPLOMAT' && passengers >= 12) success = true;
+        else if (c.id === 'CONTRACT_MERKATO' && timeLeft >= 15) success = true;
+
+        if (success) {
+          c.completed = true;
+          this.walletBalance += c.rewardETB;
+          newlyCompleted.push(c);
+        }
+      }
+    }
+    if (newlyCompleted.length > 0) {
+      this.save();
+    }
+    return newlyCompleted;
   }
 
   private initVehicles(): Record<VehicleId, VehicleDef> {
@@ -190,6 +253,11 @@ export class GarageManager {
             }
           }
         }
+        if (data.completedContracts) {
+          for (const c of this.contracts) {
+            c.completed = data.completedContracts.includes(c.id);
+          }
+        }
       } else {
         // Migration from old highscore
         const oldScore = localStorage.getItem('addis_taxi_highscore');
@@ -218,7 +286,8 @@ export class GarageManager {
         highScore: this.highScore,
         walletBalance: this.walletBalance,
         selectedVehicle: this.selectedVehicleId,
-        vehicles: vSave
+        vehicles: vSave,
+        completedContracts: this.contracts.filter(c => c.completed).map(c => c.id)
       };
 
       localStorage.setItem('addis_taxi_save_v2', JSON.stringify(data));

@@ -1075,10 +1075,17 @@ export class UIManager {
     ctx.fillStyle = '#fbbf24';
     ctx.fillText(`💵 Fares Earned: +${fare} ETB (Saved to Wallet!)`, midX, midY + 60);
 
+    const activeContract = garage.contracts.find(c => c.targetStageId === stage.id);
+    if (activeContract) {
+      ctx.fillStyle = activeContract.completed ? '#22c55e' : '#94a3b8';
+      ctx.font = 'bold 15px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+      ctx.fillText(`📋 ኮንትራት: ${activeContract.titleAmharic} — ${activeContract.completed ? `ተጠናቋል! (+${activeContract.rewardETB} ETB)` : 'በሂደት ላይ'}`, midX, midY + 95);
+    }
+
     const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 200);
     ctx.fillStyle = `rgba(250, 204, 21, ${pulse})`;
     ctx.font = 'bold 22px "Chakra Petch", sans-serif';
-    ctx.fillText(isLastStage ? 'PRESS SPACE TO PLAY AGAIN | G FOR GARAGE' : 'PRESS SPACE FOR NEXT ROUTE | G FOR GARAGE', midX, midY + 120);
+    ctx.fillText(isLastStage ? 'PRESS SPACE TO PLAY AGAIN | G FOR GARAGE' : 'PRESS SPACE FOR NEXT ROUTE | G FOR GARAGE', midX, midY + 135);
 
     ctx.restore();
   }
