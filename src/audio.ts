@@ -1,6 +1,52 @@
 // Realistic Web Audio API Synthesizer
 // Features multi-harmonic combustion engine with gear shifts, suspension thuds, flasher relays, and tire squeal
 
+export type RadioStationId = 'SHEGER' | 'BISRAT' | 'FANA' | 'OFF';
+
+export interface RadioStation {
+  id: RadioStationId;
+  name: string;
+  nameAmharic: string;
+  freq: string;
+  genre: string;
+  tempo: number;
+}
+
+export const RADIO_STATIONS: RadioStation[] = [
+  {
+    id: 'SHEGER',
+    name: 'Sheger FM',
+    nameAmharic: 'ሸገር ኤፍ ኤም',
+    freq: '102.1',
+    genre: 'Eskista Kirar Groove',
+    tempo: 140
+  },
+  {
+    id: 'BISRAT',
+    name: 'Bisrat FM',
+    nameAmharic: 'ብስራት ኤፍ ኤም',
+    freq: '101.1',
+    genre: 'Tizita Soul Jazz',
+    tempo: 210
+  },
+  {
+    id: 'FANA',
+    name: 'Fana FM',
+    nameAmharic: 'ፋና ብሮድካስት',
+    freq: '98.1',
+    genre: 'Chic-Chic Fast Drive',
+    tempo: 120
+  },
+  {
+    id: 'OFF',
+    name: 'Radio Muted',
+    nameAmharic: 'ሬዲዮ ጠፍቷል',
+    freq: 'OFF',
+    genre: 'Engine Ambience Only',
+    tempo: 0
+  }
+];
+
 class SoundManager {
   private ctx: AudioContext | null = null;
 
@@ -20,6 +66,9 @@ class SoundManager {
   private musicInterval: number | null = null;
   public isMuted: boolean = false;
   private musicStep: number = 0;
+
+  // Radio Station state
+  public currentStationIndex: number = 0;
 
   private lastGear: number = 1;
 
@@ -592,6 +641,105 @@ class SoundManager {
 
     leadOsc.start(t);
     leadOsc.stop(t + 0.14);
+  }
+
+  public nextRadioStation(): RadioStation {
+    this.currentStationIndex = (this.currentStationIndex + 1) % RADIO_STATIONS.length;
+    const station = RADIO_STATIONS[this.currentStationIndex];
+    this.playRadioStatic();
+    this.stopMusic();
+    if (station.tempo > 0 && !this.isMuted) {
+      this.musicInterval = window.setInterval(() => {
+        if (this.isMuted || !this.ctx) return;
+        this.playMusicStep();
+      }, station.tempo);
+    }
+    return station;
+  }
+
+  public playRadioStatic() {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const t = this.ctx.currentTime;
+      const buffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * 0.12), this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * 0.4;
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.09, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+      noise.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start(t);
+    } catch {
+      // Audio fallback
+    }
+  }
+
+  // Authentic Weyala double sheet-metal door slap ("Thump-Thump! Ready!")
+  public playWeyalaThump() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    [0, 0.085].forEach(delay => {
+      try {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(170, t + delay);
+        osc.frequency.exponentialRampToValueAtTime(55, t + delay + 0.06);
+
+        gain.gain.setValueAtTime(0.22, t + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.07);
+
+        osc.connect(gain);
+        gain.connect(this.ctx!.destination);
+        osc.start(t + delay);
+        osc.stop(t + delay + 0.08);
+      } catch {
+        // Audio fallback
+      }
+    });
+  }
+
+  // Ethiopian Weyala Street Callouts
+  public speakWeyala(phrase: 'CALL_MEGENAGNA' | 'CALL_BOLE' | 'CALL_PIAZZA' | 'CALL_MERKATO' | 'BOARDING' | 'SLOW_DOWN' | 'PRAISE' | 'POTHOLE_SCARE') {
+    this.playWeyalaThump();
+
+    const phrases: Record<string, string> = {
+      CALL_MEGENAGNA: 'መገናኛ! መገናኛ! ሞላ ሞላ!',
+      CALL_BOLE: 'ቦሌ! ቦሌ! ሁለት ሰው ብቻ!',
+      CALL_PIAZZA: 'ፒያሳ! ፒያሳ! ማዘጋጃ!',
+      CALL_MERKATO: 'መርካቶ! መርካቶ! ተራራው!',
+      BOARDING: 'ግባ ግባ! መልስ አለኝ!',
+      SLOW_DOWN: 'ቀስ በል እንጂ!',
+      PRAISE: 'አቦ ይመችህ!',
+      POTHOLE_SCARE: 'ወይኔ ጉድጓዱ!'
+    };
+
+    const text = phrases[phrase] || 'መገናኛ!';
+
+    if ('speechSynthesis' in window && !this.isMuted) {
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.pitch = 1.35;
+        utter.rate = 1.25;
+        utter.volume = 0.85;
+
+        // Try to find an Amharic or expressive voice
+        const voices = window.speechSynthesis.getVoices();
+        const amVoice = voices.find(v => v.lang.startsWith('am') || v.lang.startsWith('gez'));
+        if (amVoice) {
+          utter.voice = amVoice;
+        }
+        window.speechSynthesis.speak(utter);
+      } catch {
+        // Voice fallback
+      }
+    }
   }
 
   public toggleMute(): boolean {

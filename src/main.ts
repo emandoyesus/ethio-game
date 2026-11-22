@@ -1,6 +1,7 @@
 import './style.css';
 import { GameEngine } from './game';
 import { sound } from './audio';
+import { ui } from './ui';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -14,6 +15,9 @@ app.innerHTML = `
         <span class="brand-sub">ADDIS TAXI RUSH</span>
       </div>
       <div class="header-actions">
+        <button id="btnRadio" class="arcade-btn" title="Toggle Addis Taxi FM Radio (R)">
+          📻 <span>RADIO</span>
+        </button>
         <button id="btnGarage" class="arcade-btn" title="Vehicle Garage & Upgrades (G)">
           🚗 <span>GARAGE</span>
         </button>
@@ -72,6 +76,14 @@ const canvas = document.querySelector<HTMLCanvasElement>('#gameCanvas')!;
 const game = new GameEngine(canvas);
 
 // Hook quick bar buttons
+const btnRadio = document.getElementById('btnRadio')!;
+btnRadio.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const station = sound.nextRadioStation();
+  btnRadio.innerHTML = `📻 <span>${station.freq}</span>`;
+  ui.showToast(`${station.nameAmharic} (${station.genre})`, '📻', '#facc15');
+});
+
 const btnGarage = document.getElementById('btnGarage')!;
 btnGarage.addEventListener('click', (e) => {
   e.stopPropagation();

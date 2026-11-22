@@ -148,7 +148,10 @@ export class GameEngine {
       }
 
       if (e.key === 'r' || e.key === 'R') {
-        if (this.state === 'PLAYING' || this.state === 'PAUSED') {
+        if (this.state === 'PLAYING') {
+          const station = sound.nextRadioStation();
+          ui.showToast(`${station.nameAmharic} (${station.genre})`, '📻', '#facc15');
+        } else if (this.state === 'PAUSED' || this.state === 'GAMEOVER') {
           this.restartGame();
         }
       }
@@ -539,6 +542,9 @@ export class GameEngine {
             const comboBonus = Math.round(15 * this.player.comboCount * multiplier);
             this.player.fareCollected += comboBonus;
             sound.playNearMiss();
+            if (this.player.comboCount >= 3 && Math.random() < 0.6) {
+              sound.speakWeyala('PRAISE');
+            }
             ui.addFloatingText(`🔥 NEAR MISS! +${comboBonus} ETB`, this.width / 2, this.height / 2 - 50, '#f97316');
           }
         }
@@ -583,6 +589,9 @@ export class GameEngine {
                 this.player.comboCount = 0;
                 this.screenShake = 4.5;
                 sound.playPothole();
+                if (Math.random() < 0.45) {
+                  sound.speakWeyala('POTHOLE_SCARE');
+                }
                 ui.addFloatingText('⚠️ ጉድጓድ! (POTHOLE)', this.width / 2, this.height / 2, '#f97316');
               }
               sprite.collected = true;
@@ -619,8 +628,10 @@ export class GameEngine {
                 this.player.fareCollected += fareGain;
                 this.timeLeft += 6.5;
                 sound.playPassengerPickup();
+                sound.speakWeyala('BOARDING');
                 ui.addFloatingText(`👥 +1 ተሳፋሪ (+${fareGain} ETB, +6.5s)`, this.width / 2, this.height / 2 - 60, '#22c55e');
               } else {
+                sound.speakWeyala('SLOW_DOWN');
                 ui.addFloatingText('⚠️ ቀስ ይበሉ! (SLOW DOWN TO PICK UP!)', this.width / 2, this.height / 2 - 40, '#facc15');
               }
             }
