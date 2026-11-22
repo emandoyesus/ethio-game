@@ -104,3 +104,4 @@ npm run preview
 * `v1.8.0`: Federal Police Roadside Checkpoints & Speed Trap Radar System
 * `v1.9.0`: Thermal Radiator Overheating, Wheel Alignment Drift & Hazard Flashers
 * `v2.0.0`: Career Contracts & Commercial Delivery Missions
+* `v2.1.0`: Mobile & Tablet Touch HUD Feature Parity (Dedicated Hazard & Horn Controls)

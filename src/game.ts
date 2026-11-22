@@ -257,6 +257,12 @@ export class GameEngine {
     }
   }
 
+  public toggleHazards() {
+    this.player.hazardFlashers = !this.player.hazardFlashers;
+    sound.playTurnSignalClick();
+    ui.showToast(this.player.hazardFlashers ? '🚨 ድንገተኛ መብራት በራ (HAZARDS ON)' : '🚨 HAZARDS OFF', '🚨', '#facc15');
+  }
+
   public get width(): number {
     return this.canvas.width / (Math.min(window.devicePixelRatio || 1, 2));
   }

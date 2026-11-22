@@ -58,6 +58,10 @@ app.innerHTML = `
             📢
             <span>HORN</span>
           </button>
+          <button id="btnHazards" class="touch-btn hazards" aria-label="Hazard Flashers">
+            ⚠️
+            <span>HAZARD</span>
+          </button>
           <button id="btnBrake" class="touch-btn brake" aria-label="Brake">
             🛑
             <span>BRAKE</span>
@@ -163,6 +167,17 @@ bindTouchButton('btnRight', 'ArrowRight');
 bindTouchButton('btnGas', 'ArrowUp');
 bindTouchButton('btnBrake', 'ArrowDown');
 bindTouchButton('btnHorn', 'h');
+
+const btnHazards = document.getElementById('btnHazards');
+if (btnHazards) {
+  const onHazards = (e: Event) => {
+    e.preventDefault();
+    e.stopPropagation();
+    game.toggleHazards();
+  };
+  btnHazards.addEventListener('touchstart', onHazards, { passive: false });
+  btnHazards.addEventListener('click', onHazards);
+}
 
 // Start the game loop
 game.start();

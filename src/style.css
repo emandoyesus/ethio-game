@@ -224,6 +224,21 @@ body, html {
   border-color: #facc15;
   background: rgba(133, 77, 14, 0.65);
 }
+.touch-btn.hazards {
+  border-color: #f97316;
+  background: rgba(154, 52, 18, 0.65);
+}
+
+@media (max-width: 640px) {
+  .touch-btn {
+    width: 52px;
+    height: 52px;
+    font-size: 20px;
+  }
+  .touch-cluster {
+    gap: 8px;
+  }
+}
 
 @media (min-width: 1024px) {
   .touch-controls {
