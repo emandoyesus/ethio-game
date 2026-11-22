@@ -1,0 +1,139 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #030712;
+  font-family: 'Chakra Petch', 'Noto Sans Ethiopic', system-ui, sans-serif;
+  color: #f8fafc;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+}
+
+.game-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  height: 100%;
+  max-height: 720px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid #1e293b;
+}
+
+#gameCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #0284c7;
+  cursor: pointer;
+}
+
+/* Retro Scanlines effect overlay */
+.scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.18) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+/* Touch Controls Bar for Mobile & Tablets */
+.touch-controls {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.touch-cluster {
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.75);
+  border: 2px solid #38bdf8;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: bold;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  touch-action: manipulation;
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.1s;
+}
+
+.touch-btn:active {
+  transform: scale(0.92);
+  background: rgba(56, 189, 248, 0.4);
+}
+
+.touch-btn span {
+  font-size: 9px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.touch-btn.gas {
+  border-color: #22c55e;
+  background: rgba(22, 101, 52, 0.6);
+}
+.touch-btn.brake {
+  border-color: #ef4444;
+  background: rgba(153, 27, 27, 0.6);
+}
+.touch-btn.horn {
+  border-color: #facc15;
+  background: rgba(133, 77, 14, 0.6);
+}
+.touch-btn.nitro {
+  border-color: #f97316;
+  background: rgba(154, 52, 18, 0.6);
+}
+
+/* Hide touch controls on large desktop screens by default unless touched */
+@media (min-width: 1024px) {
+  .touch-controls {
+    display: none;
+  }
+}
