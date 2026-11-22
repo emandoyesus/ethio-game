@@ -20,7 +20,7 @@ export const STAGES: RouteStage[] = [
     targetPassengers: 8,
     timeLimit: 75,
     skyTheme: 'day',
-    fogColor: '#7ba6d4'
+    fogColor: '#93c5fd'
   },
   {
     id: 2,
@@ -31,7 +31,7 @@ export const STAGES: RouteStage[] = [
     targetPassengers: 12,
     timeLimit: 85,
     skyTheme: 'sunset',
-    fogColor: '#8a4066'
+    fogColor: '#f97316'
   },
   {
     id: 3,
@@ -42,7 +42,7 @@ export const STAGES: RouteStage[] = [
     targetPassengers: 14,
     timeLimit: 95,
     skyTheme: 'night',
-    fogColor: '#0b1322'
+    fogColor: '#0f172a'
   }
 ];
 
@@ -58,20 +58,25 @@ export class RoadManager {
       const n = this.segments.length;
       const isRumble = Math.floor(n / ROAD.RUMBLE_LENGTH) % 2 === 0;
 
-      // Realistic asphalt, gravel shoulder, concrete/weathered curb, and grass
+      // Authentic Ethiopian road palettes: Asphalt, volcanic red soil shoulder, weathered concrete curbs
       const isNight = stage.skyTheme === 'night';
       const isSunset = stage.skyTheme === 'sunset';
 
       const color = {
-        road: isRumble ? '#2b2e35' : '#25282f', // Realistic worn dark asphalt
-        shoulder: isSunset ? '#62412e' : isNight ? '#2a2018' : '#7d593f', // Earthy gravel/red Ethiopian soil shoulder
+        // High-grade weathered dark asphalt with subtle grain variations
+        road: isRumble ? '#242831' : '#1e2229',
+        // Red volcanic clay & gravel shoulder typical of Ethiopian roadsides
+        shoulder: isSunset ? '#6b3c22' : isNight ? '#261b14' : '#854d27',
+        // Realistic Ethiopian highland savanna & eucalyptus grass
         grass: isNight
-          ? (isRumble ? '#063a24' : '#042b1a')
+          ? (isRumble ? '#0d2818' : '#081c10')
           : isSunset
-          ? (isRumble ? '#2a4c28' : '#1e381c')
-          : (isRumble ? '#1f7032' : '#195c29'),
-        kerb: isRumble ? '#c22828' : '#d49e15', // Weathered road kerbs
-        lane: isRumble ? 'rgba(255, 255, 255, 0.85)' : 'transparent' // Reflective dashed road stripes
+          ? (isRumble ? '#2d471e' : '#223816')
+          : (isRumble ? '#1e5e2e' : '#184d25'),
+        // Concrete curb stones with black-and-white or yellow hazard markings
+        kerb: isRumble ? '#e2e8f0' : '#1e293b',
+        // Reflective highway lane paint with cat's eyes
+        lane: isRumble ? 'rgba(255, 255, 255, 0.9)' : 'transparent'
       };
 
       const prevY = n > 0 ? this.segments[n - 1].p2.y : 0;

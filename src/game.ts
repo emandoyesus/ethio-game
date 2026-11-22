@@ -879,70 +879,240 @@ export class GameEngine {
     const theme = this.stage.skyTheme;
     const horizon = h * 0.48;
 
+    // 1. Authentic Highland Atmosphere Gradient
     const skyGrad = this.ctx.createLinearGradient(0, 0, 0, horizon);
     if (theme === 'day') {
-      skyGrad.addColorStop(0, '#0284c7');
-      skyGrad.addColorStop(0.55, '#38bdf8');
-      skyGrad.addColorStop(1, '#bae6fd');
+      skyGrad.addColorStop(0, '#1d4ed8'); // High-altitude Ethiopian deep azure
+      skyGrad.addColorStop(0.4, '#3b82f6');
+      skyGrad.addColorStop(0.75, '#93c5fd');
+      skyGrad.addColorStop(1, '#dbeafe'); // Pale horizon haze
     } else if (theme === 'sunset') {
-      skyGrad.addColorStop(0, '#4c1d95');
-      skyGrad.addColorStop(0.38, '#c026d3');
-      skyGrad.addColorStop(0.72, '#ea580c');
-      skyGrad.addColorStop(1, '#fde047');
+      skyGrad.addColorStop(0, '#1e1b4b'); // Deep indigo twilight zenith
+      skyGrad.addColorStop(0.3, '#701a75'); // Dusky plum
+      skyGrad.addColorStop(0.6, '#c2410c'); // African golden hour amber
+      skyGrad.addColorStop(0.85, '#f97316'); // Warm orange glow
+      skyGrad.addColorStop(1, '#fef08a'); // Radiant horizon gold
     } else {
-      skyGrad.addColorStop(0, '#020617');
-      skyGrad.addColorStop(0.7, '#0f172a');
-      skyGrad.addColorStop(1, '#1e293b');
+      skyGrad.addColorStop(0, '#020617'); // Pitch highland night
+      skyGrad.addColorStop(0.6, '#0b1329');
+      skyGrad.addColorStop(1, '#111827');
     }
 
     this.ctx.fillStyle = skyGrad;
     this.ctx.fillRect(0, 0, w, horizon);
 
-    if (theme === 'day' || theme === 'sunset') {
-      this.ctx.fillStyle = theme === 'sunset' ? '#fde047' : '#ffffff';
+    // 2. Stars & Celestial Bodies
+    if (theme === 'night') {
+      // Twinkling stars
+      this.ctx.fillStyle = '#ffffff';
+      const starShift = (this.skyOffset * 5) % 800;
+      for (let s = 0; s < 45; s++) {
+        const sx = ((s * 47 - starShift) % w + w) % w;
+        const sy = (s * 31) % (horizon - 25);
+        const sSize = (s % 3 === 0) ? 2 : 1.2;
+        const sAlpha = 0.4 + 0.6 * Math.sin(Date.now() / 400 + s);
+        this.ctx.globalAlpha = sAlpha;
+        this.ctx.fillRect(sx, sy, sSize, sSize);
+      }
+      this.ctx.globalAlpha = 1.0;
+
+      // Crescent Moon with soft lunar halo
+      const moonX = w * 0.82;
+      const moonY = horizon * 0.28;
+
+      const moonGlow = this.ctx.createRadialGradient(moonX, moonY, 10, moonX, moonY, 45);
+      moonGlow.addColorStop(0, 'rgba(254, 240, 138, 0.25)');
+      moonGlow.addColorStop(1, 'rgba(254, 240, 138, 0)');
+      this.ctx.fillStyle = moonGlow;
       this.ctx.beginPath();
-      this.ctx.arc(w * 0.75, horizon * 0.45, theme === 'sunset' ? 36 : 24, 0, Math.PI * 2);
+      this.ctx.arc(moonX, moonY, 45, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = '#fef9c3';
+      this.ctx.beginPath();
+      this.ctx.arc(moonX, moonY, 16, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = '#0b1329';
+      this.ctx.beginPath();
+      this.ctx.arc(moonX + 6, moonY - 3, 13, 0, Math.PI * 2);
       this.ctx.fill();
     } else {
-      this.ctx.fillStyle = '#fef08a';
+      // Realistic Highland Sun with Atmospheric Flare
+      const sunX = w * 0.76;
+      const sunY = theme === 'sunset' ? horizon * 0.65 : horizon * 0.38;
+      const sunRadius = theme === 'sunset' ? 32 : 24;
+
+      // Outer Corona
+      const corona = this.ctx.createRadialGradient(sunX, sunY, sunRadius * 0.5, sunX, sunY, sunRadius * 3.8);
+      corona.addColorStop(0, theme === 'sunset' ? 'rgba(254, 215, 170, 0.45)' : 'rgba(255, 255, 255, 0.45)');
+      corona.addColorStop(0.5, theme === 'sunset' ? 'rgba(249, 115, 22, 0.18)' : 'rgba(254, 240, 138, 0.18)');
+      corona.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      this.ctx.fillStyle = corona;
       this.ctx.beginPath();
-      this.ctx.arc(w * 0.8, horizon * 0.35, 18, 0, Math.PI * 2);
+      this.ctx.arc(sunX, sunY, sunRadius * 3.8, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Sun Disc
+      this.ctx.fillStyle = theme === 'sunset' ? '#fef08a' : '#ffffff';
+      this.ctx.beginPath();
+      this.ctx.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
       this.ctx.fill();
     }
 
-    // Mountain Layer 1
-    const mtnColor = theme === 'night' ? '#091823' : theme === 'sunset' ? '#3b0764' : '#1e3a8a';
-    this.ctx.fillStyle = mtnColor;
+    // 3. Realistic Drifting Highland Clouds (Cumulus)
+    if (theme === 'day' || theme === 'sunset') {
+      const cloudShift = ((this.skyOffset * 12 + Date.now() * 0.008) % 1200);
+      const cloudColor = theme === 'sunset' ? 'rgba(254, 215, 170, 0.35)' : 'rgba(255, 255, 255, 0.55)';
+      const cloudShade = theme === 'sunset' ? 'rgba(194, 65, 12, 0.25)' : 'rgba(186, 230, 253, 0.35)';
+
+      this.ctx.fillStyle = cloudColor;
+      for (let c = 0; c < 5; c++) {
+        const cx = (((c * 260 - cloudShift) % (w + 300)) + w + 300) % (w + 300) - 150;
+        const cy = 20 + (c * 24) % 65;
+        const cw = 110 + (c * 20);
+
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+        this.ctx.arc(cx + 25, cy - 8, 28, 0, Math.PI * 2);
+        this.ctx.arc(cx + 55, cy - 4, 22, 0, Math.PI * 2);
+        this.ctx.arc(cx + 80, cy + 2, 18, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Cloud base shadow
+        this.ctx.fillStyle = cloudShade;
+        this.ctx.beginPath();
+        this.ctx.roundRect(cx - 10, cy + 8, cw * 0.8, 10, 5);
+        this.ctx.fill();
+        this.ctx.fillStyle = cloudColor;
+      }
+    }
+
+    // 4. Distant Mountain Ridge 1 (Entoto Mountain Silhouette with organic rolling peaks)
+    const mtnColor1 = theme === 'night' ? '#091424' : theme === 'sunset' ? '#3b1236' : '#2b517e';
+    this.ctx.fillStyle = mtnColor1;
     this.ctx.beginPath();
     this.ctx.moveTo(0, horizon);
 
-    const mtnShift = (this.skyOffset * 15) % 400;
-    for (let x = -400; x < w + 400; x += 150) {
-      const peakX = x - mtnShift;
-      this.ctx.lineTo(peakX, horizon - 55);
-      this.ctx.lineTo(peakX + 80, horizon - 15);
+    const mtnShift1 = (this.skyOffset * 10) % 500;
+    for (let x = -500; x < w + 500; x += 120) {
+      const peakX = x - mtnShift1;
+      const peakH = 35 + ((Math.abs(x) * 17) % 30);
+      this.ctx.quadraticCurveTo(peakX + 40, horizon - peakH - 20, peakX + 80, horizon - peakH + 5);
+      this.ctx.quadraticCurveTo(peakX + 100, horizon - 15, peakX + 120, horizon);
     }
     this.ctx.lineTo(w, horizon);
     this.ctx.closePath();
     this.ctx.fill();
 
-    // Skyline Layer 2
-    const cityColor = theme === 'night' ? '#040d14' : theme === 'sunset' ? '#2e1065' : '#172554';
-    this.ctx.fillStyle = cityColor;
-    const cityShift = (this.skyOffset * 35) % 600;
+    // 5. Mid Mountain Ridge 2 (Forested Eucalyptus foothills with tree silhouettes)
+    const mtnColor2 = theme === 'night' ? '#060e19' : theme === 'sunset' ? '#250c22' : '#1e3a5f';
+    this.ctx.fillStyle = mtnColor2;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, horizon);
 
-    for (let x = -600; x < w + 600; x += 90) {
+    const mtnShift2 = (this.skyOffset * 22) % 400;
+    for (let x = -400; x < w + 400; x += 90) {
+      const hillX = x - mtnShift2;
+      const hillH = 22 + ((Math.abs(x) * 13) % 24);
+      this.ctx.quadraticCurveTo(hillX + 35, horizon - hillH, hillX + 70, horizon - 8);
+      this.ctx.lineTo(hillX + 90, horizon);
+    }
+    this.ctx.lineTo(w, horizon);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    // 6. ADDIS ABABA ICONIC SKYLINE: Commercial Bank of Ethiopia (CBE) Tower, Light Rail, and High-Rises
+    const cityColor = theme === 'night' ? '#040913' : theme === 'sunset' ? '#1b0918' : '#142742';
+    this.ctx.fillStyle = cityColor;
+    const cityShift = (this.skyOffset * 38) % 650;
+
+    for (let x = -650; x < w + 650; x += 110) {
       const cx = x - cityShift;
-      if (Math.floor(x / 90) % 5 === 0) {
-        this.ctx.fillRect(cx, horizon - 95, 26, 95);
+      const bIndex = Math.floor(x / 110);
+
+      // CBE Headquarters Tower (Iconic 209m skyscraper with tapering curved spire and illuminated crown)
+      if (bIndex % 6 === 0) {
+        const cbeH = 118;
+        const cbeX = cx;
+        const cbeY = horizon - cbeH;
+
+        // Curved main tower body
         this.ctx.beginPath();
-        this.ctx.moveTo(cx, horizon - 95);
-        this.ctx.lineTo(cx + 13, horizon - 118);
-        this.ctx.lineTo(cx + 26, horizon - 95);
+        this.ctx.moveTo(cbeX + 4, horizon);
+        this.ctx.lineTo(cbeX + 6, cbeY + 22);
+        this.ctx.lineTo(cbeX + 17, cbeY); // Crown diamond apex
+        this.ctx.lineTo(cbeX + 28, cbeY + 22);
+        this.ctx.lineTo(cbeX + 30, horizon);
+        this.ctx.closePath();
         this.ctx.fill();
-      } else {
-        const bh = 30 + ((Math.abs(x) % 7) * 8);
-        this.ctx.fillRect(cx, horizon - bh, 35, bh);
+
+        // Distinctive illuminated glass spire & diamond crown
+        const crownColor = theme === 'night' || theme === 'sunset' ? '#38bdf8' : '#e0f2fe';
+        this.ctx.fillStyle = crownColor;
+        this.ctx.beginPath();
+        this.ctx.moveTo(cbeX + 17, cbeY + 2);
+        this.ctx.lineTo(cbeX + 12, cbeY + 16);
+        this.ctx.lineTo(cbeX + 22, cbeY + 16);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        // Red aviation beacon light on tower apex
+        this.ctx.fillStyle = '#ef4444';
+        this.ctx.beginPath();
+        this.ctx.arc(cbeX + 17, cbeY - 2, 2, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Windows lighting on CBE tower
+        if (theme === 'night' || theme === 'sunset') {
+          this.ctx.fillStyle = 'rgba(254, 240, 138, 0.7)';
+          for (let f = 0; f < 6; f++) {
+            this.ctx.fillRect(cbeX + 10, cbeY + 26 + f * 14, 14, 2);
+          }
+        }
+
+        this.ctx.fillStyle = cityColor;
+      }
+      // Addis Light Rail Transit Viaduct Pillar & High-Rise
+      else if (bIndex % 6 === 3) {
+        // High-rise
+        const bh = 58 + ((Math.abs(x) % 5) * 10);
+        this.ctx.fillRect(cx, horizon - bh, 36, bh);
+
+        // Windows
+        if (theme === 'night' || theme === 'sunset') {
+          this.ctx.fillStyle = 'rgba(253, 224, 71, 0.65)';
+          this.ctx.fillRect(cx + 6, horizon - bh + 8, 4, 4);
+          this.ctx.fillRect(cx + 16, horizon - bh + 8, 4, 4);
+          this.ctx.fillRect(cx + 26, horizon - bh + 8, 4, 4);
+          this.ctx.fillRect(cx + 6, horizon - bh + 22, 4, 4);
+          this.ctx.fillRect(cx + 26, horizon - bh + 22, 4, 4);
+          this.ctx.fillStyle = cityColor;
+        }
+
+        // Elevated Light Rail viaduct beam
+        this.ctx.fillRect(cx - 35, horizon - 16, 75, 4);
+        this.ctx.fillRect(cx + 12, horizon - 16, 8, 16); // Concrete pillar
+      }
+      // Standard commercial building with antennas
+      else {
+        const bh = 34 + ((Math.abs(x) % 7) * 9);
+        this.ctx.fillRect(cx, horizon - bh, 38, bh);
+
+        // Communication antenna mast
+        if (bIndex % 2 === 0) {
+          this.ctx.fillRect(cx + 18, horizon - bh - 16, 2, 16);
+          this.ctx.fillStyle = '#ef4444';
+          this.ctx.fillRect(cx + 17, horizon - bh - 18, 4, 2);
+          this.ctx.fillStyle = cityColor;
+        }
+
+        // Night illuminated windows
+        if (theme === 'night' || theme === 'sunset') {
+          this.ctx.fillStyle = 'rgba(254, 240, 138, 0.55)';
+          this.ctx.fillRect(cx + 8, horizon - bh + 6, 6, 3);
+          this.ctx.fillRect(cx + 22, horizon - bh + 6, 6, 3);
+          this.ctx.fillStyle = cityColor;
+        }
       }
     }
   }
@@ -1188,7 +1358,7 @@ export class GameEngine {
     const carW = spr.width * carScale;
     const carH = spr.height * carScale;
     const carX = w / 2;
-    const carY = h - 22 + this.player.bounce;
+    const carY = h - 28 + this.player.bounce;
 
     this.ctx.translate(carX, carY);
 

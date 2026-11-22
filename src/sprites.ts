@@ -78,7 +78,7 @@ class SpriteRegistry {
     cvs.height = h;
     const ctx = cvs.getContext('2d')!;
 
-    const tilt = direction === 'left' ? -0.08 : direction === 'right' ? 0.08 : 0;
+    const tilt = direction === 'left' ? -0.07 : direction === 'right' ? 0.07 : 0;
     const shiftX = direction === 'left' ? -8 : direction === 'right' ? 8 : 0;
 
     ctx.save();
@@ -111,145 +111,222 @@ class SpriteRegistry {
       ctx.restore();
     }
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    // Realistic Ambient Occlusion Drop Shadow underneath vehicle
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.beginPath();
-    ctx.ellipse(0, 16, 85, 18, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 16, 92, 19, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Wheels
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-78, -5, 26, 26);
-    ctx.fillRect(52, -5, 26, 26);
-    // Hubcaps
-    ctx.fillStyle = '#ccc';
+    // Wheels & Deep Tires with rubber tread texture
+    ctx.fillStyle = '#0f172a';
     ctx.beginPath();
-    ctx.arc(-65, 8, 6, 0, Math.PI * 2);
-    ctx.arc(65, 8, 6, 0, Math.PI * 2);
+    ctx.roundRect(-80, -6, 28, 28, 6);
+    ctx.roundRect(52, -6, 28, 28, 6);
     ctx.fill();
 
-    // Bumper
-    ctx.fillStyle = '#2b2b2b';
-    ctx.roundRect(-76, -10, 152, 18, 4);
+    // Silver Hubcaps with 4-lug nuts
+    ctx.fillStyle = '#cbd5e1';
+    ctx.beginPath();
+    ctx.arc(-66, 8, 7, 0, Math.PI * 2);
+    ctx.arc(66, 8, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#475569';
+    ctx.beginPath();
+    ctx.arc(-66, 8, 3, 0, Math.PI * 2);
+    ctx.arc(66, 8, 3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Mud flaps with Ethiopian flag stripes
-    [-74, 56].forEach(fx => {
-      ctx.fillStyle = '#078930';
-      ctx.fillRect(fx, 4, 18, 4);
-      ctx.fillStyle = '#fcdd09';
-      ctx.fillRect(fx, 8, 18, 4);
-      ctx.fillStyle = '#da121a';
-      ctx.fillRect(fx, 12, 18, 4);
+    // Chrome Bumper with black rubber impact strip
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath();
+    ctx.roundRect(-78, -12, 156, 18, 4);
+    ctx.fill();
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(-74, -8, 148, 8);
+
+    // Mud flaps with crisp Ethiopian flag stripes
+    [-76, 54].forEach(fx => {
+      ctx.fillStyle = '#16a34a';
+      ctx.fillRect(fx, 4, 22, 5);
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(fx, 9, 22, 5);
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(fx, 14, 22, 5);
     });
 
-    // Lower Body (Ethiopian Taxi Blue)
-    const bodyGrad = ctx.createLinearGradient(-75, -70, 75, -10);
-    bodyGrad.addColorStop(0, '#0052a5');
-    bodyGrad.addColorStop(0.5, '#006edc');
-    bodyGrad.addColorStop(1, '#004085');
+    // Lower Body (Authentic Ethiopian Minibus Blue with metallic gradient)
+    const bodyGrad = ctx.createLinearGradient(-76, -82, 76, -10);
+    bodyGrad.addColorStop(0, '#004899');
+    bodyGrad.addColorStop(0.3, '#0066cc');
+    bodyGrad.addColorStop(0.7, '#0055bb');
+    bodyGrad.addColorStop(1, '#003380');
     ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.roundRect(-75, -80, 150, 72, [8, 8, 4, 4]);
+    ctx.roundRect(-76, -84, 152, 74, [10, 10, 4, 4]);
     ctx.fill();
 
-    // White Top Half
-    ctx.fillStyle = '#f8f9fa';
+    // White Top Half (Crisp White HiAce Roof)
+    const roofGrad = ctx.createLinearGradient(0, -150, 0, -84);
+    roofGrad.addColorStop(0, '#ffffff');
+    roofGrad.addColorStop(0.7, '#f1f5f9');
+    roofGrad.addColorStop(1, '#e2e8f0');
+    ctx.fillStyle = roofGrad;
     ctx.beginPath();
-    ctx.roundRect(-72, -145, 144, 70, [18, 18, 0, 0]);
+    ctx.roundRect(-73, -148, 146, 68, [20, 20, 0, 0]);
     ctx.fill();
 
-    // Roof Rack
-    ctx.strokeStyle = '#444';
+    // Roof Luggage Rack with authentic strapped luggage
+    ctx.strokeStyle = '#334155';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(-60, -150);
-    ctx.lineTo(60, -150);
-    ctx.moveTo(-50, -145);
-    ctx.lineTo(-50, -150);
-    ctx.moveTo(0, -145);
-    ctx.lineTo(0, -150);
-    ctx.moveTo(50, -145);
-    ctx.lineTo(50, -150);
+    ctx.moveTo(-62, -152);
+    ctx.lineTo(62, -152);
+    ctx.moveTo(-52, -147);
+    ctx.lineTo(-52, -152);
+    ctx.moveTo(0, -147);
+    ctx.lineTo(0, -152);
+    ctx.moveTo(52, -147);
+    ctx.lineTo(52, -152);
     ctx.stroke();
 
-    // Luggage
-    ctx.fillStyle = '#d97706';
-    ctx.fillRect(-45, -164, 30, 14);
-    ctx.fillStyle = '#2563eb';
-    ctx.fillRect(-10, -162, 28, 12);
-    ctx.fillStyle = '#059669';
-    ctx.fillRect(22, -160, 24, 10);
-
-    // Rear Window
-    ctx.fillStyle = '#1e293b';
+    // Strapped colorful luggage bundle
+    ctx.fillStyle = '#b45309'; // Leather bag
     ctx.beginPath();
-    ctx.roundRect(-58, -135, 116, 52, 6);
+    ctx.roundRect(-46, -168, 32, 16, 4);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.fillStyle = '#1d4ed8'; // Blue canvas bag
     ctx.beginPath();
-    ctx.moveTo(-52, -132);
-    ctx.lineTo(-10, -132);
-    ctx.lineTo(-35, -88);
-    ctx.lineTo(-52, -88);
+    ctx.roundRect(-10, -166, 30, 14, 3);
+    ctx.fill();
+    ctx.fillStyle = '#15803d'; // Green duffle
+    ctx.beginPath();
+    ctx.roundRect(22, -164, 26, 12, 3);
+    ctx.fill();
+
+    // Elastic bungee cords across luggage
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-44, -152);
+    ctx.lineTo(44, -166);
+    ctx.moveTo(44, -152);
+    ctx.lineTo(-44, -166);
+    ctx.stroke();
+
+    // Tinted Rear Window with glass specular sheen
+    const winGrad = ctx.createLinearGradient(0, -138, 0, -84);
+    winGrad.addColorStop(0, '#0f172a');
+    winGrad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = winGrad;
+    ctx.beginPath();
+    ctx.roundRect(-60, -138, 120, 54, 8);
+    ctx.fill();
+
+    // Passenger silhouettes in rear window
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.beginPath();
+    ctx.arc(-30, -104, 11, 0, Math.PI * 2);
+    ctx.arc(0, -104, 11, 0, Math.PI * 2);
+    ctx.arc(30, -104, 11, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ethiopian Blessing Window Decal: "ፈጣሪ ይጠብቀን" (May God Protect Us)
+    ctx.fillStyle = '#facc15';
+    ctx.font = 'bold 8.5px "Noto Sans Ethiopic", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ፈጣሪ ይጠብቀን', 0, -126);
+
+    // Diagonal Glass Specular Reflection
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(-54, -135);
+    ctx.lineTo(-12, -135);
+    ctx.lineTo(-38, -87);
+    ctx.lineTo(-54, -87);
     ctx.fill();
 
     // Rear Wiper
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(-15, -88);
-    ctx.lineTo(15, -110);
+    ctx.moveTo(-16, -87);
+    ctx.lineTo(16, -112);
     ctx.stroke();
 
-    // Rear Tail Lights
+    // Rear Taillights (Multi-chamber: Brake Red, Indicator Amber, Reverse White)
     if (brake) {
-      ctx.shadowColor = '#ff0033';
+      // Vivid glowing brake lights
+      ctx.shadowColor = '#ef4444';
       ctx.shadowBlur = 18;
-      ctx.fillStyle = '#ff1144';
-      ctx.fillRect(-70, -68, 16, 32);
-      ctx.fillRect(54, -68, 16, 32);
-      ctx.fillRect(-16, -142, 32, 6);
+      ctx.fillStyle = '#ff2244';
+      ctx.fillRect(-72, -72, 16, 32);
+      ctx.fillRect(56, -72, 16, 32);
+      // High-mount 3rd brake light
+      ctx.fillRect(-18, -144, 36, 6);
       ctx.shadowBlur = 0;
     } else {
       ctx.fillStyle = '#dc2626';
-      ctx.fillRect(-70, -68, 16, 26);
-      ctx.fillRect(54, -68, 16, 26);
+      ctx.fillRect(-72, -72, 16, 26);
+      ctx.fillRect(56, -72, 16, 26);
     }
 
-    ctx.fillStyle = '#f59e0b';
-    ctx.fillRect(-70, -42, 16, 12);
-    ctx.fillRect(54, -42, 16, 12);
+    ctx.fillStyle = '#f59e0b'; // Amber flasher
+    ctx.fillRect(-72, -46, 16, 12);
+    ctx.fillRect(56, -46, 16, 12);
 
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(-70, -30, 16, 8);
-    ctx.fillRect(54, -30, 16, 8);
+    ctx.fillStyle = '#f8fafc'; // Reverse lamp
+    ctx.fillRect(-72, -34, 16, 8);
+    ctx.fillRect(56, -34, 16, 8);
 
-    // License Plate
-    ctx.fillStyle = '#fef08a';
-    ctx.fillRect(-28, -32, 56, 18);
-    ctx.strokeStyle = '#000';
+    // Chrome taillight bevel outline
+    ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 1;
-    ctx.strokeRect(-28, -32, 56, 18);
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 9px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('3 • AA 778', 0, -20);
+    ctx.strokeRect(-72, -72, 16, 46);
+    ctx.strokeRect(56, -72, 16, 46);
 
-    // Weyala hanging out
-    ctx.save();
-    const weyalaX = direction === 'left' ? -68 : 68;
-    ctx.fillStyle = '#78350f';
+    // Chrome Toyota Emblem on Tailgate
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(weyalaX, -95, 8, 0, Math.PI * 2);
+    ctx.ellipse(0, -62, 10, 6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Ethiopian Yellow Taxi License Plate ("3 • AA 778" with blue seal)
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.roundRect(-30, -35, 60, 20, 3);
     ctx.fill();
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Ethiopian coat of arms blue circle
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.arc(-22, -25, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 9.5px "Chakra Petch", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('3 • AA 778', 5, -21);
+
+    // Weyala Conductor hanging out the side door
+    ctx.save();
+    const weyalaX = direction === 'left' ? -70 : 70;
+    ctx.fillStyle = '#5c2c16'; // Face
+    ctx.beginPath();
+    ctx.arc(weyalaX, -98, 8, 0, Math.PI * 2);
+    ctx.fill();
+    // Green track cap
     ctx.fillStyle = '#16a34a';
-    ctx.fillRect(weyalaX - 7, -104, 14, 6);
-    ctx.strokeStyle = '#78350f';
+    ctx.fillRect(weyalaX - 7, -107, 14, 6);
+    // Waving arm shouting destination
+    ctx.strokeStyle = '#5c2c16';
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(weyalaX, -88);
-    ctx.lineTo(weyalaX + (direction === 'left' ? -14 : 14), -105);
+    ctx.moveTo(weyalaX, -90);
+    ctx.lineTo(weyalaX + (direction === 'left' ? -16 : 16), -108);
     ctx.stroke();
     ctx.restore();
 
@@ -598,34 +675,63 @@ class SpriteRegistry {
   }
 
   private drawPothole(): RenderableSprite {
-    const w = 120;
-    const h = 60;
+    const w = 140;
+    const h = 70;
     const cvs = document.createElement('canvas');
     cvs.width = w;
     cvs.height = h;
     const ctx = cvs.getContext('2d')!;
 
     ctx.translate(w / 2, h / 2);
-    ctx.fillStyle = '#18181b';
+
+    // 1. Broken ragged perimeter shadow & asphalt edge
+    ctx.fillStyle = '#0f172a';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 48, 20, -0.05, 0, Math.PI * 2);
+    ctx.moveTo(-56, 0);
+    ctx.lineTo(-48, -14);
+    ctx.lineTo(-24, -18);
+    ctx.lineTo(-4, -22);
+    ctx.lineTo(28, -16);
+    ctx.lineTo(50, -10);
+    ctx.lineTo(56, 2);
+    ctx.lineTo(44, 15);
+    ctx.lineTo(22, 21);
+    ctx.lineTo(-12, 19);
+    ctx.lineTo(-40, 15);
+    ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = '#09090b';
+    // 2. Weathered asphalt crumb rim
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // 3. Deep inner cavity (dark hole)
+    ctx.fillStyle = '#020617';
     ctx.beginPath();
-    ctx.ellipse(2, 2, 38, 14, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 2, 44, 14, 0.05, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = 'rgba(125, 211, 252, 0.45)';
+    // 4. Broken asphalt rocks / gravel scattered
+    ctx.fillStyle = '#64748b';
+    [-40, -20, 24, 38].forEach((rx, idx) => {
+      ctx.fillRect(rx, (idx % 2 === 0 ? -12 : 11), 4, 3);
+    });
+
+    // 5. Water puddle / mud reflection in bottom
+    const puddleGrad = ctx.createLinearGradient(0, -6, 0, 10);
+    puddleGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+    puddleGrad.addColorStop(1, 'rgba(15, 23, 42, 0.85)');
+    ctx.fillStyle = puddleGrad;
     ctx.beginPath();
-    ctx.ellipse(4, 3, 20, 6, 0.1, 0, Math.PI * 2);
+    ctx.ellipse(4, 4, 28, 7, -0.05, 0, Math.PI * 2);
     ctx.fill();
 
     return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.5 };
   }
 
   private drawGoat(): RenderableSprite {
-    const w = 110;
+    const w = 120;
     const h = 100;
     const cvs = document.createElement('canvas');
     cvs.width = w;
@@ -634,43 +740,63 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h - 15);
 
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    // Drop shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.beginPath();
-    ctx.ellipse(0, 8, 30, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 8, 34, 10, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = '#78350f';
-    ctx.lineWidth = 4;
-    [-18, -8, 8, 18].forEach(x => {
+    // Slender legs with hooves
+    ctx.strokeStyle = '#451a03';
+    ctx.lineWidth = 3.5;
+    [-20, -10, 10, 20].forEach(x => {
       ctx.beginPath();
-      ctx.moveTo(x, -25);
-      ctx.lineTo(x, 4);
+      ctx.moveTo(x, -26);
+      ctx.lineTo(x + (x < 0 ? -2 : 2), 4);
       ctx.stroke();
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(x + (x < 0 ? -4 : 0), 2, 4, 3);
     });
 
+    // Torso (Spotted highland goat)
     ctx.fillStyle = '#fef3c7';
     ctx.beginPath();
-    ctx.ellipse(0, -32, 26, 18, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -34, 28, 18, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // Dark patches
+    ctx.fillStyle = '#78350f';
+    ctx.beginPath();
+    ctx.ellipse(-8, -36, 12, 10, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Head & Floppy Ears
     ctx.fillStyle = '#b45309';
     ctx.beginPath();
-    ctx.ellipse(24, -46, 12, 9, 0.4, 0, Math.PI * 2);
+    ctx.ellipse(26, -48, 13, 10, 0.3, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = '#451a03';
-    ctx.lineWidth = 3;
+    // Floppy ears
     ctx.beginPath();
-    ctx.moveTo(20, -52);
-    ctx.quadraticCurveTo(14, -66, 10, -60);
+    ctx.ellipse(24, -40, 5, 10, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Curved Horns
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(22, -55);
+    ctx.quadraticCurveTo(16, -70, 10, -64);
+    ctx.moveTo(26, -55);
+    ctx.quadraticCurveTo(20, -70, 14, -64);
     ctx.stroke();
 
     return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
   }
 
   private drawCow(): RenderableSprite {
-    const w = 180;
-    const h = 140;
+    const w = 190;
+    const h = 150;
     const cvs = document.createElement('canvas');
     cvs.width = w;
     cvs.height = h;
@@ -678,48 +804,63 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h - 20);
 
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    // Drop Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.beginPath();
-    ctx.ellipse(0, 10, 55, 14, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 10, 60, 16, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = '#573418';
-    ctx.lineWidth = 6;
-    [-35, -20, 20, 35].forEach(x => {
+    // Sturdy legs & dark hooves
+    ctx.strokeStyle = '#451a03';
+    ctx.lineWidth = 7;
+    [-36, -20, 20, 36].forEach(x => {
       ctx.beginPath();
-      ctx.moveTo(x, -35);
+      ctx.moveTo(x, -36);
       ctx.lineTo(x, 8);
       ctx.stroke();
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(x - 4, 6, 8, 4);
     });
 
-    ctx.fillStyle = '#8b5a2b';
+    // Zebu Cow Body (Reddish-brown Highland Cattle)
+    ctx.fillStyle = '#78350f';
     ctx.beginPath();
-    ctx.ellipse(0, -50, 48, 28, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -52, 52, 30, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // Characteristic Zebu Shoulder Hump (Iconic Ethiopian Breed)
     ctx.beginPath();
-    ctx.ellipse(-12, -78, 16, 14, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(24, -84, 18, 14, 0.2, 0, Math.PI * 2);
     ctx.fill();
 
+    // White hide patch
+    ctx.fillStyle = '#f8fafc';
     ctx.beginPath();
-    ctx.ellipse(48, -64, 18, 14, 0.3, 0, Math.PI * 2);
+    ctx.ellipse(-10, -50, 22, 16, -0.2, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 4;
+    // Head
+    ctx.fillStyle = '#5c2c16';
     ctx.beginPath();
-    ctx.moveTo(42, -74);
-    ctx.quadraticCurveTo(38, -98, 48, -104);
-    ctx.moveTo(50, -74);
-    ctx.quadraticCurveTo(56, -98, 66, -102);
+    ctx.ellipse(54, -68, 20, 15, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Long majestic lyre-shaped horns
+    ctx.strokeStyle = '#f1f5f9';
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+    ctx.moveTo(48, -78);
+    ctx.quadraticCurveTo(42, -106, 52, -114);
+    ctx.moveTo(58, -78);
+    ctx.quadraticCurveTo(66, -106, 76, -112);
     ctx.stroke();
 
     return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
   }
 
   private drawPassenger(destinationText: string): RenderableSprite {
-    const w = 150;
-    const h = 160;
+    const w = 160;
+    const h = 170;
     const cvs = document.createElement('canvas');
     cvs.width = w;
     cvs.height = h;
@@ -727,61 +868,210 @@ class SpriteRegistry {
 
     ctx.translate(45, h - 20);
 
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    // Drop shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.beginPath();
-    ctx.ellipse(0, 10, 18, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 10, 22, 7, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // Legs & Shoes
     ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 5;
     ctx.beginPath();
-    ctx.moveTo(-5, -35);
-    ctx.lineTo(-5, 8);
-    ctx.moveTo(5, -35);
-    ctx.lineTo(5, 8);
+    ctx.moveTo(-6, -35);
+    ctx.lineTo(-6, 8);
+    ctx.moveTo(6, -35);
+    ctx.lineTo(6, 8);
     ctx.stroke();
 
+    // Traditional Ethiopian White Netela / Gabi Shawl with vibrant Tibeb border
     ctx.fillStyle = '#f8fafc';
     ctx.beginPath();
-    ctx.roundRect(-14, -75, 28, 44, 4);
+    ctx.roundRect(-16, -78, 32, 48, 6);
     ctx.fill();
 
-    ctx.fillStyle = '#dc2626';
-    ctx.fillRect(-14, -40, 28, 3);
-    ctx.fillStyle = '#eab308';
-    ctx.fillRect(-14, -37, 28, 3);
+    // Authentic Tibeb woven embroidery hem (Ethiopian Green, Yellow, Red)
     ctx.fillStyle = '#16a34a';
-    ctx.fillRect(-14, -34, 28, 3);
+    ctx.fillRect(-16, -42, 32, 3);
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(-16, -39, 32, 3);
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(-16, -36, 32, 3);
 
-    ctx.fillStyle = '#78350f';
+    // Head & Hair
+    ctx.fillStyle = '#5c2c16';
     ctx.beginPath();
-    ctx.arc(0, -85, 10, 0, Math.PI * 2);
+    ctx.arc(0, -90, 11, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = '#78350f';
+    // Waving Arm signaling taxi
+    ctx.strokeStyle = '#5c2c16';
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(8, -70);
-    ctx.lineTo(24, -98);
+    ctx.moveTo(8, -74);
+    ctx.lineTo(28, -104);
     ctx.stroke();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#0284c7';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(10, -140, 85, 32, 8);
-    ctx.fill();
-    ctx.stroke();
-
+    // Destination Callout Speech Bubble (e.g. "መገናኛ!", "ቦሌ!")
     ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(14, -146, 96, 34, 8);
+    ctx.fill();
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Speech bubble tail
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.moveTo(24, -112);
+    ctx.lineTo(14, -100);
+    ctx.lineTo(32, -112);
+    ctx.fill();
+
+    ctx.fillStyle = '#facc15';
     ctx.font = 'bold 13px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(destinationText, 52, -119);
+    ctx.fillText(`${destinationText}!`, 62, -124);
 
     return { canvas: cvs, width: w, height: h, anchorX: 0.35, anchorY: 0.85 };
   }
 
   private drawBirr(): RenderableSprite {
+    const w = 84;
+    const h = 84;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    ctx.translate(w / 2, h / 2);
+
+    // Glowing golden pickup aura
+    const aura = ctx.createRadialGradient(0, 0, 16, 0, 0, 40);
+    aura.addColorStop(0, 'rgba(250, 204, 21, 0.55)');
+    aura.addColorStop(1, 'rgba(250, 204, 21, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(0, 0, 40, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer coin rim with ridges
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.arc(0, 0, 26, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Beveled brass edge
+    ctx.fillStyle = '#facc15';
+    ctx.beginPath();
+    ctx.arc(0, 0, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner embossed coin face
+    const coinGrad = ctx.createLinearGradient(-18, -18, 18, 18);
+    coinGrad.addColorStop(0, '#fef08a');
+    coinGrad.addColorStop(0.5, '#eab308');
+    coinGrad.addColorStop(1, '#ca8a04');
+    ctx.fillStyle = coinGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#a16207';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Authentic Ethiopian "ብር" (Birr) Ge'ez inscription
+    ctx.fillStyle = '#713f12';
+    ctx.font = '900 17px "Noto Sans Ethiopic", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ብር', 0, 2);
+
+    // Specular diagonal reflection shine
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18, -Math.PI * 0.7, -Math.PI * 0.2);
+    ctx.stroke();
+
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.5 };
+  }
+
+  private drawBunna(): RenderableSprite {
+    const w = 100;
+    const h = 110;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    ctx.translate(w / 2, h - 22);
+
+    // Warm fiery nitro boost glow
+    const glow = ctx.createRadialGradient(0, -32, 10, 0, -32, 45);
+    glow.addColorStop(0, 'rgba(249, 115, 22, 0.6)');
+    glow.addColorStop(0.6, 'rgba(234, 88, 12, 0.2)');
+    glow.addColorStop(1, 'rgba(234, 88, 12, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, -32, 45, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Traditional straw ring base ("ማጨሻ")
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.ellipse(0, -4, 18, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Black clay Jebena spherical body with polished ceramic gradient
+    const clayGrad = ctx.createRadialGradient(-6, -34, 4, 0, -30, 22);
+    clayGrad.addColorStop(0, '#442218');
+    clayGrad.addColorStop(0.5, '#22110c');
+    clayGrad.addColorStop(1, '#0f0705');
+    ctx.fillStyle = clayGrad;
+    ctx.beginPath();
+    ctx.arc(0, -30, 22, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Jebena Tall Tapered Neck
+    ctx.beginPath();
+    ctx.moveTo(-6, -30);
+    ctx.lineTo(-4, -66);
+    ctx.lineTo(4, -66);
+    ctx.lineTo(6, -30);
+    ctx.closePath();
+    ctx.fill();
+
+    // Spout (Pouring mouth)
+    ctx.strokeStyle = '#22110c';
+    ctx.lineWidth = 4.5;
+    ctx.beginPath();
+    ctx.moveTo(14, -32);
+    ctx.quadraticCurveTo(26, -42, 24, -50);
+    ctx.stroke();
+
+    // Curved Handle
+    ctx.beginPath();
+    ctx.moveTo(-14, -28);
+    ctx.quadraticCurveTo(-28, -44, -6, -58);
+    ctx.stroke();
+
+    // Steaming Ethiopian Bunna coffee aroma plumes
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-2, -68);
+    ctx.quadraticCurveTo(-10, -82, -3, -96);
+    ctx.moveTo(3, -68);
+    ctx.quadraticCurveTo(12, -82, 5, -94);
+    ctx.stroke();
+
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.8 };
+  }
+
+  private drawFuel(): RenderableSprite {
     const w = 80;
     const h = 80;
     const cvs = document.createElement('canvas');
@@ -790,107 +1080,56 @@ class SpriteRegistry {
     const ctx = cvs.getContext('2d')!;
 
     ctx.translate(w / 2, h / 2);
-    ctx.fillStyle = 'rgba(250, 204, 21, 0.45)';
+
+    // Green emergency fuel refill glow
+    const fuelGlow = ctx.createRadialGradient(0, 0, 12, 0, 0, 36);
+    fuelGlow.addColorStop(0, 'rgba(16, 185, 129, 0.45)');
+    fuelGlow.addColorStop(1, 'rgba(16, 185, 129, 0)');
+    ctx.fillStyle = fuelGlow;
     ctx.beginPath();
-    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+    ctx.arc(0, 0, 36, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#eab308';
+    // Heavy duty steel Jerry Can body
+    const canGrad = ctx.createLinearGradient(-18, -20, 18, 20);
+    canGrad.addColorStop(0, '#ef4444');
+    canGrad.addColorStop(0.5, '#dc2626');
+    canGrad.addColorStop(1, '#991b1b');
+    ctx.fillStyle = canGrad;
     ctx.beginPath();
-    ctx.arc(0, 0, 24, 0, Math.PI * 2);
+    ctx.roundRect(-18, -18, 36, 38, 5);
     ctx.fill();
 
-    ctx.fillStyle = '#fef08a';
-    ctx.beginPath();
-    ctx.arc(0, 0, 20, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#854d0e';
-    ctx.font = 'bold 16px "Noto Sans Ethiopic", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('ብር', 0, 2);
-
-    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.5 };
-  }
-
-  private drawBunna(): RenderableSprite {
-    const w = 90;
-    const h = 100;
-    const cvs = document.createElement('canvas');
-    cvs.width = w;
-    cvs.height = h;
-    const ctx = cvs.getContext('2d')!;
-
-    ctx.translate(w / 2, h - 20);
-
-    ctx.fillStyle = 'rgba(249, 115, 22, 0.4)';
-    ctx.beginPath();
-    ctx.arc(0, -30, 38, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#3f1f14';
-    ctx.beginPath();
-    ctx.arc(0, -26, 20, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillRect(-5, -60, 10, 34);
-
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#3f1f14';
-    ctx.beginPath();
-    ctx.moveTo(12, -30);
-    ctx.quadraticCurveTo(24, -36, 22, -44);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(-12, -26);
-    ctx.quadraticCurveTo(-26, -42, -5, -54);
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    // Stamped X reinforcement rib on jerry can side
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(-2, -62);
-    ctx.quadraticCurveTo(-8, -75, -2, -88);
-    ctx.moveTo(3, -62);
-    ctx.quadraticCurveTo(10, -74, 4, -86);
+    ctx.moveTo(-12, -12);
+    ctx.lineTo(12, 14);
+    ctx.moveTo(12, -12);
+    ctx.lineTo(-12, 14);
     ctx.stroke();
 
-    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.8 };
-  }
-
-  private drawFuel(): RenderableSprite {
-    const w = 70;
-    const h = 70;
-    const cvs = document.createElement('canvas');
-    cvs.width = w;
-    cvs.height = h;
-    const ctx = cvs.getContext('2d')!;
-
-    ctx.translate(w / 2, h / 2);
-    ctx.fillStyle = '#dc2626';
-    ctx.beginPath();
-    ctx.roundRect(-16, -18, 32, 36, 4);
-    ctx.fill();
-
-    ctx.strokeStyle = '#dc2626';
+    // 3-bar military carry handle on top
+    ctx.strokeStyle = '#b91c1c';
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(-10, -18);
-    ctx.lineTo(-10, -25);
-    ctx.lineTo(10, -25);
-    ctx.lineTo(10, -18);
+    ctx.moveTo(-12, -18);
+    ctx.lineTo(-12, -26);
+    ctx.lineTo(12, -26);
+    ctx.lineTo(12, -18);
     ctx.stroke();
 
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(6, -26, 6, 6);
+    // Spout filler cap
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(6, -28, 8, 7);
 
-    ctx.fillStyle = '#fef08a';
-    ctx.font = 'bold 11px sans-serif';
+    // White bold FUEL text stencil
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 9px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('GAS', 0, 2);
+    ctx.fillText('FUEL', 0, 1);
 
     return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.5 };
   }
