@@ -1,12 +1,29 @@
 import './style.css';
 import { GameEngine } from './game';
+import { sound } from './audio';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 app.innerHTML = `
-  <div class="game-wrapper">
+  <div class="game-wrapper" id="gameWrapper">
     <canvas id="gameCanvas"></canvas>
-    <div class="scanlines"></div>
+    <div class="scanlines" id="scanlines"></div>
+
+    <!-- Quick Arcade Control Bar -->
+    <div class="arcade-quick-bar">
+      <button id="btnAudio" class="arcade-btn" title="Toggle Sound (M)">
+        🔊 <span>AUDIO</span>
+      </button>
+      <button id="btnPause" class="arcade-btn" title="Pause Game (P)">
+        ⏸️ <span>PAUSE</span>
+      </button>
+      <button id="btnCrt" class="arcade-btn" title="Toggle CRT Scanlines">
+        📺 <span>CRT</span>
+      </button>
+      <button id="btnFullscreen" class="arcade-btn" title="Fullscreen">
+        ⛶ <span>FULL</span>
+      </button>
+    </div>
 
     <!-- On-screen touch buttons for mobile / tablet devices -->
     <div class="touch-controls">
@@ -42,6 +59,43 @@ app.innerHTML = `
 const canvas = document.querySelector<HTMLCanvasElement>('#gameCanvas')!;
 const game = new GameEngine(canvas);
 
+// Hook quick bar buttons
+const btnAudio = document.getElementById('btnAudio')!;
+btnAudio.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const muted = sound.toggleMute();
+  btnAudio.innerHTML = muted ? `🔇 <span>MUTED</span>` : `🔊 <span>AUDIO</span>`;
+});
+
+const btnPause = document.getElementById('btnPause')!;
+btnPause.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (game.state === 'PLAYING') {
+    game.state = 'PAUSED';
+    sound.stopEngine();
+  } else if (game.state === 'PAUSED') {
+    game.state = 'PLAYING';
+  }
+});
+
+const scanlines = document.getElementById('scanlines')!;
+const btnCrt = document.getElementById('btnCrt')!;
+btnCrt.addEventListener('click', (e) => {
+  e.stopPropagation();
+  scanlines.classList.toggle('off');
+});
+
+const btnFullscreen = document.getElementById('btnFullscreen')!;
+const gameWrapper = document.getElementById('gameWrapper')!;
+btnFullscreen.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!document.fullscreenElement) {
+    gameWrapper.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+});
+
 // Hook touch buttons to window key events
 const bindTouchButton = (btnId: string, keyName: string) => {
   const btn = document.getElementById(btnId);
@@ -49,11 +103,17 @@ const bindTouchButton = (btnId: string, keyName: string) => {
 
   const triggerDown = (e: Event) => {
     e.preventDefault();
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: keyName, code: keyName }));
+    e.stopPropagation();
+    if (keyName === 'h') {
+      game.triggerHorn();
+    } else {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: keyName, code: keyName }));
+    }
   };
 
   const triggerUp = (e: Event) => {
     e.preventDefault();
+    e.stopPropagation();
     window.dispatchEvent(new KeyboardEvent('keyup', { key: keyName, code: keyName }));
   };
 

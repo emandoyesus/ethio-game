@@ -6,7 +6,7 @@ export const ROAD = {
   LANES: 3,
   ROAD_WIDTH: 2000,
   CAMERA_HEIGHT: 1000,
-  CAMERA_DEPTH: 0.84, // FOV factor
+  CAMERA_DEPTH: 0.84,
   DRAW_DISTANCE: 260
 };
 
@@ -51,16 +51,14 @@ export class RoadManager {
   public buildTrack(stage: RouteStage) {
     this.segments = [];
 
-    // Track building blocks
     const addSegment = (curve: number, y: number) => {
       const n = this.segments.length;
       const isRumble = Math.floor(n / ROAD.RUMBLE_LENGTH) % 2 === 0;
 
-      // Color scheme: Addis asphalt + vibrant Ethiopian kerbs
       const color = {
         road: isRumble ? '#374151' : '#333b47',
         grass: stage.skyTheme === 'night' ? (isRumble ? '#064e3b' : '#022c22') : (isRumble ? '#15803d' : '#166534'),
-        kerb: isRumble ? '#dc2626' : '#facc15', // Red & Yellow Ethiopian curbs
+        kerb: isRumble ? '#dc2626' : '#facc15',
         lane: isRumble ? '#f8fafc' : '#374151'
       };
 
@@ -107,11 +105,9 @@ export class RoadManager {
       addRoad(num / 4, num / 2, num / 4, 0, height);
     };
 
-    // Procedural track construction based on stage
-    addStraight(40); // Starting grid
+    addStraight(40);
 
     if (stage.id === 1) {
-      // Megenagna -> Piazza
       addStraight(40);
       addCurve(60, 2, 5);
       addStraight(50);
@@ -124,7 +120,6 @@ export class RoadManager {
       addCurve(80, -3, 0);
       addStraight(60);
     } else if (stage.id === 2) {
-      // Bole -> Meskel Square
       addStraight(80);
       addCurve(60, 1.2, 0);
       addStraight(70);
@@ -136,7 +131,6 @@ export class RoadManager {
       addCurve(70, -2.5, 0);
       addStraight(80);
     } else {
-      // Merkato -> Entoto Mountain (Steep & curvy)
       addHill(60, 35);
       addCurve(70, 3.2, 40);
       addHill(70, 45);
@@ -147,13 +141,11 @@ export class RoadManager {
       addStraight(50);
     }
 
-    // Finish stretch
     addStraight(60);
 
     this.totalSegments = this.segments.length;
     this.trackLength = this.totalSegments * ROAD.SEGMENT_LENGTH;
 
-    // Decorate road with roadside scenery, traffic, passengers & collectibles
     this.populateTrack(stage);
   }
 
@@ -164,7 +156,7 @@ export class RoadManager {
   private populateTrack(stage: RouteStage) {
     const total = this.totalSegments;
 
-    // 1. Checkpoint gate at finish line
+    // Checkpoint gate at finish
     const finishSeg = this.segments[total - 20];
     if (finishSeg) {
       finishSeg.sprites.push({
@@ -174,17 +166,15 @@ export class RoadManager {
       });
     }
 
-    // 2. Roadside Scenery (Acacia, Eucalyptus, Lamps, Billboards)
+    // Roadside Scenery
     for (let i = 10; i < total - 30; i += 4) {
       const seg = this.segments[i];
-      // Side scenery alternates
       const isLeft = (i / 4) % 2 === 0;
       const side = isLeft ? -1.8 - Math.random() * 1.2 : 1.8 + Math.random() * 1.2;
 
       let sceneryType: SpriteType;
       const roll = Math.random();
       if (stage.id === 3) {
-        // Entoto has dense eucalyptus & acacia trees
         sceneryType = roll > 0.4 ? 'SCENERY_EUCALYPTUS' : 'SCENERY_ACACIA';
       } else {
         if (roll < 0.4) sceneryType = 'SCENERY_LAMP';
@@ -199,31 +189,49 @@ export class RoadManager {
       });
     }
 
-    // 3. Passengers waiting on roadside shoulder (right curb: offset 1.25)
-    // Target count distributed across track
+    // Passengers waiting at Taxi Stops on right shoulder
+    const passengerDests: SpriteType[] = [
+      'PASSENGER',
+      'PASSENGER_BOLE' as SpriteType,
+      'PASSENGER_MERKATO' as SpriteType,
+      'PASSENGER_PIAZZA' as SpriteType,
+      'PASSENGER_SARIS' as SpriteType,
+      'PASSENGER_KAZANCHIS' as SpriteType
+    ];
+
     const passengerStep = Math.floor((total - 100) / (stage.targetPassengers + 6));
+    let destCounter = 0;
     for (let i = 60; i < total - 50; i += passengerStep) {
+      // Put a Taxi Stop sign 2 segments before passenger
+      const signSeg = this.segments[i - 2];
+      if (signSeg) {
+        signSeg.sprites.push({
+          type: 'SCENERY_TAXI_SIGN',
+          offset: 1.35
+        });
+      }
+
       const seg = this.segments[i];
       if (seg) {
+        const pType = passengerDests[destCounter % passengerDests.length];
+        destCounter++;
         seg.sprites.push({
-          type: 'PASSENGER',
-          offset: 1.15 + (Math.random() * 0.15),
+          type: pType,
+          offset: 1.15 + (Math.random() * 0.12),
           collected: false
         });
       }
     }
 
-    // 4. Collectibles (Birr Coins, Bunna Jebena Turbo, Fuel Cans)
+    // Collectibles (Birr Coins, Bunna Jebena, Fuel)
     for (let i = 40; i < total - 40; i += 18) {
       const seg = this.segments[i];
       if (!seg) continue;
 
       const roll = Math.random();
-      // Lane choices: -0.6 (left), 0 (mid), 0.6 (right)
       const lane = [-0.6, 0, 0.6][Math.floor(Math.random() * 3)];
 
       if (roll < 0.45) {
-        // Cluster of Birr coins
         for (let c = 0; c < 3; c++) {
           const coinSeg = this.segments[i + c];
           if (coinSeg) {
@@ -235,14 +243,12 @@ export class RoadManager {
           }
         }
       } else if (roll < 0.75) {
-        // Jebena Bunna (Turbo Boost!)
         seg.sprites.push({
           type: 'ITEM_BUNNA',
           offset: lane,
           collected: false
         });
       } else {
-        // Fuel can
         seg.sprites.push({
           type: 'ITEM_FUEL',
           offset: lane,
@@ -251,7 +257,7 @@ export class RoadManager {
       }
     }
 
-    // 5. Traffic Vehicles (Ladas, Bajajs, Isuzu trucks)
+    // Traffic Vehicles
     const trafficCount = stage.id === 1 ? 40 : stage.id === 2 ? 65 : 55;
     for (let t = 0; t < trafficCount; t++) {
       const segIndex = 50 + Math.floor(Math.random() * (total - 120));
@@ -266,49 +272,49 @@ export class RoadManager {
 
       if (roll < 0.45) {
         vType = 'TRAFFIC_LADA';
-        speed = 2200 + Math.random() * 1200; // medium speed
+        speed = 2200 + Math.random() * 1200;
       } else if (roll < 0.75) {
         vType = 'TRAFFIC_BAJAJ';
-        speed = 1500 + Math.random() * 900; // slow/agile
+        speed = 1500 + Math.random() * 900;
       } else {
         vType = 'TRAFFIC_ISUZU';
-        speed = 1000 + Math.random() * 800; // slow heavy truck
+        speed = 1000 + Math.random() * 800;
       }
 
       seg.sprites.push({
         type: vType,
         offset: lane,
+        targetOffset: lane,
         speed,
         zOffset: 0
       });
     }
 
-    // 6. Hazards: Potholes & Wandering Goats/Cows
+    // Hazards: Potholes & Animals
     for (let i = 50; i < total - 50; i += 22) {
       const seg = this.segments[i];
       if (!seg) continue;
 
       const roll = Math.random();
       if (roll < 0.35) {
-        // Pothole on road
         const lane = (Math.random() - 0.5) * 1.5;
         seg.sprites.push({
           type: 'OBSTACLE_POTHOLE',
           offset: lane
         });
       } else if (roll < 0.65) {
-        // Goat / Sheep near or on road
-        const offset = (Math.random() - 0.5) * 1.6;
+        const offset = (Math.random() - 0.5) * 1.5;
         seg.sprites.push({
           type: 'OBSTACLE_GOAT',
-          offset
+          offset,
+          targetOffset: offset
         });
       } else if (stage.id === 3 && roll < 0.85) {
-        // Cow on mountain road
-        const offset = (Math.random() - 0.5) * 1.4;
+        const offset = (Math.random() - 0.5) * 1.3;
         seg.sprites.push({
           type: 'OBSTACLE_COW',
-          offset
+          offset,
+          targetOffset: offset
         });
       }
     }
@@ -318,21 +324,59 @@ export class RoadManager {
     return this.segments[Math.floor(z / ROAD.SEGMENT_LENGTH) % this.segments.length];
   }
 
+  public honkHorn(playerZ: number, playerX: number): { scariedCount: number; clearedAnimals: boolean } {
+    let scariedCount = 0;
+    let clearedAnimals = false;
+
+    // Look ahead 2,000 units on road
+    const startIdx = Math.floor(playerZ / ROAD.SEGMENT_LENGTH);
+    const lookAhead = 12;
+
+    for (let n = 0; n < lookAhead; n++) {
+      const seg = this.segments[(startIdx + n) % this.totalSegments];
+      if (!seg) continue;
+
+      for (const spr of seg.sprites) {
+        if (spr.collected) continue;
+
+        if (spr.type === 'OBSTACLE_GOAT' || spr.type === 'OBSTACLE_COW') {
+          // Animals scurry off the road!
+          spr.targetOffset = spr.offset < 0 ? -1.65 : 1.65;
+          clearedAnimals = true;
+          scariedCount++;
+        } else if (spr.type === 'TRAFFIC_BAJAJ' || spr.type === 'TRAFFIC_LADA') {
+          // Traffic vehicle yields lane
+          if (Math.abs(spr.offset - playerX) < 0.5) {
+            spr.targetOffset = spr.offset < 0 ? 0.65 : -0.65;
+            spr.alertTimer = 1.8;
+            scariedCount++;
+          }
+        }
+      }
+    }
+
+    return { scariedCount, clearedAnimals };
+  }
+
   public updateTraffic(dt: number) {
-    // Move traffic forward along the track
     for (let i = 0; i < this.segments.length; i++) {
       const seg = this.segments[i];
       for (let j = seg.sprites.length - 1; j >= 0; j--) {
         const sprite = seg.sprites[j];
+
+        // Smooth lane change toward targetOffset if perturbed by horn or steering
+        if (sprite.targetOffset !== undefined && Math.abs(sprite.offset - sprite.targetOffset) > 0.02) {
+          const shiftSpeed = (sprite.type === 'OBSTACLE_GOAT' || sprite.type === 'OBSTACLE_COW') ? 3.5 : 1.8;
+          sprite.offset += Math.sign(sprite.targetOffset - sprite.offset) * shiftSpeed * dt;
+        }
+
         if (sprite.speed && sprite.speed > 0) {
-          // Calculate movement
           const moveDist = sprite.speed * dt;
           const currentZ = seg.p1.z + (sprite.zOffset || 0);
           const newZ = (currentZ + moveDist) % this.trackLength;
           const newSeg = this.findSegment(newZ);
 
           if (newSeg.index !== seg.index) {
-            // Transfer to new segment
             seg.sprites.splice(j, 1);
             sprite.zOffset = newZ - newSeg.p1.z;
             newSeg.sprites.push(sprite);

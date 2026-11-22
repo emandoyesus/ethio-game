@@ -24,16 +24,18 @@ class SpriteRegistry {
   }
 
   private createPlayerSprites() {
-    // Player Minibus: straight, turn left, turn right, and boost versions
+    // Player Minibus: directions x boost x brake
     ['straight', 'left', 'right'].forEach(dir => {
       [false, true].forEach(boost => {
-        const key = `PLAYER_TAXI_${dir.toUpperCase()}${boost ? '_BOOST' : ''}`;
-        this.cache.set(key, this.drawMinibus(dir as 'straight' | 'left' | 'right', boost));
+        [false, true].forEach(brake => {
+          const key = `PLAYER_TAXI_${dir.toUpperCase()}${boost ? '_BOOST' : ''}${brake ? '_BRAKE' : ''}`;
+          this.cache.set(key, this.drawMinibus(dir as 'straight' | 'left' | 'right', boost, brake));
+        });
       });
     });
   }
 
-  private drawMinibus(direction: 'straight' | 'left' | 'right', boost: boolean): RenderableSprite {
+  private drawMinibus(direction: 'straight' | 'left' | 'right', boost: boolean, brake: boolean): RenderableSprite {
     const w = 240;
     const h = 200;
     const cvs = document.createElement('canvas');
@@ -51,20 +53,27 @@ class SpriteRegistry {
     // Boost flames
     if (boost) {
       ctx.save();
-      // Dual exhaust boost flames
       [-40, 40].forEach(exX => {
+        // Outer flame
         ctx.fillStyle = '#ff3b00';
         ctx.beginPath();
-        ctx.moveTo(exX - 8, 12);
-        ctx.lineTo(exX, 34 + Math.random() * 8);
-        ctx.lineTo(exX + 8, 12);
+        ctx.moveTo(exX - 9, 12);
+        ctx.lineTo(exX, 38);
+        ctx.lineTo(exX + 9, 12);
         ctx.fill();
 
+        // Inner hot core
         ctx.fillStyle = '#ffea00';
         ctx.beginPath();
-        ctx.moveTo(exX - 4, 12);
-        ctx.lineTo(exX, 24 + Math.random() * 6);
-        ctx.lineTo(exX + 4, 12);
+        ctx.moveTo(exX - 5, 12);
+        ctx.lineTo(exX, 26);
+        ctx.lineTo(exX + 5, 12);
+        ctx.fill();
+
+        // Blue cyan plasma base
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(exX, 14, 4, 0, Math.PI * 2);
         ctx.fill();
       });
       ctx.restore();
@@ -163,9 +172,22 @@ class SpriteRegistry {
     ctx.stroke();
 
     // Rear Tail Lights
-    ctx.fillStyle = '#dc2626'; // Red
-    ctx.fillRect(-70, -68, 16, 26);
-    ctx.fillRect(54, -68, 16, 26);
+    if (brake) {
+      // Intense neon brake light glow
+      ctx.shadowColor = '#ff0033';
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = '#ff1144';
+      ctx.fillRect(-70, -68, 16, 32);
+      ctx.fillRect(54, -68, 16, 32);
+
+      // Third center high-mount brake light
+      ctx.fillRect(-16, -142, 32, 6);
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = '#dc2626'; // Standard Red
+      ctx.fillRect(-70, -68, 16, 26);
+      ctx.fillRect(54, -68, 16, 26);
+    }
 
     ctx.fillStyle = '#f59e0b'; // Amber turn signal
     ctx.fillRect(-70, -42, 16, 12);
@@ -194,7 +216,7 @@ class SpriteRegistry {
     ctx.beginPath();
     ctx.arc(weyalaX, -95, 8, 0, Math.PI * 2);
     ctx.fill();
-    // Weyala hat/beanie
+    // Weyala beanie
     ctx.fillStyle = '#16a34a';
     ctx.fillRect(weyalaX - 7, -104, 14, 6);
     // Arm waving
@@ -212,11 +234,8 @@ class SpriteRegistry {
   }
 
   private createTrafficSprites() {
-    // 1. Classic Blue Lada Taxi
     this.cache.set('TRAFFIC_LADA', this.drawLada());
-    // 2. Bajaj (Tuk-Tuk)
     this.cache.set('TRAFFIC_BAJAJ', this.drawBajaj());
-    // 3. Isuzu Freight Truck
     this.cache.set('TRAFFIC_ISUZU', this.drawIsuzu());
   }
 
@@ -269,7 +288,7 @@ class SpriteRegistry {
     ctx.fillStyle = '#cbd5e1';
     ctx.fillRect(-62, -10, 124, 10);
 
-    // Taillights (Vertical Lada style)
+    // Taillights
     ctx.fillStyle = '#dc2626';
     ctx.fillRect(-56, -48, 12, 22);
     ctx.fillRect(44, -48, 12, 22);
@@ -384,7 +403,7 @@ class SpriteRegistry {
     ctx.fillStyle = '#b91c1c';
     ctx.fillRect(-86, -54, 172, 8);
 
-    // Amharic Isuzu branding / motto: "ይሁነኝ" or "እግዚአብሔር ይመስገን"
+    // Amharic Isuzu motto
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 12px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
@@ -410,22 +429,28 @@ class SpriteRegistry {
   }
 
   private createObstaclesAndCollectibles() {
-    // 1. Pothole (ጉድጓድ)
     this.cache.set('OBSTACLE_POTHOLE', this.drawPothole());
-    // 2. Goat / Sheep
     this.cache.set('OBSTACLE_GOAT', this.drawGoat());
-    // 3. Cow
     this.cache.set('OBSTACLE_COW', this.drawCow());
-    // 4. Passenger
-    this.cache.set('PASSENGER', this.drawPassenger());
-    // 5. Birr Coin
+
+    // Diverse authentic Ethiopian passenger destinations!
+    const dests = [
+      { key: 'PASSENGER', text: 'መገናኛ!' },
+      { key: 'PASSENGER_BOLE', text: 'ቦሌ!' },
+      { key: 'PASSENGER_MERKATO', text: 'መርካቶ!' },
+      { key: 'PASSENGER_PIAZZA', text: 'ፒያሳ!' },
+      { key: 'PASSENGER_SARIS', text: 'ሳሪስ!' },
+      { key: 'PASSENGER_KAZANCHIS', text: 'ካዛንቺስ!' }
+    ];
+    dests.forEach(d => {
+      this.cache.set(d.key, this.drawPassenger(d.text));
+    });
+
     this.cache.set('ITEM_BIRR', this.drawBirr());
-    // 6. Jebena Bunna (Nitro)
     this.cache.set('ITEM_BUNNA', this.drawBunna());
-    // 7. Fuel Can
     this.cache.set('ITEM_FUEL', this.drawFuel());
-    // 8. Checkpoint Gate
     this.cache.set('CHECKPOINT_GATE', this.drawCheckpointGate());
+    this.cache.set('SCENERY_TAXI_SIGN', this.drawTaxiSign());
   }
 
   private drawPothole(): RenderableSprite {
@@ -449,8 +474,8 @@ class SpriteRegistry {
     ctx.ellipse(2, 2, 38, 14, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Water puddle reflection / ripple
-    ctx.fillStyle = 'rgba(125, 211, 252, 0.4)';
+    // Water puddle reflection
+    ctx.fillStyle = 'rgba(125, 211, 252, 0.45)';
     ctx.beginPath();
     ctx.ellipse(4, 3, 20, 6, 0.1, 0, Math.PI * 2);
     ctx.fill();
@@ -484,7 +509,7 @@ class SpriteRegistry {
       ctx.stroke();
     });
 
-    // Body (Woolly cream / brown)
+    // Body
     ctx.fillStyle = '#fef3c7';
     ctx.beginPath();
     ctx.ellipse(0, -32, 26, 18, 0, 0, Math.PI * 2);
@@ -502,14 +527,6 @@ class SpriteRegistry {
     ctx.beginPath();
     ctx.moveTo(20, -52);
     ctx.quadraticCurveTo(14, -66, 10, -60);
-    ctx.stroke();
-
-    // Tiny Tail
-    ctx.strokeStyle = '#b45309';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(-24, -36);
-    ctx.lineTo(-32, -44);
     ctx.stroke();
 
     return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
@@ -547,17 +564,17 @@ class SpriteRegistry {
     ctx.ellipse(0, -50, 48, 28, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Characteristic Zebu Hump!
+    // Zebu Hump
     ctx.beginPath();
     ctx.ellipse(-12, -78, 16, 14, -0.2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cow Head
+    // Head
     ctx.beginPath();
     ctx.ellipse(48, -64, 18, 14, 0.3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Magnificent curved horns
+    // Horns
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -570,9 +587,9 @@ class SpriteRegistry {
     return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
   }
 
-  private drawPassenger(): RenderableSprite {
-    const w = 130;
-    const h = 150;
+  private drawPassenger(destinationText: string): RenderableSprite {
+    const w = 150;
+    const h = 160;
     const cvs = document.createElement('canvas');
     cvs.width = w;
     cvs.height = h;
@@ -596,13 +613,13 @@ class SpriteRegistry {
     ctx.lineTo(5, 8);
     ctx.stroke();
 
-    // Traditional White Netela Shawl with colourful border
+    // White Netela Shawl
     ctx.fillStyle = '#f8fafc';
     ctx.beginPath();
     ctx.roundRect(-14, -75, 28, 44, 4);
     ctx.fill();
 
-    // Tibeb / Ethiopian woven border pattern on shawl
+    // Tibeb border pattern on shawl
     ctx.fillStyle = '#dc2626';
     ctx.fillRect(-14, -40, 28, 3);
     ctx.fillStyle = '#eab308';
@@ -616,7 +633,7 @@ class SpriteRegistry {
     ctx.arc(0, -85, 10, 0, Math.PI * 2);
     ctx.fill();
 
-    // Arm raised waving to taxi!
+    // Arm waving
     ctx.strokeStyle = '#78350f';
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -629,15 +646,15 @@ class SpriteRegistry {
     ctx.strokeStyle = '#0284c7';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(14, -135, 68, 28, 6);
+    ctx.roundRect(10, -140, 85, 32, 8);
     ctx.fill();
     ctx.stroke();
 
-    // Destination text: "ታክሲ!" or "መገናኛ!"
+    // Destination text
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 12px "Noto Sans Ethiopic", sans-serif';
+    ctx.font = 'bold 13px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('ታክሲ!', 48, -116);
+    ctx.fillText(destinationText, 52, -119);
 
     return { canvas: cvs, width: w, height: h, anchorX: 0.35, anchorY: 0.85 };
   }
@@ -653,7 +670,7 @@ class SpriteRegistry {
     ctx.translate(w / 2, h / 2);
 
     // Outer glow
-    ctx.fillStyle = 'rgba(250, 204, 21, 0.4)';
+    ctx.fillStyle = 'rgba(250, 204, 21, 0.45)';
     ctx.beginPath();
     ctx.arc(0, 0, 32, 0, Math.PI * 2);
     ctx.fill();
@@ -669,7 +686,6 @@ class SpriteRegistry {
     ctx.arc(0, 0, 20, 0, Math.PI * 2);
     ctx.fill();
 
-    // Currency symbol
     ctx.fillStyle = '#854d0e';
     ctx.font = 'bold 16px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
@@ -690,22 +706,20 @@ class SpriteRegistry {
     ctx.translate(w / 2, h - 20);
 
     // Glowing aura
-    ctx.fillStyle = 'rgba(249, 115, 22, 0.35)';
+    ctx.fillStyle = 'rgba(249, 115, 22, 0.4)';
     ctx.beginPath();
     ctx.arc(0, -30, 38, 0, Math.PI * 2);
     ctx.fill();
 
-    // Traditional Clay Jebena (ቡና ጀበና)
-    // Round pot base
+    // Traditional Clay Jebena
     ctx.fillStyle = '#3f1f14';
     ctx.beginPath();
     ctx.arc(0, -26, 20, 0, Math.PI * 2);
     ctx.fill();
 
-    // Long slender neck
     ctx.fillRect(-5, -60, 10, 34);
 
-    // Spout (አፍንጫ)
+    // Spout
     ctx.lineWidth = 4;
     ctx.strokeStyle = '#3f1f14';
     ctx.beginPath();
@@ -713,15 +727,15 @@ class SpriteRegistry {
     ctx.quadraticCurveTo(24, -36, 22, -44);
     ctx.stroke();
 
-    // Handle (እጀታ)
+    // Handle
     ctx.beginPath();
     ctx.moveTo(-12, -26);
     ctx.quadraticCurveTo(-26, -42, -5, -54);
     ctx.stroke();
 
-    // Steam fumes (Turbo Nitro!)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.lineWidth = 2;
+    // Steam fumes
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(-2, -62);
     ctx.quadraticCurveTo(-8, -75, -2, -88);
@@ -742,13 +756,11 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h / 2);
 
-    // Jerrycan
     ctx.fillStyle = '#dc2626';
     ctx.beginPath();
     ctx.roundRect(-16, -18, 32, 36, 4);
     ctx.fill();
 
-    // Handle
     ctx.strokeStyle = '#dc2626';
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -758,11 +770,9 @@ class SpriteRegistry {
     ctx.lineTo(10, -18);
     ctx.stroke();
 
-    // Cap
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(6, -26, 6, 6);
 
-    // Fuel icon
     ctx.fillStyle = '#fef08a';
     ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
@@ -770,6 +780,39 @@ class SpriteRegistry {
     ctx.fillText('GAS', 0, 2);
 
     return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.5 };
+  }
+
+  private drawTaxiSign(): RenderableSprite {
+    const w = 110;
+    const h = 180;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    ctx.translate(w / 2, h - 15);
+
+    // Pole
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(-4, -140, 8, 140);
+
+    // Sign plate
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.roundRect(-42, -165, 84, 45, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px "Noto Sans Ethiopic", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ታክሲ መያዣ', 0, -145);
+    ctx.font = 'bold 8px sans-serif';
+    ctx.fillText('TAXI STOP', 0, -130);
+
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.95 };
   }
 
   private drawCheckpointGate(): RenderableSprite {
@@ -790,7 +833,7 @@ class SpriteRegistry {
     // Arch Beam
     ctx.fillRect(-240, -290, 480, 50);
 
-    // Ethiopian Flag colored banner
+    // Ethiopian Flag Banner
     ctx.fillStyle = '#15803d';
     ctx.fillRect(-230, -282, 460, 11);
     ctx.fillStyle = '#facc15';
@@ -830,7 +873,7 @@ class SpriteRegistry {
     ctx.ellipse(0, 8, 80, 16, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Gnarled Trunk
+    // Trunk
     ctx.strokeStyle = '#451a03';
     ctx.lineWidth = 14;
     ctx.lineCap = 'round';
@@ -841,7 +884,7 @@ class SpriteRegistry {
     ctx.quadraticCurveTo(20, -80, 45, -115);
     ctx.stroke();
 
-    // Canopy (Flat umbrella layered crowns)
+    // Umbrella layered crowns
     ctx.fillStyle = '#166534';
     ctx.beginPath();
     ctx.ellipse(-38, -125, 65, 20, -0.05, 0, Math.PI * 2);
@@ -876,7 +919,7 @@ class SpriteRegistry {
     ctx.ellipse(0, 6, 35, 10, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Tall slender pale trunk (ባህር ዛፍ)
+    // Trunk
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 12;
     ctx.lineCap = 'round';
@@ -919,7 +962,7 @@ class SpriteRegistry {
     // Lamp bulb & glow
     ctx.fillStyle = '#fef08a';
     ctx.beginPath();
-    ctx.arc(-28, -233, 6, 0, Math.PI * 2);
+    ctx.arc(-28, -233, 7, 0, Math.PI * 2);
     ctx.fill();
 
     return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.95 };
@@ -935,12 +978,10 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h - 20);
 
-    // Posts
     ctx.fillStyle = '#334155';
     ctx.fillRect(-60, -120, 10, 120);
     ctx.fillRect(50, -120, 10, 120);
 
-    // Board
     ctx.fillStyle = '#1e3a8a';
     ctx.beginPath();
     ctx.roundRect(-90, -180, 180, 80, 6);
@@ -949,7 +990,6 @@ class SpriteRegistry {
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Text: "ቶሞካ ቡና" (Tomoca Coffee)
     ctx.fillStyle = '#fbbf24';
     ctx.font = 'bold 18px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';

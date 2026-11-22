@@ -6,6 +6,7 @@ export interface FloatingText {
   y: number;
   alpha: number;
   color: string;
+  scale: number;
   vy: number;
 }
 
@@ -19,7 +20,8 @@ export class UIManager {
       y,
       alpha: 1.0,
       color,
-      vy: -1.4
+      scale: 1.25,
+      vy: -1.6
     });
   }
 
@@ -27,7 +29,10 @@ export class UIManager {
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ft = this.floatingTexts[i];
       ft.y += ft.vy * dt * 60;
-      ft.alpha -= 0.015 * dt * 60;
+      ft.alpha -= 0.016 * dt * 60;
+      if (ft.scale > 1.0) {
+        ft.scale -= 0.03 * dt * 60;
+      }
       if (ft.alpha <= 0) {
         this.floatingTexts.splice(i, 1);
       }
@@ -42,19 +47,20 @@ export class UIManager {
     stage: RouteStage,
     timeLeft: number,
     progressRatio: number,
-    isMuted: boolean
+    isMuted: boolean,
+    highScore: number
   ) {
     ctx.save();
 
     // 1. Top Status Banner (Addis Blue & Gold Header)
-    const headerH = 68;
+    const headerH = 72;
     const headerGrad = ctx.createLinearGradient(0, 0, 0, headerH);
-    headerGrad.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
-    headerGrad.addColorStop(1, 'rgba(15, 23, 42, 0.7)');
+    headerGrad.addColorStop(0, 'rgba(15, 23, 42, 0.94)');
+    headerGrad.addColorStop(1, 'rgba(15, 23, 42, 0.75)');
     ctx.fillStyle = headerGrad;
     ctx.fillRect(0, 0, width, headerH);
 
-    // Ethiopian Tricolor Ribbon below header
+    // Ethiopian Tricolor Ribbon
     const ribW = width / 3;
     ctx.fillStyle = '#16a34a';
     ctx.fillRect(0, headerH - 4, ribW, 4);
@@ -73,8 +79,13 @@ export class UIManager {
     ctx.font = '12px "Chakra Petch", sans-serif';
     ctx.fillText(stage.subtitle, 20, 48);
 
+    // High score badge
+    ctx.fillStyle = '#facc15';
+    ctx.font = 'bold 11px "Chakra Petch", sans-serif';
+    ctx.fillText(`👑 RECORD: ${highScore} ETB`, 20, 64);
+
     // Stats Grid on Right: Time, Passengers, Fare
-    const statsX = Math.max(width - 440, width * 0.45);
+    const statsX = Math.max(width - 450, width * 0.44);
 
     // Time Remaining
     const timeColor = timeLeft < 15 ? '#ef4444' : '#facc15';
@@ -93,7 +104,7 @@ export class UIManager {
     ctx.fillText(`👥 ${player.passengersOnBoard}/${stage.targetPassengers}`, statsX + 170, 32);
     ctx.fillStyle = '#94a3b8';
     ctx.font = '10px sans-serif';
-    ctx.fillText('PASSENGERS', statsX + 170, 48);
+    ctx.fillText(passTargetMet ? 'GOAL MET! ✔️' : 'PASSENGERS', statsX + 170, 48);
 
     // Fare Collected
     ctx.fillStyle = '#fbbf24';
@@ -103,12 +114,33 @@ export class UIManager {
     ctx.font = '10px sans-serif';
     ctx.fillText('FARES', statsX + 310, 48);
 
-    // 2. Route Progress Bar (Track position)
-    const progW = Math.min(300, width * 0.4);
-    const progX = (width - progW) / 2;
-    const progY = headerH + 12;
+    // 2. Combo / Multiplier Banner
+    if (player.comboCount > 1) {
+      ctx.save();
+      const comboX = width / 2;
+      const comboY = headerH + 38;
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillStyle = 'rgba(234, 88, 12, 0.9)';
+      ctx.beginPath();
+      ctx.roundRect(comboX - 110, comboY - 18, 220, 32, 16);
+      ctx.fill();
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px "Chakra Petch", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`🔥 SPEED COMBO x${player.comboCount}!`, comboX, comboY + 3);
+      ctx.restore();
+    }
+
+    // 3. Route Progress Bar (Track position)
+    const progW = Math.min(280, width * 0.38);
+    const progX = (width - progW) / 2;
+    const progY = headerH + 10;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.beginPath();
     ctx.roundRect(progX, progY, progW, 10, 5);
     ctx.fill();
@@ -133,14 +165,14 @@ export class UIManager {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 3. Bottom Dashboard Gauges (Speedometer, Fuel, Nitro)
+    // 4. Bottom Dashboard Gauges (Speedometer, Fuel, Nitro)
     const speedKmh = Math.floor((player.speed / player.maxSpeed) * 160);
-    const dashY = height - 75;
+    const dashY = height - 76;
 
     // Speedometer Card (Left)
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
-    ctx.roundRect(20, dashY, 170, 60, 8);
+    ctx.roundRect(20, dashY, 170, 62, 8);
     ctx.fill();
     ctx.strokeStyle = '#334155';
     ctx.lineWidth = 1.5;
@@ -164,9 +196,9 @@ export class UIManager {
     // Fuel Gauge (Center-Left)
     const fuelW = 150;
     const fuelX = 205;
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
-    ctx.roundRect(fuelX, dashY, fuelW, 60, 8);
+    ctx.roundRect(fuelX, dashY, fuelW, 62, 8);
     ctx.fill();
     ctx.strokeStyle = '#334155';
     ctx.lineWidth = 1.5;
@@ -183,21 +215,21 @@ export class UIManager {
     ctx.fillRect(fuelX + 16, dashY + 36, (fuelW - 32) * fuelRatio, 10);
 
     // Bunna Turbo Boost Indicator (Center)
-    const nitroW = 170;
+    const nitroW = 175;
     const nitroX = fuelX + fuelW + 15;
     if (nitroX + nitroW < width - 110) {
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
       ctx.beginPath();
-      ctx.roundRect(nitroX, dashY, nitroW, 60, 8);
+      ctx.roundRect(nitroX, dashY, nitroW, 62, 8);
       ctx.fill();
       ctx.strokeStyle = player.boostRemaining > 0 ? '#f97316' : '#334155';
-      ctx.lineWidth = player.boostRemaining > 0 ? 2 : 1;
+      ctx.lineWidth = player.boostRemaining > 0 ? 2.5 : 1;
       ctx.stroke();
 
       const boostRatio = player.boostRemaining / player.boostMax;
       ctx.fillStyle = '#f97316';
       ctx.font = 'bold 12px "Chakra Petch", sans-serif';
-      ctx.fillText(player.boostRemaining > 0 ? '☕ BUNNA BOOST!' : '☕ BUNNA READY', nitroX + 14, dashY + 26);
+      ctx.fillText(player.boostRemaining > 0 ? '☕ BUNNA NITRO (ON!)' : '☕ BUNNA READY', nitroX + 14, dashY + 26);
 
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(nitroX + 14, dashY + 36, nitroW - 28, 10);
@@ -209,17 +241,17 @@ export class UIManager {
     ctx.fillStyle = '#94a3b8';
     ctx.font = '11px "Chakra Petch", sans-serif';
     ctx.textAlign = 'right';
-    ctx.fillText(`[M] ${isMuted ? 'UNMUTE 🔇' : 'SOUND 🔊'} | [H / SPACE] HORN 📢`, width - 20, height - 16);
+    ctx.fillText(`[M] ${isMuted ? 'UNMUTE 🔇' : 'SOUND 🔊'} | [H / SPACE] HORN 📢 | [P] PAUSE ⏸️`, width - 20, height - 16);
 
-    // 4. Render Floating Texts
+    // 5. Render Floating Texts
     this.floatingTexts.forEach(ft => {
       ctx.save();
       ctx.globalAlpha = Math.max(0, ft.alpha);
       ctx.fillStyle = ft.color;
-      ctx.font = 'bold 20px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+      ctx.font = `bold ${Math.round(20 * ft.scale)}px "Noto Sans Ethiopic", "Chakra Petch", sans-serif`;
       ctx.textAlign = 'center';
       ctx.shadowColor = '#000000';
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 8;
       ctx.fillText(ft.text, ft.x, ft.y);
       ctx.restore();
     });
@@ -227,46 +259,44 @@ export class UIManager {
     ctx.restore();
   }
 
-  public renderTitleScreen(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  public renderTitleScreen(ctx: CanvasRenderingContext2D, width: number, height: number, highScore: number) {
     ctx.save();
 
-    // Dark backdrop overlay
-    ctx.fillStyle = 'rgba(10, 15, 30, 0.85)';
+    ctx.fillStyle = 'rgba(10, 15, 30, 0.88)';
     ctx.fillRect(0, 0, width, height);
 
-    // Title Card
     const midX = width / 2;
     const midY = height / 2 - 20;
 
     // Ethiopian Flag Ribbon
-    const ribW = Math.min(500, width * 0.8);
+    const ribW = Math.min(520, width * 0.85);
     const startRibX = midX - ribW / 2;
     ctx.fillStyle = '#16a34a';
-    ctx.fillRect(startRibX, midY - 140, ribW / 3, 6);
+    ctx.fillRect(startRibX, midY - 145, ribW / 3, 6);
     ctx.fillStyle = '#facc15';
-    ctx.fillRect(startRibX + ribW / 3, midY - 140, ribW / 3, 6);
+    ctx.fillRect(startRibX + ribW / 3, midY - 145, ribW / 3, 6);
     ctx.fillStyle = '#dc2626';
-    ctx.fillRect(startRibX + (ribW / 3) * 2, midY - 140, ribW / 3, 6);
+    ctx.fillRect(startRibX + (ribW / 3) * 2, midY - 145, ribW / 3, 6);
 
     // Big Amharic Title
     ctx.fillStyle = '#facc15';
-    ctx.font = '900 44px "Noto Sans Ethiopic", sans-serif';
+    ctx.font = '900 46px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
     ctx.shadowColor = '#0284c7';
-    ctx.shadowBlur = 14;
-    ctx.fillText('አዲስ ታክሲ ራሽ', midX, midY - 80);
+    ctx.shadowBlur = 16;
+    ctx.fillText('አዲስ ታክሲ ራሽ', midX, midY - 82);
 
     // English Subtitle
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 28px "Chakra Petch", sans-serif';
     ctx.shadowColor = '#000000';
     ctx.shadowBlur = 8;
-    ctx.fillText('ADDIS TAXI RUSH', midX, midY - 40);
+    ctx.fillText('ADDIS TAXI RUSH', midX, midY - 42);
 
     // Instructions Box
-    ctx.fillStyle = 'rgba(30, 41, 59, 0.9)';
+    ctx.fillStyle = 'rgba(30, 41, 59, 0.92)';
     ctx.beginPath();
-    ctx.roundRect(midX - 260, midY - 10, 520, 190, 12);
+    ctx.roundRect(midX - 270, midY - 10, 540, 195, 12);
     ctx.fill();
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 2;
@@ -275,27 +305,55 @@ export class UIManager {
     ctx.fillStyle = '#e2e8f0';
     ctx.font = '14px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
-    const leftPad = midX - 230;
-    ctx.fillText('🚕 Drive the iconic Blue Minibus Taxi across Addis Ababa', leftPad, midY + 25);
-    ctx.fillText('👥 Pull over to the RIGHT curb to pick up passengers ("መገናኛ!")', leftPad, midY + 52);
-    ctx.fillText('⚠️ Dodge potholes (ጉድጓድ), goats & cows, and heavy Isuzus', leftPad, midY + 79);
-    ctx.fillText('☕ Collect steaming Bunna (ቡና) cups for extreme Turbo Boost!', leftPad, midY + 106);
-    ctx.fillText('⌨️ CONTROLS: Arrow Keys / WASD • SPACE: Horn • SHIFT: Nitro', leftPad, midY + 133);
-    ctx.fillText('📱 TOUCH: On-screen buttons active on mobile & tablet screens', leftPad, midY + 158);
+    const leftPad = midX - 240;
+    ctx.fillText('🚕 Drive the iconic Blue Minibus Taxi across Addis Ababa', leftPad, midY + 24);
+    ctx.fillText('👥 Pull over to the RIGHT curb to pick up passengers ("መገናኛ!")', leftPad, midY + 50);
+    ctx.fillText('📢 Press H / SPACE to honk: clears cows, goats, and traffic!', leftPad, midY + 76);
+    ctx.fillText('☕ Collect steaming Bunna (ቡና) cups for extreme Turbo Boost!', leftPad, midY + 102);
+    ctx.fillText('🔥 Near-miss overtakes build Speed Combos for massive fares!', leftPad, midY + 128);
+    ctx.fillText('⌨️ CONTROLS: Arrow Keys / WASD • H / SPACE: Horn • P: Pause', leftPad, midY + 154);
+
+    if (highScore > 0) {
+      ctx.fillStyle = '#facc15';
+      ctx.font = 'bold 16px "Chakra Petch", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`👑 BEST FARE RECORD: ${highScore} ETB`, midX, midY + 215);
+    }
 
     // Pulsing Start Prompt
     const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 200);
     ctx.fillStyle = `rgba(250, 204, 21, ${pulse})`;
     ctx.font = 'bold 22px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('PRESS ENTER OR CLICK TO START DRIVING', midX, midY + 230);
+    ctx.fillText('PRESS ENTER OR CLICK TO START DRIVING', midX, midY + 250);
 
     ctx.restore();
   }
 
-  public renderGameOver(ctx: CanvasRenderingContext2D, width: number, height: number, reason: string, score: number) {
+  public renderPauseScreen(ctx: CanvasRenderingContext2D, width: number, height: number) {
     ctx.save();
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.fillStyle = 'rgba(10, 15, 30, 0.85)';
+    ctx.fillRect(0, 0, width, height);
+
+    const midX = width / 2;
+    const midY = height / 2;
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '900 36px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⏸️ ጨዋታው ቆሟል • PAUSED', midX, midY - 40);
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '16px "Chakra Petch", sans-serif';
+    ctx.fillText('Press P, ESC, or CLICK to Resume', midX, midY + 15);
+    ctx.fillText('Press R to Restart Route', midX, midY + 45);
+
+    ctx.restore();
+  }
+
+  public renderGameOver(ctx: CanvasRenderingContext2D, width: number, height: number, reason: string, score: number, highScore: number) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
     ctx.fillRect(0, 0, width, height);
 
     const midX = width / 2;
@@ -304,20 +362,26 @@ export class UIManager {
     ctx.fillStyle = '#ef4444';
     ctx.font = '900 38px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('ጨዋታው አልቋል! • SHIFT OVER', midX, midY - 60);
+    ctx.fillText('ጨዋታው አልቋል! • SHIFT OVER', midX, midY - 65);
 
     ctx.fillStyle = '#f8fafc';
     ctx.font = '18px "Chakra Petch", sans-serif';
-    ctx.fillText(reason, midX, midY - 15);
+    ctx.fillText(reason, midX, midY - 20);
 
     ctx.fillStyle = '#fbbf24';
     ctx.font = 'bold 24px "Chakra Petch", sans-serif';
-    ctx.fillText(`TOTAL FARES COLLECTED: ${score} ETB`, midX, midY + 35);
+    ctx.fillText(`TOTAL FARES COLLECTED: ${score} ETB`, midX, midY + 30);
+
+    if (score >= highScore && score > 0) {
+      ctx.fillStyle = '#22c55e';
+      ctx.font = 'bold 18px "Chakra Petch", sans-serif';
+      ctx.fillText('🏆 NEW HIGH SCORE RECORD! 🏆', midX, midY + 65);
+    }
 
     const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 200);
     ctx.fillStyle = `rgba(56, 189, 248, ${pulse})`;
     ctx.font = 'bold 20px "Chakra Petch", sans-serif';
-    ctx.fillText('PRESS SPACE OR CLICK TO TRY AGAIN', midX, midY + 95);
+    ctx.fillText('PRESS SPACE OR CLICK TO TRY AGAIN', midX, midY + 115);
 
     ctx.restore();
   }
@@ -332,7 +396,7 @@ export class UIManager {
     isLastStage: boolean
   ) {
     ctx.save();
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
     ctx.fillRect(0, 0, width, height);
 
     const midX = width / 2;

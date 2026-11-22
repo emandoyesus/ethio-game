@@ -20,6 +20,16 @@ export interface RoadSegmentColor {
   lane: string;
 }
 
+export interface RoadSegment {
+  index: number;
+  p1: Point3D;
+  p2: Point3D;
+  curve: number;
+  color: RoadSegmentColor;
+  sprites: SpriteInstance[];
+  clip: number;
+}
+
 export interface SpriteInstance {
   type: SpriteType;
   offset: number; // -2 to 2 (0 = center of road, -1 = left edge, 1 = right edge)
@@ -28,7 +38,9 @@ export interface SpriteInstance {
   width?: number;
   height?: number;
   collected?: boolean;
-  tag?: string; // e.g. passenger name/destination
+  tag?: string; // e.g. passenger destination
+  alertTimer?: number; // reaction when horn is sounded
+  targetOffset?: number; // lane change target when yielding
 }
 
 export type SpriteType =
@@ -46,16 +58,20 @@ export type SpriteType =
   | 'SCENERY_EUCALYPTUS'
   | 'SCENERY_LAMP'
   | 'SCENERY_BILLBOARD'
+  | 'SCENERY_TAXI_SIGN'
   | 'CHECKPOINT_GATE';
 
-export interface RoadSegment {
-  index: number;
-  p1: Point3D;
-  p2: Point3D;
-  curve: number;
-  color: RoadSegmentColor;
-  sprites: SpriteInstance[];
-  clip: number; // for hill rendering occlusions
+export interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  color: string;
+  alpha: number;
+  life: number;
+  maxLife: number;
+  type: 'smoke' | 'spark' | 'flame' | 'dust' | 'speedline';
 }
 
 export interface Player {
@@ -74,6 +90,11 @@ export interface Player {
   passengersOnBoard: number;
   passengersTarget: number;
   health: number;
+  driftAngle: number;
+  isDrifting: boolean;
+  comboCount: number;
+  comboTimer: number;
+  comboMultiplier: number;
 }
 
 export interface RouteStage {
@@ -85,4 +106,10 @@ export interface RouteStage {
   targetPassengers: number;
   timeLimit: number;
   skyTheme: 'day' | 'sunset' | 'night';
+}
+
+export interface GameStats {
+  highScore: number;
+  totalPassengers: number;
+  stagesCompleted: number;
 }
