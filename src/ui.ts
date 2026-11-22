@@ -337,8 +337,8 @@ export class UIManager {
     const isBoosting = player.boostRemaining > 0;
 
     // Dimensions for corner pods
-    const podW = 216;
-    const podH = 78;
+    const podW = 224;
+    const podH = 88;
     const podY = height - podH - 12;
 
     // ----------------------------------------------------
@@ -371,45 +371,45 @@ export class UIManager {
     const fuelBlink = isLowFuel && Math.floor(Date.now() / 300) % 2 === 0;
 
     ctx.fillStyle = fuelBlink ? '#ef4444' : '#94a3b8';
-    ctx.font = 'bold 10px "Chakra Petch", sans-serif';
+    ctx.font = 'bold 9.5px "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('⛽ FUEL', leftPodX + 12, podY + 22);
+    ctx.fillText('⛽ FUEL', leftPodX + 12, podY + 18);
 
     ctx.fillStyle = isLowFuel ? '#ef4444' : '#38bdf8';
     ctx.textAlign = 'right';
-    ctx.fillText(`${Math.round(player.fuel)}%`, leftPodX + podW - 12, podY + 22);
+    ctx.fillText(`${Math.round(player.fuel)}%`, leftPodX + podW - 12, podY + 18);
 
     // Fuel Segmented Bar
     const barX = leftPodX + 12;
     const barW = podW - 24;
-    const barY = podY + 26;
+    const barY = podY + 22;
     ctx.fillStyle = '#1e293b';
     ctx.beginPath();
-    ctx.roundRect(barX, barY, barW, 7, 3.5);
+    ctx.roundRect(barX, barY, barW, 6, 3);
     ctx.fill();
 
     const fuelColor = isLowFuel ? '#ef4444' : fuelRatio < 0.5 ? '#facc15' : '#10b981';
     ctx.fillStyle = fuelColor;
     ctx.beginPath();
-    ctx.roundRect(barX, barY, barW * fuelRatio, 7, 3.5);
+    ctx.roundRect(barX, barY, barW * fuelRatio, 6, 3);
     ctx.fill();
 
     // Bunna Nitro Boost Meter
     const boostRatio = Math.max(0, Math.min(1, player.boostRemaining / player.boostMax));
     ctx.fillStyle = isBoosting ? '#f97316' : '#94a3b8';
-    ctx.font = 'bold 10px "Chakra Petch", sans-serif';
+    ctx.font = 'bold 9.5px "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(isBoosting ? '☕ NITRO ACTIVE!' : '☕ BUNNA NITRO', leftPodX + 12, podY + 54);
+    ctx.fillText(isBoosting ? '☕ NITRO ACTIVE!' : '☕ BUNNA NITRO', leftPodX + 12, podY + 44);
 
     ctx.fillStyle = isBoosting ? '#ff3b00' : boostRatio > 0 ? '#facc15' : '#64748b';
     ctx.textAlign = 'right';
-    ctx.fillText(isBoosting ? `${player.boostRemaining.toFixed(1)}s` : boostRatio > 0 ? 'READY' : 'EMPTY', leftPodX + podW - 12, podY + 54);
+    ctx.fillText(isBoosting ? `${player.boostRemaining.toFixed(1)}s` : boostRatio > 0 ? 'READY' : 'EMPTY', leftPodX + podW - 12, podY + 44);
 
     // Boost Bar
-    const boostBarY = podY + 58;
+    const boostBarY = podY + 48;
     ctx.fillStyle = '#1e293b';
     ctx.beginPath();
-    ctx.roundRect(barX, boostBarY, barW, 7, 3.5);
+    ctx.roundRect(barX, boostBarY, barW, 6, 3);
     ctx.fill();
 
     const boostGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
@@ -417,8 +417,23 @@ export class UIManager {
     boostGrad.addColorStop(1, '#ff3b00');
     ctx.fillStyle = boostGrad;
     ctx.beginPath();
-    ctx.roundRect(barX, boostBarY, barW * (isBoosting ? boostRatio : player.boostRemaining > 0 ? 1 : 0), 7, 3.5);
+    ctx.roundRect(barX, boostBarY, barW * (isBoosting ? boostRatio : player.boostRemaining > 0 ? 1 : 0), 6, 3);
     ctx.fill();
+
+    // Thermal Engine Temp & Suspension Status Row
+    const isOverheating = player.engineTemp > 115;
+    const tempBlink = isOverheating && Math.floor(Date.now() / 250) % 2 === 0;
+    const tempColor = tempBlink ? '#ef4444' : player.engineTemp > 105 ? '#f59e0b' : '#38bdf8';
+
+    ctx.fillStyle = tempColor;
+    ctx.font = 'bold 9px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`🌡️ TEMP: ${Math.round(player.engineTemp)}°C`, leftPodX + 12, podY + 74);
+
+    const hasAlignmentDamage = Math.abs(player.alignmentBias) > 0.05;
+    ctx.fillStyle = hasAlignmentDamage ? '#ef4444' : '#22c55e';
+    ctx.textAlign = 'right';
+    ctx.fillText(hasAlignmentDamage ? 'ALIGN: DAMAGED ⚠️' : 'ALIGN: OK ✓', leftPodX + podW - 12, podY + 74);
 
     // ----------------------------------------------------
     // RIGHT POD: Performance Telemetry (Speed, RPM, Gears, Signals)
@@ -444,8 +459,8 @@ export class UIManager {
     ctx.stroke();
 
     // Left half of right pod: Bold Digital Speedometer
-    const spdBoxX = rightPodX + 46;
-    const spdBoxY = podY + 38;
+    const spdBoxX = rightPodX + 48;
+    const spdBoxY = podY + 42;
 
     // Arc sweep indicator around speed
     const spdRatio = Math.min(1, player.speed / player.maxSpeed);
@@ -474,11 +489,12 @@ export class UIManager {
     ctx.fillText('KM/H', spdBoxX, spdBoxY + 16);
 
     // Right half of right pod: RPM, Gears, Signals
-    const telX = rightPodX + 100;
+    const telX = rightPodX + 104;
 
-    // Turn Signals (blinking green arrows)
-    const isLeftSig = player.turnSignal === 'left' && Math.floor(Date.now() / 350) % 2 === 0;
-    const isRightSig = player.turnSignal === 'right' && Math.floor(Date.now() / 350) % 2 === 0;
+    // Turn Signals & Hazard Flashers (blinking green arrows)
+    const isHazard = player.hazardFlashers && Math.floor(Date.now() / 320) % 2 === 0;
+    const isLeftSig = isHazard || (player.turnSignal === 'left' && Math.floor(Date.now() / 320) % 2 === 0);
+    const isRightSig = isHazard || (player.turnSignal === 'right' && Math.floor(Date.now() / 320) % 2 === 0);
 
     ctx.fillStyle = isLeftSig ? '#22c55e' : 'rgba(34, 197, 94, 0.15)';
     ctx.font = 'bold 13px sans-serif';
@@ -531,19 +547,19 @@ export class UIManager {
     // CENTER BOTTOM: Subtle Driving Controls Legend
     // Leaves the center 100% open so the player car is completely visible!
     // ----------------------------------------------------
-    const legendW = 280;
+    const legendW = 340;
     const legendX = (width - legendW) / 2;
     const legendY = height - 16;
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
     ctx.beginPath();
     ctx.roundRect(legendX, legendY - 10, legendW, 16, 8);
     ctx.fill();
 
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '8.5px "Chakra Petch", sans-serif';
+    ctx.font = '8px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('W/↑ GAS  •  S/↓ BRAKE  •  A/D STEER  •  SPACE HORN 📢', width / 2, legendY + 2);
+    ctx.fillText('W/↑ GAS  •  S/↓ BRAKE  •  A/D STEER  •  SPACE HORN  •  R RADIO  •  F HAZARDS', width / 2, legendY + 2);
 
     ctx.restore();
   }

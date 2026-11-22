@@ -152,6 +152,11 @@ export interface Player {
   turnSignal: 'none' | 'left' | 'right';
   turnSignalTimer: number;
 
+  // Mechanical condition & thermal telemetry
+  engineTemp: number; // 80..130 °C
+  alignmentBias: number; // steering drift offset from pothole impact (-0.4 to 0.4)
+  hazardFlashers: boolean;
+
   comboCount: number;
   comboTimer: number;
   comboMultiplier: number;

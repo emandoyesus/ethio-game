@@ -90,6 +90,10 @@ export class GameEngine {
       turnSignal: 'none',
       turnSignalTimer: 0,
 
+      engineTemp: 88,
+      alignmentBias: 0,
+      hazardFlashers: false,
+
       driftAngle: 0,
       isDrifting: false,
       comboCount: 0,
@@ -159,6 +163,14 @@ export class GameEngine {
       if (e.key === 'h' || e.key === 'H' || e.code === 'Space') {
         if (this.state === 'PLAYING') {
           this.triggerHorn();
+        }
+      }
+
+      if (e.key === 'f' || e.key === 'F') {
+        if (this.state === 'PLAYING') {
+          this.player.hazardFlashers = !this.player.hazardFlashers;
+          sound.playTurnSignalClick();
+          ui.showToast(this.player.hazardFlashers ? '🚨 ድንገተኛ መብራት በራ (HAZARDS ON)' : '🚨 HAZARDS OFF', '🚨', '#facc15');
         }
       }
 
@@ -426,6 +438,21 @@ export class GameEngine {
       this.player.turnSignal = 'none';
     }
 
+    // Pothole alignment bias drift (damaged suspension pulls to side)
+    if (Math.abs(this.player.alignmentBias) > 0.01) {
+      this.player.x += this.player.alignmentBias * speedRatio * 0.45 * dt;
+    }
+
+    // Engine thermal physics & radiator steam
+    if (isBoosting || this.player.rpm > 5800) {
+      this.player.engineTemp = Math.min(128, this.player.engineTemp + dt * 3.6);
+      if (this.player.engineTemp > 116 && Math.random() < 0.3) {
+        this.spawnRadiatorSteam();
+      }
+    } else {
+      this.player.engineTemp = Math.max(88, this.player.engineTemp - dt * 1.5);
+    }
+
     // Turn signal flasher sound
     if (this.player.turnSignal !== 'none') {
       this.player.turnSignalTimer += dt;
@@ -589,6 +616,8 @@ export class GameEngine {
                 this.player.comboCount = 0;
                 this.screenShake = 4.5;
                 sound.playPothole();
+                // Severe impact causes wheel alignment damage
+                this.player.alignmentBias = Math.max(-0.25, Math.min(0.25, this.player.alignmentBias + (Math.random() > 0.5 ? 0.08 : -0.08)));
                 if (Math.random() < 0.45) {
                   sound.speakWeyala('POTHOLE_SCARE');
                 }
@@ -825,6 +854,26 @@ export class GameEngine {
         type: 'speedline'
       });
     }
+  }
+
+  private spawnRadiatorSteam() {
+    const w = this.width;
+    const h = this.height;
+    const carX = w / 2;
+    const carY = h - 60 + this.player.bounce;
+
+    this.particles.push({
+      x: carX + (Math.random() - 0.5) * 40,
+      y: carY,
+      vx: (Math.random() - 0.5) * 20,
+      vy: -40 - Math.random() * 30,
+      size: 10 + Math.random() * 8,
+      color: 'rgba(255, 255, 255, 0.65)',
+      alpha: 0.75,
+      life: 0,
+      maxLife: 0.45,
+      type: 'smoke'
+    });
   }
 
   private spawnWaterSpray() {
