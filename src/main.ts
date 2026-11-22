@@ -11,6 +11,9 @@ app.innerHTML = `
 
     <!-- Quick Arcade Control Bar -->
     <div class="arcade-quick-bar">
+      <button id="btnGarage" class="arcade-btn" title="Vehicle Garage & Upgrades (G)">
+        🚗 <span>GARAGE</span>
+      </button>
       <button id="btnAudio" class="arcade-btn" title="Toggle Sound (M)">
         🔊 <span>AUDIO</span>
       </button>
@@ -60,6 +63,16 @@ const canvas = document.querySelector<HTMLCanvasElement>('#gameCanvas')!;
 const game = new GameEngine(canvas);
 
 // Hook quick bar buttons
+const btnGarage = document.getElementById('btnGarage')!;
+btnGarage.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (game.state === 'GARAGE') {
+    game.state = 'TITLE';
+  } else {
+    game.openGarage();
+  }
+});
+
 const btnAudio = document.getElementById('btnAudio')!;
 btnAudio.addEventListener('click', (e) => {
   e.stopPropagation();

@@ -1,7 +1,8 @@
 import { sound } from './audio';
+import { garage } from './garage';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
-import type { GameState, Particle, Player, ProjectedPoint, RoadSegment, RouteStage, SpriteInstance } from './types';
+import type { GameState, Particle, Player, ProjectedPoint, RoadSegment, RouteStage, SpriteInstance, VehicleId } from './types';
 import { ui } from './ui';
 
 export class GameEngine {
@@ -20,7 +21,9 @@ export class GameEngine {
 
   private timeLeft: number = 75;
   private gameOverReason: string = '';
-  public highScore: number = 0;
+
+  // Garage active showcase index
+  public garageVehicleIndex: number = 0;
 
   private keys: { [key: string]: boolean } = {};
   private lastTime: number = 0;
@@ -32,7 +35,7 @@ export class GameEngine {
   // Sky parallax offset
   private skyOffset: number = 0;
 
-  // Near miss tracker (to prevent multi-triggers on same vehicle)
+  // Near miss tracker
   private nearMissCooldown: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -41,9 +44,9 @@ export class GameEngine {
     this.road = new RoadManager();
 
     this.stage = STAGES[this.currentStageIndex];
-    this.loadHighScore();
 
     this.player = this.createInitialPlayer();
+    garage.applyToPlayer(this.player);
 
     this.initEventListeners();
     this.resize();
@@ -51,28 +54,9 @@ export class GameEngine {
     this.road.buildTrack(this.stage);
   }
 
-  private loadHighScore() {
-    try {
-      const saved = localStorage.getItem('addis_taxi_highscore');
-      if (saved) this.highScore = parseInt(saved, 10) || 0;
-    } catch {
-      this.highScore = 0;
-    }
-  }
-
-  private saveHighScore() {
-    if (this.player.fareCollected > this.highScore) {
-      this.highScore = this.player.fareCollected;
-      try {
-        localStorage.setItem('addis_taxi_highscore', this.highScore.toString());
-      } catch {
-        // Fallback
-      }
-    }
-  }
-
   private createInitialPlayer(): Player {
     return {
+      vehicleId: garage.selectedVehicleId,
       x: 0,
       z: 0,
       speed: 0,
@@ -115,6 +99,29 @@ export class GameEngine {
         sound.toggleMute();
       }
 
+      // Open / Close Garage
+      if (e.key === 'g' || e.key === 'G') {
+        if (this.state === 'TITLE' || this.state === 'PAUSED' || this.state === 'GAMEOVER' || this.state === 'STAGE_CLEAR') {
+          this.openGarage();
+        } else if (this.state === 'GARAGE') {
+          this.state = 'TITLE';
+        }
+      }
+
+      // Garage Navigation
+      if (this.state === 'GARAGE') {
+        const vehicleKeys = Object.keys(garage.vehicles);
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+          this.garageVehicleIndex = (this.garageVehicleIndex + 1) % vehicleKeys.length;
+          sound.playClick(0);
+        } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+          this.garageVehicleIndex = (this.garageVehicleIndex - 1 + vehicleKeys.length) % vehicleKeys.length;
+          sound.playClick(0);
+        } else if (e.key === 'Escape') {
+          this.state = 'TITLE';
+        }
+      }
+
       if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
         if (this.state === 'PLAYING') {
           this.state = 'PAUSED';
@@ -136,8 +143,8 @@ export class GameEngine {
         }
       }
 
-      if (e.key === 'Enter' || e.code === 'Space') {
-        if (this.state === 'TITLE') {
+      if (e.key === 'Enter' || (e.code === 'Space' && this.state !== 'PLAYING')) {
+        if (this.state === 'TITLE' || this.state === 'GARAGE') {
           this.startGame();
         } else if (this.state === 'GAMEOVER') {
           this.restartGame();
@@ -152,9 +159,22 @@ export class GameEngine {
       this.keys[e.code] = false;
     });
 
-    this.canvas.addEventListener('click', () => {
-      if (this.state === 'TITLE') {
-        this.startGame();
+    this.canvas.addEventListener('click', (e: MouseEvent) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      if (this.state === 'GARAGE') {
+        this.handleGarageClick(clickX, clickY);
+      } else if (this.state === 'TITLE') {
+        // Check if clicked the Garage button
+        const midX = this.width / 2;
+        const midY = this.height / 2 - 25;
+        if (clickX >= midX + 10 && clickX <= midX + 240 && clickY >= midY + 215 && clickY <= midY + 261) {
+          this.openGarage();
+        } else {
+          this.startGame();
+        }
       } else if (this.state === 'GAMEOVER') {
         this.restartGame();
       } else if (this.state === 'STAGE_CLEAR') {
@@ -163,6 +183,37 @@ export class GameEngine {
         this.state = 'PLAYING';
       }
     });
+  }
+
+  public openGarage() {
+    this.state = 'GARAGE';
+    const vehicleKeys = Object.keys(garage.vehicles) as VehicleId[];
+    const idx = vehicleKeys.indexOf(garage.selectedVehicleId);
+    this.garageVehicleIndex = idx >= 0 ? idx : 0;
+    sound.init();
+    sound.stopEngine();
+  }
+
+  private handleGarageClick(clickX: number, clickY: number) {
+    const vehicleKeys = Object.keys(garage.vehicles) as VehicleId[];
+
+    for (const hb of ui.garageHitboxes) {
+      if (clickX >= hb.x && clickX <= hb.x + hb.w && clickY >= hb.y && clickY <= hb.y + hb.h) {
+        if (hb.id.startsWith('tab_')) {
+          const vKey = hb.id.replace('tab_', '') as VehicleId;
+          const idx = vehicleKeys.indexOf(vKey);
+          if (idx >= 0) this.garageVehicleIndex = idx;
+          sound.playCoin();
+        } else if (hb.id === 'btn_back') {
+          this.state = 'TITLE';
+        } else if (hb.id === 'btn_drive') {
+          this.startGame();
+        } else {
+          hb.action();
+        }
+        return;
+      }
+    }
   }
 
   public triggerHorn() {
@@ -187,15 +238,19 @@ export class GameEngine {
   public startGame() {
     sound.init();
     sound.startMusic();
+    garage.applyToPlayer(this.player);
     this.state = 'PLAYING';
     this.timeLeft = this.stage.timeLimit;
   }
 
   public restartGame() {
-    this.saveHighScore();
+    if (this.player.fareCollected > 0) {
+      garage.addEarnings(this.player.fareCollected);
+    }
     this.currentStageIndex = 0;
     this.stage = STAGES[this.currentStageIndex];
     this.player = this.createInitialPlayer();
+    garage.applyToPlayer(this.player);
     this.road.buildTrack(this.stage);
     this.timeLeft = this.stage.timeLimit;
     this.particles = [];
@@ -204,7 +259,9 @@ export class GameEngine {
   }
 
   public nextStage() {
-    this.saveHighScore();
+    if (this.player.fareCollected > 0) {
+      garage.addEarnings(this.player.fareCollected);
+    }
     if (this.currentStageIndex < STAGES.length - 1) {
       this.currentStageIndex++;
       this.stage = STAGES[this.currentStageIndex];
@@ -212,7 +269,7 @@ export class GameEngine {
       this.player.speed = 0;
       this.player.passengersOnBoard = 0;
       this.player.passengersTarget = this.stage.targetPassengers;
-      this.player.fuel = 100;
+      this.player.fuel = this.player.maxFuel;
       this.timeLeft = this.stage.timeLimit;
       this.particles = [];
       this.road.buildTrack(this.stage);
@@ -256,7 +313,7 @@ export class GameEngine {
 
     // 1. Time & Fuel countdown
     this.timeLeft -= dt;
-    this.player.fuel -= dt * 1.4;
+    this.player.fuel -= dt * 1.35;
 
     // Combo timer decay
     if (this.player.comboTimer > 0) {
@@ -267,7 +324,7 @@ export class GameEngine {
     }
 
     if (this.timeLeft <= 0) {
-      this.saveHighScore();
+      if (this.player.fareCollected > 0) garage.addEarnings(this.player.fareCollected);
       this.state = 'GAMEOVER';
       this.gameOverReason = 'ጊዜው አልቋል! (Shift Time Expired!)';
       sound.playCrash();
@@ -275,7 +332,7 @@ export class GameEngine {
     }
 
     if (this.player.fuel <= 0) {
-      this.saveHighScore();
+      if (this.player.fareCollected > 0) garage.addEarnings(this.player.fareCollected);
       this.state = 'GAMEOVER';
       this.gameOverReason = 'ነዳጅ አልቋል! (Ran Out of Fuel!)';
       sound.playCrash();
@@ -303,7 +360,6 @@ export class GameEngine {
       this.player.speed += this.player.accel * dt;
     } else if (down) {
       this.player.speed -= this.player.decel * dt;
-      // Brake tire smoke
       if (this.player.speed > 2500) {
         this.spawnTireSmoke();
         sound.startTireScreech();
@@ -337,8 +393,7 @@ export class GameEngine {
       this.player.x += this.player.turnSpeed * speedRatio * dt;
     }
 
-    // High speed hard turns trigger drift smoke & squeal
-    if ((left || right) && speedRatio > 0.75) {
+    if ((left || right) && speedRatio > 0.72) {
       this.player.isDrifting = true;
       this.spawnTireSmoke();
       sound.startTireScreech();
@@ -355,30 +410,29 @@ export class GameEngine {
     this.player.z += this.player.speed * dt;
     this.skyOffset += currentSegment.curve * speedRatio * 0.8;
 
-    // High speed radial motion lines
     if (speedRatio > 0.82) {
       this.spawnSpeedLines();
     }
 
-    // Engine Audio update
     sound.updateEngine(speedRatio, isBoosting);
-
-    // Update traffic
     this.road.updateTraffic(dt);
 
-    // 4. Collision Detection, Combos & Pickups
+    // 4. Collisions, Pickups & Combos
     this.checkCollisions(currentSegment);
 
     // 5. Stage Finish Check
     if (this.player.z >= this.road.trackLength - 20 * ROAD.SEGMENT_LENGTH) {
-      this.saveHighScore();
+      if (this.player.fareCollected > 0) garage.addEarnings(this.player.fareCollected);
       this.state = 'STAGE_CLEAR';
       sound.stopEngine();
     }
   }
 
   private checkCollisions(playerSegment: RoadSegment) {
+    const isPlow = !!garage.selectedVehicle.isPlow;
+    const hitboxW = garage.selectedVehicle.hitboxWidth;
     const checkRange = 3;
+
     for (let offset = -1; offset <= checkRange; offset++) {
       const segIndex = (playerSegment.index + offset + this.road.totalSegments) % this.road.totalSegments;
       const seg = this.road.segments[segIndex];
@@ -394,11 +448,13 @@ export class GameEngine {
         // Near-Miss Combo check with traffic
         if (sprite.type === 'TRAFFIC_LADA' || sprite.type === 'TRAFFIC_BAJAJ' || sprite.type === 'TRAFFIC_ISUZU') {
           const dx = Math.abs(this.player.x - sprite.offset);
-          if (zDist < ROAD.SEGMENT_LENGTH * 0.8 && dx > 0.35 && dx < 0.65 && this.player.speed > 5500 && this.nearMissCooldown <= 0) {
+          if (zDist < ROAD.SEGMENT_LENGTH * 0.8 && dx > hitboxW * 0.8 && dx < hitboxW * 1.6 && this.player.speed > 5400 && this.nearMissCooldown <= 0) {
             this.nearMissCooldown = 0.6;
             this.player.comboCount++;
-            this.player.comboTimer = 4.0;
-            const comboBonus = 15 * this.player.comboCount;
+            this.player.comboTimer = 4.2;
+
+            const multiplier = this.player.vehicleId === 'BAJAJ' ? 1.5 : 1.0;
+            const comboBonus = Math.round(15 * this.player.comboCount * multiplier);
             this.player.fareCollected += comboBonus;
             sound.playNearMiss();
             ui.addFloatingText(`🔥 NEAR MISS! +${comboBonus} ETB`, this.width / 2, this.height / 2 - 50, '#f97316');
@@ -410,32 +466,47 @@ export class GameEngine {
 
           // Traffic Collisions
           if (sprite.type === 'TRAFFIC_LADA' || sprite.type === 'TRAFFIC_BAJAJ' || sprite.type === 'TRAFFIC_ISUZU') {
-            if (dx < 0.44) {
-              this.player.speed = Math.min(this.player.speed * 0.22, 2200);
-              this.player.comboCount = 0;
-              this.screenShake = 6.5;
-              this.spawnSparks(this.width / 2, this.height - 60);
-              sound.playCrash();
-              ui.addFloatingText('💥 ግጭት! (CRASH!)', this.width / 2, this.height / 2 - 40, '#ef4444');
-              sprite.zOffset = (sprite.zOffset || 0) + 450;
+            if (dx < hitboxW) {
+              if (isPlow && sprite.type !== 'TRAFFIC_ISUZU') {
+                // Isuzu plow shoves aside smaller vehicles!
+                this.screenShake = 4.0;
+                sound.playCrash();
+                ui.addFloatingText('🚛 ገፍቶ አለፈ! (PLOWED THROUGH!)', this.width / 2, this.height / 2 - 40, '#facc15');
+                sprite.offset += sprite.offset < 0 ? -0.8 : 0.8;
+                sprite.zOffset = (sprite.zOffset || 0) + 300;
+              } else {
+                this.player.speed = Math.min(this.player.speed * 0.22, 2200);
+                this.player.comboCount = 0;
+                this.screenShake = 6.5;
+                this.spawnSparks(this.width / 2, this.height - 60);
+                sound.playCrash();
+                ui.addFloatingText('💥 ግጭት! (CRASH!)', this.width / 2, this.height / 2 - 40, '#ef4444');
+                sprite.zOffset = (sprite.zOffset || 0) + 450;
+              }
             }
           }
 
           // Pothole
           else if (sprite.type === 'OBSTACLE_POTHOLE') {
-            if (dx < 0.35) {
-              this.player.speed = Math.max(1000, this.player.speed * 0.58);
-              this.player.comboCount = 0;
-              this.screenShake = 4.5;
-              sound.playPothole();
-              ui.addFloatingText('⚠️ ጉድጓድ! (POTHOLE)', this.width / 2, this.height / 2, '#f97316');
+            if (dx < hitboxW * 0.8) {
+              if (isPlow) {
+                // Heavy truck rolls straight through potholes!
+                this.screenShake = 2.0;
+                ui.addFloatingText('💪 ጉድጓዱን ረገጠው! (OVER RUN!)', this.width / 2, this.height / 2, '#22c55e');
+              } else {
+                this.player.speed = Math.max(1000, this.player.speed * 0.58);
+                this.player.comboCount = 0;
+                this.screenShake = 4.5;
+                sound.playPothole();
+                ui.addFloatingText('⚠️ ጉድጓድ! (POTHOLE)', this.width / 2, this.height / 2, '#f97316');
+              }
               sprite.collected = true;
             }
           }
 
           // Animal collision
           else if (sprite.type === 'OBSTACLE_GOAT' || sprite.type === 'OBSTACLE_COW') {
-            if (dx < 0.42) {
+            if (dx < hitboxW) {
               this.player.speed = Math.min(this.player.speed * 0.38, 2400);
               this.player.comboCount = 0;
               this.screenShake = 4.5;
@@ -453,11 +524,12 @@ export class GameEngine {
 
           // Passenger Pickup
           else if (typeof sprite.type === 'string' && sprite.type.startsWith('PASSENGER')) {
-            if (this.player.x > 0.72 && this.player.x < 1.48) {
+            if (this.player.x > 0.68 && this.player.x < 1.48) {
               if (this.player.speed <= 8800) {
                 sprite.collected = true;
                 this.player.passengersOnBoard++;
-                const fareGain = 50 + this.player.comboCount * 10;
+                const baseFare = garage.selectedVehicle.farePerPassenger;
+                const fareGain = baseFare + this.player.comboCount * 12;
                 this.player.fareCollected += fareGain;
                 this.timeLeft += 6.5;
                 sound.playPassengerPickup();
@@ -492,7 +564,7 @@ export class GameEngine {
           else if (sprite.type === 'ITEM_FUEL') {
             if (dx < 0.4) {
               sprite.collected = true;
-              this.player.fuel = Math.min(100, this.player.fuel + 45);
+              this.player.fuel = Math.min(this.player.maxFuel, this.player.fuel + this.player.maxFuel * 0.45);
               sound.playCoin();
               ui.addFloatingText('⛽ FUEL REFILLED!', this.width / 2, this.height / 2 - 30, '#10b981');
             }
@@ -644,6 +716,11 @@ export class GameEngine {
 
     this.ctx.clearRect(0, 0, w, h);
 
+    if (this.state === 'GARAGE') {
+      ui.renderGarageScreen(this.ctx, w, h, this.garageVehicleIndex);
+      return;
+    }
+
     this.ctx.save();
     if (this.screenShake > 0) {
       const shakeX = (Math.random() - 0.5) * this.screenShake * 4;
@@ -662,7 +739,7 @@ export class GameEngine {
       this.renderHeadlights(w, h);
     }
 
-    // 4. Player Taxi
+    // 4. Player Vehicle
     this.renderPlayer(w, h);
 
     // 5. Particles
@@ -670,16 +747,16 @@ export class GameEngine {
 
     this.ctx.restore();
 
-    // 6. UI HUD
+    // 6. UI HUD & Screens
     const progress = this.player.z / this.road.trackLength;
     if (this.state === 'PLAYING') {
-      ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, this.highScore);
+      ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, garage.highScore, garage.walletBalance);
     } else if (this.state === 'TITLE') {
-      ui.renderTitleScreen(this.ctx, w, h, this.highScore);
+      ui.renderTitleScreen(this.ctx, w, h, garage.highScore, garage.walletBalance);
     } else if (this.state === 'PAUSED') {
       ui.renderPauseScreen(this.ctx, w, h);
     } else if (this.state === 'GAMEOVER') {
-      ui.renderGameOver(this.ctx, w, h, this.gameOverReason, this.player.fareCollected, this.highScore);
+      ui.renderGameOver(this.ctx, w, h, this.gameOverReason, this.player.fareCollected, garage.highScore);
     } else if (this.state === 'STAGE_CLEAR') {
       const isLast = this.currentStageIndex >= STAGES.length - 1;
       ui.renderStageClear(this.ctx, w, h, this.stage, this.player.passengersOnBoard, this.player.fareCollected, isLast);
@@ -709,7 +786,6 @@ export class GameEngine {
     this.ctx.fillStyle = skyGrad;
     this.ctx.fillRect(0, 0, w, horizon);
 
-    // Celestial
     if (theme === 'day' || theme === 'sunset') {
       this.ctx.fillStyle = theme === 'sunset' ? '#fde047' : '#ffffff';
       this.ctx.beginPath();
@@ -897,7 +973,6 @@ export class GameEngine {
 
   private renderHeadlights(w: number, h: number) {
     this.ctx.save();
-    // Night Headlight illumination beam cast forward
     const carX = w / 2;
     const carY = h - 60;
 
@@ -925,8 +1000,9 @@ export class GameEngine {
     const right = this.keys['arrowright'] || this.keys['d'];
 
     const dir = left ? 'LEFT' : right ? 'RIGHT' : 'STRAIGHT';
-    const key = `PLAYER_TAXI_${dir}${isBoosting ? '_BOOST' : ''}${down ? '_BRAKE' : ''}`;
-    const spr = sprites.get(key) || sprites.get('PLAYER_TAXI_STRAIGHT');
+    const vId = this.player.vehicleId || 'MINIBUS';
+    const key = `PLAYER_${vId}_${dir}${isBoosting ? '_BOOST' : ''}${down ? '_BRAKE' : ''}`;
+    const spr = sprites.get(key) || sprites.get(`PLAYER_${vId}_STRAIGHT`) || sprites.get('PLAYER_TAXI_STRAIGHT');
     if (!spr) return;
 
     const bounce = this.player.speed > 500 ? (Math.sin(Date.now() / 45) * (this.player.speed / this.player.maxSpeed) * 3) : 0;

@@ -24,12 +24,47 @@ class SpriteRegistry {
   }
 
   private createPlayerSprites() {
-    // Player Minibus: directions x boost x brake
-    ['straight', 'left', 'right'].forEach(dir => {
+    const directions: ('straight' | 'left' | 'right')[] = ['straight', 'left', 'right'];
+
+    // 1. Minibus Taxi
+    directions.forEach(dir => {
       [false, true].forEach(boost => {
         [false, true].forEach(brake => {
-          const key = `PLAYER_TAXI_${dir.toUpperCase()}${boost ? '_BOOST' : ''}${brake ? '_BRAKE' : ''}`;
-          this.cache.set(key, this.drawMinibus(dir as 'straight' | 'left' | 'right', boost, brake));
+          const key = `PLAYER_MINIBUS_${dir.toUpperCase()}${boost ? '_BOOST' : ''}${brake ? '_BRAKE' : ''}`;
+          const sprite = this.drawMinibus(dir, boost, brake);
+          this.cache.set(key, sprite);
+          // Legacy alias
+          this.cache.set(`PLAYER_TAXI_${dir.toUpperCase()}${boost ? '_BOOST' : ''}${brake ? '_BRAKE' : ''}`, sprite);
+        });
+      });
+    });
+
+    // 2. Lada Taxi (Player Version)
+    directions.forEach(dir => {
+      [false, true].forEach(boost => {
+        [false, true].forEach(brake => {
+          const key = `PLAYER_LADA_${dir.toUpperCase()}${boost ? '_BOOST' : ''}${brake ? '_BRAKE' : ''}`;
+          this.cache.set(key, this.drawLadaPlayer(dir, boost, brake));
+        });
+      });
+    });
+
+    // 3. Bajaj Drifter (Player Version)
+    directions.forEach(dir => {
+      [false, true].forEach(boost => {
+        [false, true].forEach(brake => {
+          const key = `PLAYER_BAJAJ_${dir.toUpperCase()}${boost ? '_BOOST' : ''}${brake ? '_BRAKE' : ''}`;
+          this.cache.set(key, this.drawBajajPlayer(dir, boost, brake));
+        });
+      });
+    });
+
+    // 4. Isuzu Heavy Truck (Player Version)
+    directions.forEach(dir => {
+      [false, true].forEach(boost => {
+        [false, true].forEach(brake => {
+          const key = `PLAYER_ISUZU_${dir.toUpperCase()}${boost ? '_BOOST' : ''}${brake ? '_BRAKE' : ''}`;
+          this.cache.set(key, this.drawIsuzuPlayer(dir, boost, brake));
         });
       });
     });
@@ -54,7 +89,6 @@ class SpriteRegistry {
     if (boost) {
       ctx.save();
       [-40, 40].forEach(exX => {
-        // Outer flame
         ctx.fillStyle = '#ff3b00';
         ctx.beginPath();
         ctx.moveTo(exX - 9, 12);
@@ -62,7 +96,6 @@ class SpriteRegistry {
         ctx.lineTo(exX + 9, 12);
         ctx.fill();
 
-        // Inner hot core
         ctx.fillStyle = '#ffea00';
         ctx.beginPath();
         ctx.moveTo(exX - 5, 12);
@@ -70,7 +103,6 @@ class SpriteRegistry {
         ctx.lineTo(exX + 5, 12);
         ctx.fill();
 
-        // Blue cyan plasma base
         ctx.fillStyle = '#38bdf8';
         ctx.beginPath();
         ctx.arc(exX, 14, 4, 0, Math.PI * 2);
@@ -103,11 +135,11 @@ class SpriteRegistry {
 
     // Mud flaps with Ethiopian flag stripes
     [-74, 56].forEach(fx => {
-      ctx.fillStyle = '#078930'; // Green
+      ctx.fillStyle = '#078930';
       ctx.fillRect(fx, 4, 18, 4);
-      ctx.fillStyle = '#fcdd09'; // Yellow
+      ctx.fillStyle = '#fcdd09';
       ctx.fillRect(fx, 8, 18, 4);
-      ctx.fillStyle = '#da121a'; // Red
+      ctx.fillStyle = '#da121a';
       ctx.fillRect(fx, 12, 18, 4);
     });
 
@@ -121,13 +153,13 @@ class SpriteRegistry {
     ctx.roundRect(-75, -80, 150, 72, [8, 8, 4, 4]);
     ctx.fill();
 
-    // White Top Half (Iconic Minibus Roof)
+    // White Top Half
     ctx.fillStyle = '#f8f9fa';
     ctx.beginPath();
     ctx.roundRect(-72, -145, 144, 70, [18, 18, 0, 0]);
     ctx.fill();
 
-    // Roof Rack (Cargo luggage rack)
+    // Roof Rack
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -141,7 +173,7 @@ class SpriteRegistry {
     ctx.lineTo(50, -150);
     ctx.stroke();
 
-    // Luggage on roof rack (jerrycans, mattress, bags)
+    // Luggage
     ctx.fillStyle = '#d97706';
     ctx.fillRect(-45, -164, 30, 14);
     ctx.fillStyle = '#2563eb';
@@ -149,12 +181,11 @@ class SpriteRegistry {
     ctx.fillStyle = '#059669';
     ctx.fillRect(22, -160, 24, 10);
 
-    // Rear Window (Dark tinted)
+    // Rear Window
     ctx.fillStyle = '#1e293b';
     ctx.beginPath();
     ctx.roundRect(-58, -135, 116, 52, 6);
     ctx.fill();
-    // Glass reflection
     ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
     ctx.beginPath();
     ctx.moveTo(-52, -132);
@@ -173,32 +204,28 @@ class SpriteRegistry {
 
     // Rear Tail Lights
     if (brake) {
-      // Intense neon brake light glow
       ctx.shadowColor = '#ff0033';
       ctx.shadowBlur = 18;
       ctx.fillStyle = '#ff1144';
       ctx.fillRect(-70, -68, 16, 32);
       ctx.fillRect(54, -68, 16, 32);
-
-      // Third center high-mount brake light
       ctx.fillRect(-16, -142, 32, 6);
       ctx.shadowBlur = 0;
     } else {
-      ctx.fillStyle = '#dc2626'; // Standard Red
+      ctx.fillStyle = '#dc2626';
       ctx.fillRect(-70, -68, 16, 26);
       ctx.fillRect(54, -68, 16, 26);
     }
 
-    ctx.fillStyle = '#f59e0b'; // Amber turn signal
+    ctx.fillStyle = '#f59e0b';
     ctx.fillRect(-70, -42, 16, 12);
     ctx.fillRect(54, -42, 16, 12);
 
-    // White reverse lights
     ctx.fillStyle = '#fff';
     ctx.fillRect(-70, -30, 16, 8);
     ctx.fillRect(54, -30, 16, 8);
 
-    // License Plate (Ethiopian Code 3 Addis Ababa)
+    // License Plate
     ctx.fillStyle = '#fef08a';
     ctx.fillRect(-28, -32, 56, 18);
     ctx.strokeStyle = '#000';
@@ -209,17 +236,15 @@ class SpriteRegistry {
     ctx.textAlign = 'center';
     ctx.fillText('3 • AA 778', 0, -20);
 
-    // Weyala hanging out of sliding side door!
+    // Weyala hanging out
     ctx.save();
     const weyalaX = direction === 'left' ? -68 : 68;
-    ctx.fillStyle = '#78350f'; // Skin
+    ctx.fillStyle = '#78350f';
     ctx.beginPath();
     ctx.arc(weyalaX, -95, 8, 0, Math.PI * 2);
     ctx.fill();
-    // Weyala beanie
     ctx.fillStyle = '#16a34a';
     ctx.fillRect(weyalaX - 7, -104, 14, 6);
-    // Arm waving
     ctx.strokeStyle = '#78350f';
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -233,6 +258,303 @@ class SpriteRegistry {
     return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
   }
 
+  private drawLadaPlayer(direction: 'straight' | 'left' | 'right', boost: boolean, brake: boolean): RenderableSprite {
+    const w = 220;
+    const h = 170;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    const tilt = direction === 'left' ? -0.1 : direction === 'right' ? 0.1 : 0;
+    const shiftX = direction === 'left' ? -9 : direction === 'right' ? 9 : 0;
+
+    ctx.save();
+    ctx.translate(w / 2 + shiftX, h - 25);
+    ctx.rotate(tilt);
+
+    // Boost flames
+    if (boost) {
+      ctx.save();
+      const exX = 36;
+      ctx.fillStyle = '#ff3b00';
+      ctx.beginPath();
+      ctx.moveTo(exX - 8, 12);
+      ctx.lineTo(exX, 42);
+      ctx.lineTo(exX + 8, 12);
+      ctx.fill();
+      ctx.fillStyle = '#ffea00';
+      ctx.beginPath();
+      ctx.moveTo(exX - 4, 12);
+      ctx.lineTo(exX, 28);
+      ctx.lineTo(exX + 4, 12);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(0, 12, 75, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wheels
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-68, -4, 22, 22);
+    ctx.fillRect(46, -4, 22, 22);
+
+    // Lower Body (Vibrant Blue Lada)
+    const bodyGrad = ctx.createLinearGradient(-66, -60, 66, -10);
+    bodyGrad.addColorStop(0, '#1d4ed8');
+    bodyGrad.addColorStop(0.5, '#2563eb');
+    bodyGrad.addColorStop(1, '#1e40af');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.roundRect(-66, -62, 132, 54, 4);
+    ctx.fill();
+
+    // White Top / Roof
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.roundRect(-54, -108, 108, 50, [10, 10, 0, 0]);
+    ctx.fill();
+
+    // Rear window
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(-48, -102, 96, 38);
+    // Reflection
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    ctx.moveTo(-44, -100);
+    ctx.lineTo(-8, -100);
+    ctx.lineTo(-24, -68);
+    ctx.lineTo(-44, -68);
+    ctx.fill();
+
+    // Taxi Roof Sign
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(-18, -124, 36, 14);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('TAXI', 0, -114);
+
+    // Chrome Bumper
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(-68, -12, 136, 12);
+
+    // Taillights
+    if (brake) {
+      ctx.shadowColor = '#ff0033';
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = '#ff1144';
+      ctx.fillRect(-62, -54, 14, 32);
+      ctx.fillRect(48, -54, 14, 32);
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(-62, -54, 14, 26);
+      ctx.fillRect(48, -54, 14, 26);
+    }
+
+    // Plate
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(-22, -32, 44, 16);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('1 • AA 55', 0, -21);
+
+    ctx.restore();
+
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
+  }
+
+  private drawBajajPlayer(direction: 'straight' | 'left' | 'right', boost: boolean, brake: boolean): RenderableSprite {
+    const w = 180;
+    const h = 180;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    const tilt = direction === 'left' ? -0.14 : direction === 'right' ? 0.14 : 0;
+    const shiftX = direction === 'left' ? -10 : direction === 'right' ? 10 : 0;
+
+    ctx.save();
+    ctx.translate(w / 2 + shiftX, h - 25);
+    ctx.rotate(tilt);
+
+    // Boost flames
+    if (boost) {
+      ctx.save();
+      const exX = -28;
+      ctx.fillStyle = '#ff3b00';
+      ctx.beginPath();
+      ctx.moveTo(exX - 6, 10);
+      ctx.lineTo(exX, 36);
+      ctx.lineTo(exX + 6, 10);
+      ctx.fill();
+      ctx.fillStyle = '#ffea00';
+      ctx.beginPath();
+      ctx.moveTo(exX - 3, 10);
+      ctx.lineTo(exX, 24);
+      ctx.lineTo(exX + 3, 10);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(0, 12, 54, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rear Wheels
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-46, -4, 16, 20);
+    ctx.fillRect(30, -4, 16, 20);
+
+    // Body (Vibrant Yellow)
+    ctx.fillStyle = '#eab308';
+    ctx.beginPath();
+    ctx.roundRect(-44, -74, 88, 66, 6);
+    ctx.fill();
+
+    // Black Canvas Canopy
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.roundRect(-42, -135, 84, 66, [14, 14, 0, 0]);
+    ctx.fill();
+
+    // Rear Canvas Window
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(-26, -120, 52, 30);
+
+    // Spare tire mounted on back
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(0, -42, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath();
+    ctx.arc(0, -42, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rear round lights
+    if (brake) {
+      ctx.shadowColor = '#ff0033';
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = '#ff1144';
+      ctx.beginPath();
+      ctx.arc(-32, -24, 8, 0, Math.PI * 2);
+      ctx.arc(32, -24, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(-32, -24, 6, 0, Math.PI * 2);
+      ctx.arc(32, -24, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
+  }
+
+  private drawIsuzuPlayer(direction: 'straight' | 'left' | 'right', boost: boolean, brake: boolean): RenderableSprite {
+    const w = 280;
+    const h = 280;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    const tilt = direction === 'left' ? -0.05 : direction === 'right' ? 0.05 : 0;
+    const shiftX = direction === 'left' ? -6 : direction === 'right' ? 6 : 0;
+
+    ctx.save();
+    ctx.translate(w / 2 + shiftX, h - 30);
+    ctx.rotate(tilt);
+
+    // Exhaust smoke / boost flames
+    if (boost) {
+      ctx.save();
+      const exX = -94;
+      ctx.fillStyle = '#ff3b00';
+      ctx.beginPath();
+      ctx.moveTo(exX - 8, -180);
+      ctx.lineTo(exX, -225);
+      ctx.lineTo(exX + 8, -180);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.beginPath();
+    ctx.ellipse(0, 18, 105, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Twin Wheels
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-96, -10, 34, 34);
+    ctx.fillRect(62, -10, 34, 34);
+
+    // Wooden Cargo Bed
+    ctx.fillStyle = '#b45309';
+    ctx.fillRect(-94, -175, 188, 150);
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 3;
+    for (let y = -155; y < -35; y += 22) {
+      ctx.beginPath();
+      ctx.moveTo(-94, y);
+      ctx.lineTo(94, y);
+      ctx.stroke();
+    }
+
+    // Traditional Ethiopian stripes
+    ctx.fillStyle = '#15803d';
+    ctx.fillRect(-94, -75, 188, 8);
+    ctx.fillStyle = '#eab308';
+    ctx.fillRect(-94, -67, 188, 8);
+    ctx.fillStyle = '#b91c1c';
+    ctx.fillRect(-94, -59, 188, 8);
+
+    // Amharic motto
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 13px "Noto Sans Ethiopic", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('እግዚአብሔር ይመስገን', 0, -90);
+
+    // Exhaust Pipe
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(-100, -190, 8, 95);
+
+    // Bumper & Taillights
+    ctx.fillStyle = '#1f2937';
+    ctx.fillRect(-96, -26, 192, 20);
+
+    if (brake) {
+      ctx.shadowColor = '#ff0033';
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = '#ff1144';
+      ctx.fillRect(-82, -23, 28, 14);
+      ctx.fillRect(54, -23, 28, 14);
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(-82, -23, 28, 14);
+      ctx.fillRect(54, -23, 28, 14);
+    }
+
+    ctx.restore();
+
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
+  }
+
   private createTrafficSprites() {
     this.cache.set('TRAFFIC_LADA', this.drawLada());
     this.cache.set('TRAFFIC_BAJAJ', this.drawBajaj());
@@ -240,192 +562,15 @@ class SpriteRegistry {
   }
 
   private drawLada(): RenderableSprite {
-    const w = 180;
-    const h = 140;
-    const cvs = document.createElement('canvas');
-    cvs.width = w;
-    cvs.height = h;
-    const ctx = cvs.getContext('2d')!;
-
-    ctx.translate(w / 2, h - 20);
-
-    // Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.beginPath();
-    ctx.ellipse(0, 10, 68, 14, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Wheels
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(-62, -4, 20, 20);
-    ctx.fillRect(42, -4, 20, 20);
-
-    // Body (Blue)
-    ctx.fillStyle = '#1d4ed8';
-    ctx.beginPath();
-    ctx.roundRect(-60, -56, 120, 50, 4);
-    ctx.fill();
-
-    // White Top / Roof
-    ctx.fillStyle = '#f1f5f9';
-    ctx.beginPath();
-    ctx.roundRect(-48, -98, 96, 46, [8, 8, 0, 0]);
-    ctx.fill();
-
-    // Rear window
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(-42, -92, 84, 34);
-
-    // Taxi Sign on roof
-    ctx.fillStyle = '#facc15';
-    ctx.fillRect(-14, -110, 28, 12);
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 7px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('TAXI', 0, -101);
-
-    // Chrome Bumper
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillRect(-62, -10, 124, 10);
-
-    // Taillights
-    ctx.fillStyle = '#dc2626';
-    ctx.fillRect(-56, -48, 12, 22);
-    ctx.fillRect(44, -48, 12, 22);
-
-    // Plate
-    ctx.fillStyle = '#fef08a';
-    ctx.fillRect(-20, -28, 40, 14);
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 7px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('1 • AA', 0, -18);
-
-    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
+    return this.drawLadaPlayer('straight', false, false);
   }
 
   private drawBajaj(): RenderableSprite {
-    const w = 150;
-    const h = 160;
-    const cvs = document.createElement('canvas');
-    cvs.width = w;
-    cvs.height = h;
-    const ctx = cvs.getContext('2d')!;
-
-    ctx.translate(w / 2, h - 20);
-
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.beginPath();
-    ctx.ellipse(0, 10, 48, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Rear Wheels
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-42, -4, 14, 18);
-    ctx.fillRect(28, -4, 14, 18);
-
-    // Body (Vibrant Yellow / Blue Bajaj)
-    ctx.fillStyle = '#eab308';
-    ctx.beginPath();
-    ctx.roundRect(-40, -68, 80, 60, 6);
-    ctx.fill();
-
-    // Black Canvas Canopy
-    ctx.fillStyle = '#1e293b';
-    ctx.beginPath();
-    ctx.roundRect(-38, -125, 76, 62, [14, 14, 0, 0]);
-    ctx.fill();
-
-    // Rear Canvas Window
-    ctx.fillStyle = '#475569';
-    ctx.fillRect(-24, -112, 48, 28);
-
-    // Spare tire mounted on back
-    ctx.fillStyle = '#0f172a';
-    ctx.beginPath();
-    ctx.arc(0, -38, 15, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#94a3b8';
-    ctx.beginPath();
-    ctx.arc(0, -38, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Rear round lights
-    ctx.fillStyle = '#ef4444';
-    ctx.beginPath();
-    ctx.arc(-30, -22, 6, 0, Math.PI * 2);
-    ctx.arc(30, -22, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
+    return this.drawBajajPlayer('straight', false, false);
   }
 
   private drawIsuzu(): RenderableSprite {
-    const w = 260;
-    const h = 260;
-    const cvs = document.createElement('canvas');
-    cvs.width = w;
-    cvs.height = h;
-    const ctx = cvs.getContext('2d')!;
-
-    ctx.translate(w / 2, h - 25);
-
-    // Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.beginPath();
-    ctx.ellipse(0, 15, 96, 20, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Massive Twin Wheels
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-88, -10, 32, 32);
-    ctx.fillRect(56, -10, 32, 32);
-
-    // Wooden Cargo Bed
-    ctx.fillStyle = '#b45309';
-    ctx.fillRect(-86, -165, 172, 140);
-    // Wooden slats detail
-    ctx.strokeStyle = '#78350f';
-    ctx.lineWidth = 3;
-    for (let y = -145; y < -35; y += 22) {
-      ctx.beginPath();
-      ctx.moveTo(-86, y);
-      ctx.lineTo(86, y);
-      ctx.stroke();
-    }
-
-    // Traditional Ethiopian decorative stripes across wooden tailgate
-    ctx.fillStyle = '#15803d';
-    ctx.fillRect(-86, -70, 172, 8);
-    ctx.fillStyle = '#eab308';
-    ctx.fillRect(-86, -62, 172, 8);
-    ctx.fillStyle = '#b91c1c';
-    ctx.fillRect(-86, -54, 172, 8);
-
-    // Amharic Isuzu motto
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 12px "Noto Sans Ethiopic", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('እግዚአብሔር ይመስገን', 0, -84);
-
-    // Exhaust Pipe on left puffing dark diesel smoke
-    ctx.fillStyle = '#475569';
-    ctx.fillRect(-92, -180, 8, 90);
-    ctx.fillStyle = 'rgba(70, 70, 70, 0.4)';
-    ctx.beginPath();
-    ctx.arc(-95, -195, 14, 0, Math.PI * 2);
-    ctx.arc(-105, -215, 20, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Heavy Metal Bumper
-    ctx.fillStyle = '#1f2937';
-    ctx.fillRect(-90, -25, 180, 18);
-    ctx.fillStyle = '#ef4444';
-    ctx.fillRect(-75, -22, 24, 12);
-    ctx.fillRect(51, -22, 24, 12);
-
-    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
+    return this.drawIsuzuPlayer('straight', false, false);
   }
 
   private createObstaclesAndCollectibles() {
@@ -433,7 +578,6 @@ class SpriteRegistry {
     this.cache.set('OBSTACLE_GOAT', this.drawGoat());
     this.cache.set('OBSTACLE_COW', this.drawCow());
 
-    // Diverse authentic Ethiopian passenger destinations!
     const dests = [
       { key: 'PASSENGER', text: 'መገናኛ!' },
       { key: 'PASSENGER_BOLE', text: 'ቦሌ!' },
@@ -462,19 +606,16 @@ class SpriteRegistry {
     const ctx = cvs.getContext('2d')!;
 
     ctx.translate(w / 2, h / 2);
-    // Outer ragged asphalt crack
     ctx.fillStyle = '#18181b';
     ctx.beginPath();
     ctx.ellipse(0, 0, 48, 20, -0.05, 0, Math.PI * 2);
     ctx.fill();
 
-    // Deep pit
     ctx.fillStyle = '#09090b';
     ctx.beginPath();
     ctx.ellipse(2, 2, 38, 14, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Water puddle reflection
     ctx.fillStyle = 'rgba(125, 211, 252, 0.45)';
     ctx.beginPath();
     ctx.ellipse(4, 3, 20, 6, 0.1, 0, Math.PI * 2);
@@ -493,13 +634,11 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h - 15);
 
-    // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     ctx.ellipse(0, 8, 30, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Legs
     ctx.strokeStyle = '#78350f';
     ctx.lineWidth = 4;
     [-18, -8, 8, 18].forEach(x => {
@@ -509,19 +648,16 @@ class SpriteRegistry {
       ctx.stroke();
     });
 
-    // Body
     ctx.fillStyle = '#fef3c7';
     ctx.beginPath();
     ctx.ellipse(0, -32, 26, 18, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Head
     ctx.fillStyle = '#b45309';
     ctx.beginPath();
     ctx.ellipse(24, -46, 12, 9, 0.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Horns
     ctx.strokeStyle = '#451a03';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -542,13 +678,11 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h - 20);
 
-    // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
     ctx.ellipse(0, 10, 55, 14, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Legs
     ctx.strokeStyle = '#573418';
     ctx.lineWidth = 6;
     [-35, -20, 20, 35].forEach(x => {
@@ -558,23 +692,19 @@ class SpriteRegistry {
       ctx.stroke();
     });
 
-    // Cow Body (Zebu)
     ctx.fillStyle = '#8b5a2b';
     ctx.beginPath();
     ctx.ellipse(0, -50, 48, 28, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Zebu Hump
     ctx.beginPath();
     ctx.ellipse(-12, -78, 16, 14, -0.2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Head
     ctx.beginPath();
     ctx.ellipse(48, -64, 18, 14, 0.3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Horns
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -597,13 +727,11 @@ class SpriteRegistry {
 
     ctx.translate(45, h - 20);
 
-    // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     ctx.ellipse(0, 10, 18, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Legs
     ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 5;
     ctx.beginPath();
@@ -613,13 +741,11 @@ class SpriteRegistry {
     ctx.lineTo(5, 8);
     ctx.stroke();
 
-    // White Netela Shawl
     ctx.fillStyle = '#f8fafc';
     ctx.beginPath();
     ctx.roundRect(-14, -75, 28, 44, 4);
     ctx.fill();
 
-    // Tibeb border pattern on shawl
     ctx.fillStyle = '#dc2626';
     ctx.fillRect(-14, -40, 28, 3);
     ctx.fillStyle = '#eab308';
@@ -627,13 +753,11 @@ class SpriteRegistry {
     ctx.fillStyle = '#16a34a';
     ctx.fillRect(-14, -34, 28, 3);
 
-    // Head
     ctx.fillStyle = '#78350f';
     ctx.beginPath();
     ctx.arc(0, -85, 10, 0, Math.PI * 2);
     ctx.fill();
 
-    // Arm waving
     ctx.strokeStyle = '#78350f';
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -641,7 +765,6 @@ class SpriteRegistry {
     ctx.lineTo(24, -98);
     ctx.stroke();
 
-    // Speech / Destination Bubble
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#0284c7';
     ctx.lineWidth = 2;
@@ -650,7 +773,6 @@ class SpriteRegistry {
     ctx.fill();
     ctx.stroke();
 
-    // Destination text
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 13px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
@@ -668,14 +790,11 @@ class SpriteRegistry {
     const ctx = cvs.getContext('2d')!;
 
     ctx.translate(w / 2, h / 2);
-
-    // Outer glow
     ctx.fillStyle = 'rgba(250, 204, 21, 0.45)';
     ctx.beginPath();
     ctx.arc(0, 0, 32, 0, Math.PI * 2);
     ctx.fill();
 
-    // Gold Coin
     ctx.fillStyle = '#eab308';
     ctx.beginPath();
     ctx.arc(0, 0, 24, 0, Math.PI * 2);
@@ -705,13 +824,11 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h - 20);
 
-    // Glowing aura
     ctx.fillStyle = 'rgba(249, 115, 22, 0.4)';
     ctx.beginPath();
     ctx.arc(0, -30, 38, 0, Math.PI * 2);
     ctx.fill();
 
-    // Traditional Clay Jebena
     ctx.fillStyle = '#3f1f14';
     ctx.beginPath();
     ctx.arc(0, -26, 20, 0, Math.PI * 2);
@@ -719,7 +836,6 @@ class SpriteRegistry {
 
     ctx.fillRect(-5, -60, 10, 34);
 
-    // Spout
     ctx.lineWidth = 4;
     ctx.strokeStyle = '#3f1f14';
     ctx.beginPath();
@@ -727,13 +843,11 @@ class SpriteRegistry {
     ctx.quadraticCurveTo(24, -36, 22, -44);
     ctx.stroke();
 
-    // Handle
     ctx.beginPath();
     ctx.moveTo(-12, -26);
     ctx.quadraticCurveTo(-26, -42, -5, -54);
     ctx.stroke();
 
-    // Steam fumes
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
@@ -755,7 +869,6 @@ class SpriteRegistry {
     const ctx = cvs.getContext('2d')!;
 
     ctx.translate(w / 2, h / 2);
-
     ctx.fillStyle = '#dc2626';
     ctx.beginPath();
     ctx.roundRect(-16, -18, 32, 36, 4);
@@ -791,12 +904,9 @@ class SpriteRegistry {
     const ctx = cvs.getContext('2d')!;
 
     ctx.translate(w / 2, h - 15);
-
-    // Pole
     ctx.fillStyle = '#64748b';
     ctx.fillRect(-4, -140, 8, 140);
 
-    // Sign plate
     ctx.fillStyle = '#0284c7';
     ctx.beginPath();
     ctx.roundRect(-42, -165, 84, 45, 6);
@@ -825,15 +935,12 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h - 20);
 
-    // Pillars
     ctx.fillStyle = '#334155';
     ctx.fillRect(-220, -260, 28, 260);
     ctx.fillRect(192, -260, 28, 260);
 
-    // Arch Beam
     ctx.fillRect(-240, -290, 480, 50);
 
-    // Ethiopian Flag Banner
     ctx.fillStyle = '#15803d';
     ctx.fillRect(-230, -282, 460, 11);
     ctx.fillStyle = '#facc15';
@@ -841,7 +948,6 @@ class SpriteRegistry {
     ctx.fillStyle = '#dc2626';
     ctx.fillRect(-230, -260, 460, 11);
 
-    // Welcome Sign
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 22px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
@@ -867,13 +973,11 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h - 20);
 
-    // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath();
     ctx.ellipse(0, 8, 80, 16, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Trunk
     ctx.strokeStyle = '#451a03';
     ctx.lineWidth = 14;
     ctx.lineCap = 'round';
@@ -884,7 +988,6 @@ class SpriteRegistry {
     ctx.quadraticCurveTo(20, -80, 45, -115);
     ctx.stroke();
 
-    // Umbrella layered crowns
     ctx.fillStyle = '#166534';
     ctx.beginPath();
     ctx.ellipse(-38, -125, 65, 20, -0.05, 0, Math.PI * 2);
@@ -913,13 +1016,11 @@ class SpriteRegistry {
 
     ctx.translate(w / 2, h - 20);
 
-    // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath();
     ctx.ellipse(0, 6, 35, 10, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Trunk
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 12;
     ctx.lineCap = 'round';
@@ -928,7 +1029,6 @@ class SpriteRegistry {
     ctx.quadraticCurveTo(5, -130, 0, -260);
     ctx.stroke();
 
-    // Foliage puffs
     ctx.fillStyle = '#065f46';
     for (let y = -260; y < -90; y += 38) {
       ctx.beginPath();
@@ -950,7 +1050,6 @@ class SpriteRegistry {
     const ctx = cvs.getContext('2d')!;
 
     ctx.translate(w / 2, h - 15);
-
     ctx.strokeStyle = '#475569';
     ctx.lineWidth = 6;
     ctx.beginPath();
@@ -959,7 +1058,6 @@ class SpriteRegistry {
     ctx.quadraticCurveTo(0, -235, -28, -235);
     ctx.stroke();
 
-    // Lamp bulb & glow
     ctx.fillStyle = '#fef08a';
     ctx.beginPath();
     ctx.arc(-28, -233, 7, 0, Math.PI * 2);
@@ -977,7 +1075,6 @@ class SpriteRegistry {
     const ctx = cvs.getContext('2d')!;
 
     ctx.translate(w / 2, h - 20);
-
     ctx.fillStyle = '#334155';
     ctx.fillRect(-60, -120, 10, 120);
     ctx.fillRect(50, -120, 10, 120);

@@ -1,4 +1,29 @@
-export type GameState = 'TITLE' | 'PLAYING' | 'PAUSED' | 'GAMEOVER' | 'STAGE_CLEAR';
+export type GameState = 'TITLE' | 'PLAYING' | 'PAUSED' | 'GAMEOVER' | 'STAGE_CLEAR' | 'GARAGE';
+
+export type VehicleId = 'MINIBUS' | 'LADA' | 'BAJAJ' | 'ISUZU';
+
+export interface VehicleDef {
+  id: VehicleId;
+  name: string;
+  nameAmharic: string;
+  tagline: string;
+  unlockPrice: number;
+  baseMaxSpeed: number;
+  baseAccel: number;
+  baseTurnSpeed: number;
+  baseMaxFuel: number;
+  basePassengerCap: number;
+  farePerPassenger: number;
+  hitboxWidth: number;
+  isPlow?: boolean;
+  unlocked: boolean;
+  upgrades: {
+    engine: number; // 0..3
+    steering: number; // 0..3
+    fuel: number; // 0..3
+    turbo: number; // 0..3
+  };
+}
 
 export interface Point3D {
   x: number;
@@ -75,6 +100,7 @@ export interface Particle {
 }
 
 export interface Player {
+  vehicleId: VehicleId;
   x: number; // -1 to 1 across the road
   z: number;
   speed: number;
@@ -108,8 +134,9 @@ export interface RouteStage {
   skyTheme: 'day' | 'sunset' | 'night';
 }
 
-export interface GameStats {
+export interface GameSaveData {
   highScore: number;
-  totalPassengers: number;
-  stagesCompleted: number;
+  walletBalance: number;
+  selectedVehicle: VehicleId;
+  vehicles: { [key in VehicleId]?: { unlocked: boolean; upgrades: { engine: number; steering: number; fuel: number; turbo: number } } };
 }
