@@ -279,6 +279,31 @@ export class RoadManager {
       }
     }
 
+    // Federal Traffic Police Checkpoint ("ትራፊክ ፖሊስ ኬላ")
+    const policeSegIdx = Math.floor(total * 0.52);
+    if (this.segments[policeSegIdx - 18]) {
+      this.segments[policeSegIdx - 18].sprites.push({
+        type: 'SCENERY_RADAR_SIGN',
+        offset: 1.28
+      });
+    }
+    for (let c = 0; c < 5; c++) {
+      const coneSeg = this.segments[policeSegIdx - 10 + c * 2];
+      if (coneSeg) {
+        coneSeg.sprites.push({
+          type: 'SCENERY_POLICE_CONE',
+          offset: 0.96 - c * 0.08
+        });
+      }
+    }
+    if (this.segments[policeSegIdx]) {
+      this.segments[policeSegIdx].sprites.push({
+        type: 'TRAFFIC_POLICE',
+        offset: 1.25,
+        speed: 0
+      });
+    }
+
     // Traffic Vehicles
     const trafficCount = stage.id === 1 ? 40 : stage.id === 2 ? 65 : 55;
     for (let t = 0; t < trafficCount; t++) {

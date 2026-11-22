@@ -473,6 +473,33 @@ class SoundManager {
     osc.stop(time + 0.05);
   }
 
+  public playPoliceSiren() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+
+      // 2 cycles of classic police wail
+      for (let i = 0; i < 4; i++) {
+        osc.frequency.setValueAtTime(650, t + i * 0.3);
+        osc.frequency.linearRampToValueAtTime(980, t + i * 0.3 + 0.15);
+        osc.frequency.linearRampToValueAtTime(650, t + i * 0.3 + 0.3);
+      }
+
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.25);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 1.3);
+    } catch {
+      // Audio fallback
+    }
+  }
+
   public playBunnaBoost() {
     if (!this.ctx || this.isMuted) return;
     this.init();

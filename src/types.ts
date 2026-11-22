@@ -73,6 +73,7 @@ export type SpriteType =
   | 'TRAFFIC_LADA'
   | 'TRAFFIC_BAJAJ'
   | 'TRAFFIC_ISUZU'
+  | 'TRAFFIC_POLICE'
   | 'OBSTACLE_POTHOLE'
   | 'OBSTACLE_GOAT'
   | 'OBSTACLE_COW'
@@ -85,6 +86,8 @@ export type SpriteType =
   | 'SCENERY_LAMP'
   | 'SCENERY_BILLBOARD'
   | 'SCENERY_TAXI_SIGN'
+  | 'SCENERY_POLICE_CONE'
+  | 'SCENERY_RADAR_SIGN'
   | 'CHECKPOINT_GATE';
 
 export interface Particle {

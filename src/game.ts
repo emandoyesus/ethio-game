@@ -666,6 +666,25 @@ export class GameEngine {
               ui.addFloatingText('⛽ FUEL REFILLED!', this.width / 2, this.height / 2 - 30, '#10b981');
             }
           }
+
+          // Federal Traffic Police Checkpoint Radar Check
+          else if (sprite.type === 'TRAFFIC_POLICE') {
+            if (!sprite.collected) {
+              sprite.collected = true;
+              const kmh = (this.player.speed / this.player.maxSpeed) * 165;
+              if (kmh > 58) {
+                sound.playPoliceSiren();
+                this.screenShake = 3.5;
+                const fine = Math.min(50, this.player.fareCollected);
+                this.player.fareCollected = Math.max(0, this.player.fareCollected - 50);
+                ui.addFloatingText(`🚨 የፍጥነት ቅጣት! (-${fine} ETB SPEEDING FINE!)`, this.width / 2, this.height / 2 - 30, '#ef4444');
+              } else {
+                this.player.fareCollected += 30;
+                sound.playCoin();
+                ui.addFloatingText('👮‍♂️ ፖሊስ ኬላ አለፉ! (+30 ETB SAFE DRIVING!)', this.width / 2, this.height / 2 - 30, '#22c55e');
+              }
+            }
+          }
         }
       }
     }

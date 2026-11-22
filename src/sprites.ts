@@ -636,6 +636,92 @@ class SpriteRegistry {
     this.cache.set('TRAFFIC_LADA', this.drawLada());
     this.cache.set('TRAFFIC_BAJAJ', this.drawBajaj());
     this.cache.set('TRAFFIC_ISUZU', this.drawIsuzu());
+    this.cache.set('TRAFFIC_POLICE', this.drawPoliceCar());
+  }
+
+  private drawPoliceCar(): RenderableSprite {
+    const w = 230;
+    const h = 180;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    ctx.save();
+    ctx.translate(w / 2, h - 25);
+
+    // Drop Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(0, 12, 80, 17, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wheels
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(-72, -4, 24, 24);
+    ctx.fillRect(48, -4, 24, 24);
+
+    // Dark Navy Blue Federal Police Body
+    const bodyGrad = ctx.createLinearGradient(-70, -66, 70, -10);
+    bodyGrad.addColorStop(0, '#0f172a');
+    bodyGrad.addColorStop(0.5, '#1e293b');
+    bodyGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.roundRect(-70, -66, 140, 58, 6);
+    ctx.fill();
+
+    // White Police Doors & Tailgate
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(-52, -60, 104, 46);
+
+    // Ethiopian Federal Police Crest (Yellow Star & Blue Eagle Emblem)
+    ctx.fillStyle = '#facc15';
+    ctx.beginPath();
+    ctx.arc(0, -38, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.arc(0, -38, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 8px "Noto Sans Ethiopic", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ፖሊስ', 0, -22);
+
+    // Cab / Windows
+    ctx.fillStyle = '#020617';
+    ctx.beginPath();
+    ctx.roundRect(-56, -112, 112, 50, [12, 12, 0, 0]);
+    ctx.fill();
+
+    // Police Flashing Lightbar on Roof (Red & Blue Strobe)
+    const flasherGrad = ctx.createLinearGradient(-32, -128, 32, -128);
+    flasherGrad.addColorStop(0, '#ef4444');
+    flasherGrad.addColorStop(0.48, '#ef4444');
+    flasherGrad.addColorStop(0.52, '#38bdf8');
+    flasherGrad.addColorStop(1, '#0284c7');
+    ctx.fillStyle = flasherGrad;
+    ctx.beginPath();
+    ctx.roundRect(-30, -126, 60, 14, 4);
+    ctx.fill();
+
+    // Lightbar Glow
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-8, -124, 16, 10);
+    ctx.shadowBlur = 0;
+
+    // Rear Taillights
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(-68, -54, 12, 24);
+    ctx.fillRect(56, -54, 12, 24);
+
+    ctx.restore();
+
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.85 };
   }
 
   private drawLada(): RenderableSprite {
@@ -1200,6 +1286,96 @@ class SpriteRegistry {
     this.cache.set('SCENERY_EUCALYPTUS', this.drawEucalyptusTree());
     this.cache.set('SCENERY_LAMP', this.drawStreetLamp());
     this.cache.set('SCENERY_BILLBOARD', this.drawBillboard());
+    this.cache.set('SCENERY_POLICE_CONE', this.drawPoliceCone());
+    this.cache.set('SCENERY_RADAR_SIGN', this.drawRadarSign());
+  }
+
+  private drawPoliceCone(): RenderableSprite {
+    const w = 60;
+    const h = 70;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    ctx.translate(w / 2, h - 8);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 18, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Black rubber base
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(-16, -4, 32, 6);
+
+    // Bright safety orange cone body
+    ctx.fillStyle = '#ea580c';
+    ctx.beginPath();
+    ctx.moveTo(-12, -4);
+    ctx.lineTo(-3, -52);
+    ctx.lineTo(3, -52);
+    ctx.lineTo(12, -4);
+    ctx.closePath();
+    ctx.fill();
+
+    // White reflective bands
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.moveTo(-9, -16);
+    ctx.lineTo(-7, -26);
+    ctx.lineTo(7, -26);
+    ctx.lineTo(9, -16);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(-6, -34);
+    ctx.lineTo(-4, -44);
+    ctx.lineTo(4, -44);
+    ctx.lineTo(6, -34);
+    ctx.closePath();
+    ctx.fill();
+
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.9 };
+  }
+
+  private drawRadarSign(): RenderableSprite {
+    const w = 90;
+    const h = 130;
+    const cvs = document.createElement('canvas');
+    cvs.width = w;
+    cvs.height = h;
+    const ctx = cvs.getContext('2d')!;
+
+    ctx.translate(w / 2, h - 10);
+
+    // Metal pole
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(-3, -110, 6, 110);
+
+    // Speed limit circle
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, -90, 26, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '900 18px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('50', 0, -89);
+
+    // Amharic badge: ኪ.ሜ/ሰ
+    ctx.font = 'bold 7.5px "Noto Sans Ethiopic", sans-serif';
+    ctx.fillText('ኪ.ሜ/ሰ', 0, -74);
+
+    return { canvas: cvs, width: w, height: h, anchorX: 0.5, anchorY: 0.95 };
   }
 
   private drawAcaciaTree(): RenderableSprite {
