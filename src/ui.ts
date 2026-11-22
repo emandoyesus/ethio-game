@@ -21,32 +21,94 @@ export interface GarageButtonHitbox {
   action: () => void;
 }
 
+export interface ToastNotification {
+  id: number;
+  text: string;
+  icon: string;
+  color: string;
+  alpha: number;
+  timer: number;
+  maxTimer: number;
+}
+
+export interface GarageButtonHitbox {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  action: () => void;
+}
+
 export class UIManager {
   private floatingTexts: FloatingText[] = [];
+  private toasts: ToastNotification[] = [];
+  private toastCounter: number = 0;
   public garageHitboxes: GarageButtonHitbox[] = [];
 
-  public addFloatingText(text: string, x: number, y: number, color: string = '#facc15') {
-    this.floatingTexts.push({
+  public showToast(text: string, icon: string = '📢', color: string = '#facc15') {
+    this.toasts.unshift({
+      id: ++this.toastCounter,
       text,
-      x,
-      y,
-      alpha: 1.0,
+      icon,
       color,
-      scale: 1.25,
-      vy: -1.6
+      alpha: 1.0,
+      timer: 2.4,
+      maxTimer: 2.4
     });
+    if (this.toasts.length > 3) {
+      this.toasts.pop();
+    }
+  }
+
+  public addFloatingText(text: string, x: number, y: number, color: string = '#facc15') {
+    // If it's a major event notification, push to structured non-overlapping toast stack
+    const iconMatch = text.match(/^([^\s]+)\s*(.*)$/);
+    const hasEmoji = iconMatch && /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/u.test(iconMatch[1]);
+    
+    if (hasEmoji && iconMatch) {
+      this.showToast(iconMatch[2] || iconMatch[1], iconMatch[1], color);
+    } else {
+      this.showToast(text, '✨', color);
+    }
+
+    // Also keep subtle floating pickup effect for small coin / bonus values
+    if (text.includes('ETB') || text.includes('+')) {
+      this.floatingTexts.push({
+        text,
+        x,
+        y: y - 20,
+        alpha: 1.0,
+        color,
+        scale: 1.1,
+        vy: -1.8
+      });
+    }
   }
 
   public update(dt: number) {
+    // Update floating pickup numbers
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ft = this.floatingTexts[i];
       ft.y += ft.vy * dt * 60;
-      ft.alpha -= 0.016 * dt * 60;
+      ft.alpha -= 0.02 * dt * 60;
       if (ft.scale > 1.0) {
-        ft.scale -= 0.03 * dt * 60;
+        ft.scale -= 0.02 * dt * 60;
       }
       if (ft.alpha <= 0) {
         this.floatingTexts.splice(i, 1);
+      }
+    }
+
+    // Update structured toasts
+    for (let i = this.toasts.length - 1; i >= 0; i--) {
+      const t = this.toasts[i];
+      t.timer -= dt;
+      if (t.timer < 0.6) {
+        t.alpha = Math.max(0, t.timer / 0.6);
+      }
+      if (t.timer <= 0) {
+        this.toasts.splice(i, 1);
       }
     }
   }
@@ -65,47 +127,54 @@ export class UIManager {
   ) {
     ctx.save();
 
-    // 1. Sleek Top Status Bar (Transparent dark gradient with no overlap)
-    const headerH = 54;
-    const headerGrad = ctx.createLinearGradient(0, 0, 0, headerH + 20);
-    headerGrad.addColorStop(0, 'rgba(10, 15, 26, 0.95)');
-    headerGrad.addColorStop(0.7, 'rgba(10, 15, 26, 0.7)');
-    headerGrad.addColorStop(1, 'rgba(10, 15, 26, 0)');
+    // 1. Sleek Top Status Bar
+    const headerH = 50;
+    const headerGrad = ctx.createLinearGradient(0, 0, 0, headerH + 16);
+    headerGrad.addColorStop(0, 'rgba(8, 12, 22, 0.95)');
+    headerGrad.addColorStop(0.75, 'rgba(8, 12, 22, 0.7)');
+    headerGrad.addColorStop(1, 'rgba(8, 12, 22, 0)');
     ctx.fillStyle = headerGrad;
-    ctx.fillRect(0, 0, width, headerH + 20);
+    ctx.fillRect(0, 0, width, headerH + 16);
 
     // Subtle Ethiopian flag hairline ribbon across top
     const ribW = width / 3;
     ctx.fillStyle = '#16a34a';
-    ctx.fillRect(0, 0, ribW, 3);
+    ctx.fillRect(0, 0, ribW, 2);
     ctx.fillStyle = '#facc15';
-    ctx.fillRect(ribW, 0, ribW, 3);
+    ctx.fillRect(ribW, 0, ribW, 2);
     ctx.fillStyle = '#dc2626';
-    ctx.fillRect(ribW * 2, 0, ribW, 3);
+    ctx.fillRect(ribW * 2, 0, ribW, 2);
 
-    // Left: Route Title Badge
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    // Left: Route Title & Economy Badge
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
     ctx.beginPath();
-    ctx.roundRect(16, 10, 260, 36, 6);
+    ctx.roundRect(14, 8, 270, 38, 6);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
     ctx.fillStyle = '#facc15';
     ctx.font = 'bold 13px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`${stage.nameAmharic}`, 26, 26);
+    ctx.fillText(`${stage.nameAmharic}`, 24, 24);
+
     ctx.fillStyle = '#94a3b8';
     ctx.font = '10px "Chakra Petch", sans-serif';
-    ctx.fillText(`${stage.name}  |  💼 ${walletBalance} ETB  |  👑 ${highScore}`, 26, 39);
+    ctx.fillText(`${stage.name}  •  💼 ${walletBalance} ETB  •  👑 ${highScore}`, 24, 38);
 
-    // Center: Modern Slim Progress Bar
-    const progW = Math.min(260, width * 0.28);
+    // Center: Modern Route Progress Bar with Kilometers Remaining
+    const progW = Math.min(280, width * 0.3);
     const progX = (width - progW) / 2;
-    const progY = 22;
+    const progY = 16;
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.beginPath();
-    ctx.roundRect(progX, progY, progW, 8, 4);
+    ctx.roundRect(progX, progY, progW, 9, 5);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
     const fillProg = Math.max(0, Math.min(1, progressRatio));
     const progGrad = ctx.createLinearGradient(progX, 0, progX + progW, 0);
@@ -114,27 +183,36 @@ export class UIManager {
     progGrad.addColorStop(1, '#ef4444');
     ctx.fillStyle = progGrad;
     ctx.beginPath();
-    ctx.roundRect(progX, progY, progW * fillProg, 8, 4);
+    ctx.roundRect(progX, progY, progW * fillProg, 9, 5);
     ctx.fill();
 
-    // Destination Pin
+    // Progress Destination Pin
     const pinX = progX + progW * fillProg;
     ctx.fillStyle = '#38bdf8';
     ctx.beginPath();
-    ctx.arc(pinX, progY + 4, 6, 0, Math.PI * 2);
+    ctx.arc(pinX, progY + 4.5, 6, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Right: Essential Objectives (Shifted left of the arcade buttons so there is ZERO overlap!)
-    const statsX = width - 360;
+    // Distance in Kilometers
+    const totalKm = (stage.trackLength / 1000).toFixed(1);
+    const currentKm = Math.min(Number(totalKm), (fillProg * Number(totalKm))).toFixed(1);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 9px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`ROUTE DISTANCE: ${currentKm} / ${totalKm} KM`, width / 2, progY + 22);
+
+    // Right: Essential Objectives (Shift Time, Passengers, Fare)
+    // Cleanly spaced on the right with NO external buttons colliding!
+    const timeColor = timeLeft < 15 ? '#ef4444' : '#facc15';
+    const passTargetMet = player.passengersOnBoard >= stage.targetPassengers;
 
     // Time Left Badge
-    const timeColor = timeLeft < 15 ? '#ef4444' : '#facc15';
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
-    ctx.roundRect(statsX - 85, 10, 75, 36, 6);
+    ctx.roundRect(width - 275, 8, 72, 38, 6);
     ctx.fill();
     ctx.strokeStyle = timeColor;
     ctx.lineWidth = 1;
@@ -143,16 +221,15 @@ export class UIManager {
     ctx.fillStyle = timeColor;
     ctx.font = 'bold 15px "Chakra Petch", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`${Math.max(0, Math.ceil(timeLeft))}s`, statsX - 47, 28);
+    ctx.fillText(`${Math.max(0, Math.ceil(timeLeft))}s`, width - 239, 25);
     ctx.fillStyle = '#94a3b8';
     ctx.font = '8px "Chakra Petch", sans-serif';
-    ctx.fillText('TIME', statsX - 47, 39);
+    ctx.fillText('TIME LEFT', width - 239, 38);
 
     // Passengers Delivered Badge
-    const passTargetMet = player.passengersOnBoard >= stage.targetPassengers;
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
-    ctx.roundRect(statsX, 10, 85, 36, 6);
+    ctx.roundRect(width - 195, 8, 92, 38, 6);
     ctx.fill();
     ctx.strokeStyle = passTargetMet ? '#22c55e' : '#38bdf8';
     ctx.lineWidth = 1;
@@ -160,15 +237,15 @@ export class UIManager {
 
     ctx.fillStyle = passTargetMet ? '#22c55e' : '#38bdf8';
     ctx.font = 'bold 14px "Chakra Petch", monospace';
-    ctx.fillText(`👥 ${player.passengersOnBoard}/${stage.targetPassengers}`, statsX + 42, 27);
+    ctx.fillText(`👥 ${player.passengersOnBoard}/${stage.targetPassengers}`, width - 149, 25);
     ctx.fillStyle = '#94a3b8';
     ctx.font = '8px "Chakra Petch", sans-serif';
-    ctx.fillText(passTargetMet ? 'GOAL MET' : 'PASSENGERS', statsX + 42, 39);
+    ctx.fillText(passTargetMet ? 'GOAL MET' : 'PASSENGERS', width - 149, 38);
 
     // Fare Earned Badge
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
-    ctx.roundRect(statsX + 95, 10, 105, 36, 6);
+    ctx.roundRect(width - 95, 8, 82, 38, 6);
     ctx.fill();
     ctx.strokeStyle = '#eab308';
     ctx.lineWidth = 1;
@@ -176,196 +253,297 @@ export class UIManager {
 
     ctx.fillStyle = '#facc15';
     ctx.font = 'bold 14px "Chakra Petch", monospace';
-    ctx.fillText(`💵 ${player.fareCollected} ETB`, statsX + 147, 27);
+    ctx.fillText(`💵 ${player.fareCollected}`, width - 54, 25);
     ctx.fillStyle = '#94a3b8';
     ctx.font = '8px "Chakra Petch", sans-serif';
-    ctx.fillText('SHIFT FARE', statsX + 147, 39);
+    ctx.fillText('ETB FARE', width - 54, 38);
 
-    // 2. Active Speed Combo Floating Pill
+    // 2. Active Speed Combo Floating Pill (If combo > 1)
     if (player.comboCount > 1) {
       ctx.save();
       const comboX = width / 2;
-      const comboY = headerH + 34;
+      const comboY = 56;
 
-      ctx.fillStyle = 'rgba(234, 88, 12, 0.9)';
+      ctx.fillStyle = 'rgba(234, 88, 12, 0.92)';
       ctx.beginPath();
-      ctx.roundRect(comboX - 100, comboY - 16, 200, 30, 15);
+      ctx.roundRect(comboX - 110, comboY - 14, 220, 28, 14);
       ctx.fill();
       ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 13px "Chakra Petch", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`🔥 SPEED COMBO x${player.comboCount}!`, comboX, comboY + 4);
+      ctx.fillText(`🔥 SPEED COMBO x${player.comboCount}!`, comboX, comboY + 5);
       ctx.restore();
     }
 
-    // 3. REALISTIC VEHICULAR COCKPIT DASHBOARD (Center Bottom)
-    this.renderRealisticCockpit(ctx, width, height, player);
+    // 3. Structured Toast Alert Notifications (Stacked below progress bar, zero overlap!)
+    const toastStartY = player.comboCount > 1 ? 78 : 58;
+    this.toasts.forEach((toast, idx) => {
+      ctx.save();
+      const toastY = toastStartY + idx * 30;
+      ctx.globalAlpha = Math.max(0, toast.alpha);
 
-    // 4. Render Floating Texts
+      // Measure text width for perfect pill size
+      ctx.font = 'bold 12px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+      const textW = ctx.measureText(`${toast.icon} ${toast.text}`).width;
+      const pillW = Math.max(180, textW + 36);
+      const pillX = (width - pillW) / 2;
+
+      // Dark glass pill background
+      ctx.fillStyle = 'rgba(10, 15, 26, 0.9)';
+      ctx.beginPath();
+      ctx.roundRect(pillX, toastY, pillW, 26, 13);
+      ctx.fill();
+
+      ctx.strokeStyle = toast.color;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Toast icon & message
+      ctx.fillStyle = toast.color;
+      ctx.textAlign = 'center';
+      ctx.fillText(`${toast.icon} ${toast.text}`, width / 2, toastY + 17);
+      ctx.restore();
+    });
+
+    // 4. Subtle Floating Pickup Numbers (+20 ETB, etc.)
     this.floatingTexts.forEach(ft => {
       ctx.save();
       ctx.globalAlpha = Math.max(0, ft.alpha);
       ctx.fillStyle = ft.color;
-      ctx.font = `bold ${Math.round(20 * ft.scale)}px "Noto Sans Ethiopic", "Chakra Petch", sans-serif`;
+      ctx.font = `bold ${Math.round(18 * ft.scale)}px "Chakra Petch", sans-serif`;
       ctx.textAlign = 'center';
       ctx.shadowColor = '#000000';
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 6;
       ctx.fillText(ft.text, ft.x, ft.y);
       ctx.restore();
     });
 
+    // 5. TRUE AUTOMOTIVE DUAL CORNER CLUSTERS (Center is 100% CLEAR for the car!)
+    this.renderDualCornerCockpit(ctx, width, height, player);
+
     ctx.restore();
   }
 
-  // Realistic Cockpit Instrument Binnacle
-  private renderRealisticCockpit(ctx: CanvasRenderingContext2D, width: number, height: number, player: Player) {
+  // Realistic Automotive Dual-Cluster Cockpit HUD
+  private renderDualCornerCockpit(ctx: CanvasRenderingContext2D, width: number, height: number, player: Player) {
     ctx.save();
 
     const speedKmh = Math.floor((player.speed / player.maxSpeed) * 165);
     const rpmRatio = Math.min(1, Math.max(0.12, player.rpm / 7500));
+    const isBoosting = player.boostRemaining > 0;
 
-    // Dashboard Binnacle Dimensions
-    const binnacleW = Math.min(680, width * 0.78);
-    const binnacleH = 82;
-    const binnacleX = (width - binnacleW) / 2;
-    const binnacleY = height - binnacleH - 12;
+    // Dimensions for corner pods
+    const podW = 216;
+    const podH = 78;
+    const podY = height - podH - 12;
 
-    // Dark brushed carbon cockpit frame with glass reflection
-    const dashGrad = ctx.createLinearGradient(0, binnacleY, 0, binnacleY + binnacleH);
-    dashGrad.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
-    dashGrad.addColorStop(0.5, 'rgba(10, 15, 28, 0.96)');
-    dashGrad.addColorStop(1, 'rgba(4, 7, 14, 0.98)');
-    ctx.fillStyle = dashGrad;
+    // ----------------------------------------------------
+    // LEFT POD: Vehicle Diagnostics (Fuel, Bunna Boost, Chassis)
+    // ----------------------------------------------------
+    const leftPodX = 14;
+
+    // Dark brushed glass pod frame
+    const leftGrad = ctx.createLinearGradient(0, podY, 0, podY + podH);
+    leftGrad.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
+    leftGrad.addColorStop(1, 'rgba(4, 7, 14, 0.96)');
+    ctx.fillStyle = leftGrad;
     ctx.beginPath();
-    ctx.roundRect(binnacleX, binnacleY, binnacleW, binnacleH, 14);
+    ctx.roundRect(leftPodX, podY, podW, podH, 12);
     ctx.fill();
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Subtle glass specular shine on top rim
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(binnacleX + 16, binnacleY + 1);
-    ctx.lineTo(binnacleX + binnacleW - 16, binnacleY + 1);
     ctx.stroke();
 
-    // 1. LEFT DIAL: Speedometer Dial & Digital LCD
-    const spdX = binnacleX + 75;
-    const spdY = binnacleY + 44;
+    // Specular top rim shine
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(leftPodX + 12, podY + 1);
+    ctx.lineTo(leftPodX + podW - 12, podY + 1);
+    ctx.stroke();
 
-    // Outer Speedometer Arc
-    ctx.lineWidth = 5;
+    // Fuel Meter
+    const fuelRatio = Math.max(0, Math.min(1, player.fuel / player.maxFuel));
+    const isLowFuel = fuelRatio < 0.25;
+    const fuelBlink = isLowFuel && Math.floor(Date.now() / 300) % 2 === 0;
+
+    ctx.fillStyle = fuelBlink ? '#ef4444' : '#94a3b8';
+    ctx.font = 'bold 10px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('⛽ FUEL', leftPodX + 12, podY + 22);
+
+    ctx.fillStyle = isLowFuel ? '#ef4444' : '#38bdf8';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${Math.round(player.fuel)}%`, leftPodX + podW - 12, podY + 22);
+
+    // Fuel Segmented Bar
+    const barX = leftPodX + 12;
+    const barW = podW - 24;
+    const barY = podY + 26;
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barW, 7, 3.5);
+    ctx.fill();
+
+    const fuelColor = isLowFuel ? '#ef4444' : fuelRatio < 0.5 ? '#facc15' : '#10b981';
+    ctx.fillStyle = fuelColor;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barW * fuelRatio, 7, 3.5);
+    ctx.fill();
+
+    // Bunna Nitro Boost Meter
+    const boostRatio = Math.max(0, Math.min(1, player.boostRemaining / player.boostMax));
+    ctx.fillStyle = isBoosting ? '#f97316' : '#94a3b8';
+    ctx.font = 'bold 10px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(isBoosting ? '☕ NITRO ACTIVE!' : '☕ BUNNA NITRO', leftPodX + 12, podY + 54);
+
+    ctx.fillStyle = isBoosting ? '#ff3b00' : boostRatio > 0 ? '#facc15' : '#64748b';
+    ctx.textAlign = 'right';
+    ctx.fillText(isBoosting ? `${player.boostRemaining.toFixed(1)}s` : boostRatio > 0 ? 'READY' : 'EMPTY', leftPodX + podW - 12, podY + 54);
+
+    // Boost Bar
+    const boostBarY = podY + 58;
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.roundRect(barX, boostBarY, barW, 7, 3.5);
+    ctx.fill();
+
+    const boostGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+    boostGrad.addColorStop(0, '#f97316');
+    boostGrad.addColorStop(1, '#ff3b00');
+    ctx.fillStyle = boostGrad;
+    ctx.beginPath();
+    ctx.roundRect(barX, boostBarY, barW * (isBoosting ? boostRatio : player.boostRemaining > 0 ? 1 : 0), 7, 3.5);
+    ctx.fill();
+
+    // ----------------------------------------------------
+    // RIGHT POD: Performance Telemetry (Speed, RPM, Gears, Signals)
+    // ----------------------------------------------------
+    const rightPodX = width - podW - 14;
+
+    const rightGrad = ctx.createLinearGradient(0, podY, 0, podY + podH);
+    rightGrad.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
+    rightGrad.addColorStop(1, 'rgba(4, 7, 14, 0.96)');
+    ctx.fillStyle = rightGrad;
+    ctx.beginPath();
+    ctx.roundRect(rightPodX, podY, podW, podH, 12);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Specular shine
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(rightPodX + 12, podY + 1);
+    ctx.lineTo(rightPodX + podW - 12, podY + 1);
+    ctx.stroke();
+
+    // Left half of right pod: Bold Digital Speedometer
+    const spdBoxX = rightPodX + 46;
+    const spdBoxY = podY + 38;
+
+    // Arc sweep indicator around speed
+    const spdRatio = Math.min(1, player.speed / player.maxSpeed);
+    ctx.lineWidth = 4;
     ctx.strokeStyle = '#1e293b';
     ctx.beginPath();
-    ctx.arc(spdX, spdY, 32, Math.PI * 0.75, Math.PI * 2.25);
+    ctx.arc(spdBoxX, spdBoxY, 28, Math.PI * 0.8, Math.PI * 2.2);
     ctx.stroke();
 
-    // Active Speed Arc Fill
-    const speedRatio = Math.min(1, player.speed / player.maxSpeed);
-    const spdGrad = ctx.createLinearGradient(spdX - 32, spdY, spdX + 32, spdY);
-    spdGrad.addColorStop(0, '#38bdf8');
-    spdGrad.addColorStop(0.7, '#facc15');
-    spdGrad.addColorStop(1, '#ef4444');
-    ctx.strokeStyle = spdGrad;
+    const spdArcGrad = ctx.createLinearGradient(spdBoxX - 28, spdBoxY, spdBoxX + 28, spdBoxY);
+    spdArcGrad.addColorStop(0, '#38bdf8');
+    spdArcGrad.addColorStop(0.7, '#facc15');
+    spdArcGrad.addColorStop(1, '#ef4444');
+    ctx.strokeStyle = spdArcGrad;
     ctx.beginPath();
-    ctx.arc(spdX, spdY, 32, Math.PI * 0.75, Math.PI * (0.75 + speedRatio * 1.5));
+    ctx.arc(spdBoxX, spdBoxY, 28, Math.PI * 0.8, Math.PI * (0.8 + spdRatio * 1.4));
     ctx.stroke();
 
-    // Digital Speed Number
     ctx.fillStyle = '#ffffff';
     ctx.font = '900 24px "Chakra Petch", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`${speedKmh}`, spdX, spdY + 5);
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = '8px "Chakra Petch", sans-serif';
-    ctx.fillText('KM/H', spdX, spdY + 16);
+    ctx.fillText(`${speedKmh}`, spdBoxX, spdBoxY + 5);
 
-    // 2. CENTER SECTION: Gear Selector, Turn Signals, Fuel, and Boost
-    const midX = binnacleX + binnacleW / 2;
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 8px "Chakra Petch", sans-serif';
+    ctx.fillText('KM/H', spdBoxX, spdBoxY + 16);
+
+    // Right half of right pod: RPM, Gears, Signals
+    const telX = rightPodX + 100;
 
     // Turn Signals (blinking green arrows)
     const isLeftSig = player.turnSignal === 'left' && Math.floor(Date.now() / 350) % 2 === 0;
     const isRightSig = player.turnSignal === 'right' && Math.floor(Date.now() / 350) % 2 === 0;
 
     ctx.fillStyle = isLeftSig ? '#22c55e' : 'rgba(34, 197, 94, 0.15)';
-    ctx.font = 'bold 15px sans-serif';
+    ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('◀', midX - 90, binnacleY + 24);
+    ctx.fillText('◀', telX + 12, podY + 22);
 
     ctx.fillStyle = isRightSig ? '#22c55e' : 'rgba(34, 197, 94, 0.15)';
-    ctx.fillText('▶', midX + 90, binnacleY + 24);
+    ctx.fillText('▶', telX + 90, podY + 22);
 
-    // Automatic Gear Indicator
-    ctx.font = 'bold 11px "Chakra Petch", monospace';
-
-    [-45, -22, 0, 22, 45].forEach((offset, idx) => {
-      const gLabel = idx === 0 ? 'P' : idx === 1 ? 'R' : idx === 2 ? 'N' : idx === 3 ? 'D' : `${player.gear}`;
-      const isActive = (idx === 3 && player.speed >= 20) || (idx === 2 && player.speed < 20);
-
-      ctx.fillStyle = isActive ? '#22c55e' : 'rgba(148, 163, 184, 0.4)';
-      ctx.fillText(gLabel, midX + offset, binnacleY + 24);
+    // Gear indicator: 1 2 3 4 5
+    const gears = [1, 2, 3, 4, 5];
+    gears.forEach((g, idx) => {
+      const gx = telX + 28 + idx * 13;
+      const isCurrent = player.gear === g;
+      ctx.fillStyle = isCurrent ? '#facc15' : 'rgba(148, 163, 184, 0.35)';
+      ctx.font = isCurrent ? 'bold 12px "Chakra Petch", monospace' : '10px "Chakra Petch", monospace';
+      ctx.fillText(`${g}`, gx, podY + 22);
     });
 
-    // Dual Slim Gauges: Fuel (Left) & Bunna Turbo (Right)
-    const gaugeW = 120;
-    const gaugeY = binnacleY + 48;
-
-    // Fuel Gauge
-    const fuelRatio = Math.max(0, Math.min(1, player.fuel / player.maxFuel));
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '9px "Chakra Petch", sans-serif';
+    // RPM Bar & Value
+    const isRedline = rpmRatio > 0.85;
+    ctx.fillStyle = isRedline ? '#ef4444' : '#94a3b8';
+    ctx.font = 'bold 9px "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`⛽ FUEL`, midX - gaugeW - 10, gaugeY - 4);
+    ctx.fillText(`RPM: ${Math.round(player.rpm)}`, telX + 10, podY + 48);
 
+    if (isRedline) {
+      ctx.fillStyle = '#ef4444';
+      ctx.textAlign = 'right';
+      ctx.fillText('SHIFT!', telX + 94, podY + 48);
+    }
+
+    const rpmBarW = 86;
+    const rpmBarY = podY + 54;
     ctx.fillStyle = '#1e293b';
-    ctx.fillRect(midX - gaugeW - 10, gaugeY, gaugeW, 8);
-    ctx.fillStyle = fuelRatio < 0.25 ? '#ef4444' : '#10b981';
-    ctx.fillRect(midX - gaugeW - 10, gaugeY, gaugeW * fuelRatio, 8);
-
-    // Bunna Boost Gauge
-    const boostRatio = Math.max(0, Math.min(1, player.boostRemaining / player.boostMax));
-    ctx.fillStyle = '#f97316';
-    ctx.font = '9px "Chakra Petch", sans-serif';
-    ctx.fillText(`☕ BUNNA TURBO`, midX + 10, gaugeY - 4);
-
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(midX + 10, gaugeY, gaugeW, 8);
-    ctx.fillStyle = player.boostRemaining > 0 ? '#ff5500' : '#f97316';
-    ctx.fillRect(midX + 10, gaugeY, gaugeW * boostRatio, 8);
-
-    // 3. RIGHT DIAL: Tachometer (RPM Dial)
-    const rpmX = binnacleX + binnacleW - 75;
-    const rpmY = binnacleY + 44;
-
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = '#1e293b';
     ctx.beginPath();
-    ctx.arc(rpmX, rpmY, 32, Math.PI * 0.75, Math.PI * 2.25);
-    ctx.stroke();
+    ctx.roundRect(telX + 10, rpmBarY, rpmBarW, 6, 3);
+    ctx.fill();
 
-    // Active RPM Arc
-    const rpmGrad = ctx.createLinearGradient(rpmX - 32, rpmY, rpmX + 32, rpmY);
+    const rpmGrad = ctx.createLinearGradient(telX + 10, 0, telX + 10 + rpmBarW, 0);
     rpmGrad.addColorStop(0, '#38bdf8');
     rpmGrad.addColorStop(0.7, '#facc15');
-    rpmGrad.addColorStop(1, '#ef4444');
-    ctx.strokeStyle = rpmGrad;
+    rpmGrad.addColorStop(0.88, '#ef4444');
+    ctx.fillStyle = rpmGrad;
     ctx.beginPath();
-    ctx.arc(rpmX, rpmY, 32, Math.PI * 0.75, Math.PI * (0.75 + rpmRatio * 1.5));
-    ctx.stroke();
+    ctx.roundRect(telX + 10, rpmBarY, rpmBarW * rpmRatio, 6, 3);
+    ctx.fill();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '900 18px "Chakra Petch", monospace';
+    // ----------------------------------------------------
+    // CENTER BOTTOM: Subtle Driving Controls Legend
+    // Leaves the center 100% open so the player car is completely visible!
+    // ----------------------------------------------------
+    const legendW = 280;
+    const legendX = (width - legendW) / 2;
+    const legendY = height - 16;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+    ctx.beginPath();
+    ctx.roundRect(legendX, legendY - 10, legendW, 16, 8);
+    ctx.fill();
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '8.5px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`${Math.round(player.rpm)}`, rpmX, rpmY + 5);
-    ctx.fillStyle = rpmRatio > 0.85 ? '#ef4444' : '#94a3b8';
-    ctx.font = '8px "Chakra Petch", sans-serif';
-    ctx.fillText('RPM', rpmX, rpmY + 16);
+    ctx.fillText('W/↑ GAS  •  S/↓ BRAKE  •  A/D STEER  •  SPACE HORN 📢', width / 2, legendY + 2);
 
     ctx.restore();
   }

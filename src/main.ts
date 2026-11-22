@@ -6,54 +6,63 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 
 app.innerHTML = `
   <div class="game-wrapper" id="gameWrapper">
-    <canvas id="gameCanvas"></canvas>
-    <div class="scanlines" id="scanlines"></div>
-
-    <!-- Quick Arcade Control Bar -->
-    <div class="arcade-quick-bar">
-      <button id="btnGarage" class="arcade-btn" title="Vehicle Garage & Upgrades (G)">
-        🚗 <span>GARAGE</span>
-      </button>
-      <button id="btnAudio" class="arcade-btn" title="Toggle Sound (M)">
-        🔊 <span>AUDIO</span>
-      </button>
-      <button id="btnPause" class="arcade-btn" title="Pause Game (P)">
-        ⏸️ <span>PAUSE</span>
-      </button>
-      <button id="btnCrt" class="arcade-btn" title="Toggle CRT Scanlines">
-        📺 <span>CRT</span>
-      </button>
-      <button id="btnFullscreen" class="arcade-btn" title="Fullscreen">
-        ⛶ <span>FULL</span>
-      </button>
-    </div>
-
-    <!-- On-screen touch buttons for mobile / tablet devices -->
-    <div class="touch-controls">
-      <div class="touch-cluster">
-        <button id="btnLeft" class="touch-btn" aria-label="Steer Left">
-          ◀
-          <span>LEFT</span>
+    <!-- Dedicated Arcade Bezel Header (Cleanly separated from canvas) -->
+    <header class="arcade-header">
+      <div class="header-brand">
+        <span class="flag-icon">🇪🇹</span>
+        <span class="brand-title">አዲስ ታክሲ ራሽ</span>
+        <span class="brand-sub">ADDIS TAXI RUSH</span>
+      </div>
+      <div class="header-actions">
+        <button id="btnGarage" class="arcade-btn" title="Vehicle Garage & Upgrades (G)">
+          🚗 <span>GARAGE</span>
         </button>
-        <button id="btnRight" class="touch-btn" aria-label="Steer Right">
-          ▶
-          <span>RIGHT</span>
+        <button id="btnAudio" class="arcade-btn" title="Toggle Sound (M)">
+          🔊 <span>AUDIO</span>
+        </button>
+        <button id="btnPause" class="arcade-btn" title="Pause Game (P)">
+          ⏸️ <span>PAUSE</span>
+        </button>
+        <button id="btnCrt" class="arcade-btn" title="Toggle CRT Scanlines">
+          📺 <span>CRT</span>
+        </button>
+        <button id="btnFullscreen" class="arcade-btn" title="Fullscreen">
+          ⛶ <span>FULL</span>
         </button>
       </div>
+    </header>
 
-      <div class="touch-cluster">
-        <button id="btnHorn" class="touch-btn horn" aria-label="Horn">
-          📢
-          <span>HORN</span>
-        </button>
-        <button id="btnBrake" class="touch-btn brake" aria-label="Brake">
-          🛑
-          <span>BRAKE</span>
-        </button>
-        <button id="btnGas" class="touch-btn gas" aria-label="Gas">
-          ⚡
-          <span>GAS</span>
-        </button>
+    <div class="canvas-viewport" id="canvasViewport">
+      <canvas id="gameCanvas"></canvas>
+      <div class="scanlines" id="scanlines"></div>
+
+      <!-- On-screen touch buttons for mobile / tablet devices -->
+      <div class="touch-controls">
+        <div class="touch-cluster">
+          <button id="btnLeft" class="touch-btn" aria-label="Steer Left">
+            ◀
+            <span>LEFT</span>
+          </button>
+          <button id="btnRight" class="touch-btn" aria-label="Steer Right">
+            ▶
+            <span>RIGHT</span>
+          </button>
+        </div>
+
+        <div class="touch-cluster">
+          <button id="btnHorn" class="touch-btn horn" aria-label="Horn">
+            📢
+            <span>HORN</span>
+          </button>
+          <button id="btnBrake" class="touch-btn brake" aria-label="Brake">
+            🛑
+            <span>BRAKE</span>
+          </button>
+          <button id="btnGas" class="touch-btn gas" aria-label="Gas">
+            ⚡
+            <span>GAS</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
