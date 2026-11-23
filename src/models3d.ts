@@ -18,6 +18,8 @@ export const materials = {
 
   headlightOn: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff59d, emissiveIntensity: 2.5 }),
   taillight: new THREE.MeshStandardMaterial({ color: 0xdc2626, emissive: 0xef4444, emissiveIntensity: 1.8 }),
+  taillightBraking: new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff2222, emissiveIntensity: 6.0 }),
+  reverseLight: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 4.5 }),
   blinker: new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xfbbf24, emissiveIntensity: 2.0 }),
 
   gold: new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2, emissive: 0xca8a04, emissiveIntensity: 0.3 }),
@@ -253,7 +255,17 @@ export function createLada3D(): Vehicle3DModel {
     wheels.push(wheel);
   });
 
-  return { group, wheels, headlights: [spotL, spotR] };
+  // Taillights
+  const tlGeo = new THREE.BoxGeometry(0.24, 0.22, 0.08);
+  const leftTL = new THREE.Mesh(tlGeo, materials.taillight);
+  leftTL.position.set(-0.7, 0.68, -2.12);
+  group.add(leftTL);
+
+  const rightTL = new THREE.Mesh(tlGeo, materials.taillight);
+  rightTL.position.set(0.7, 0.68, -2.12);
+  group.add(rightTL);
+
+  return { group, wheels, headlights: [spotL, spotR], taillights: [leftTL, rightTL] };
 }
 
 // 3. Addis Bajaj (Auto-rickshaw 3-wheeler)
@@ -341,7 +353,17 @@ export function createIsuzu3D(): Vehicle3DModel {
   group.add(spotR);
   group.add(spotR.target);
 
-  return { group, wheels, headlights: [spotL, spotR] };
+  // Taillights
+  const tlGeo = new THREE.BoxGeometry(0.24, 0.22, 0.08);
+  const leftTL = new THREE.Mesh(tlGeo, materials.taillight);
+  leftTL.position.set(-0.7, 0.68, -2.12);
+  group.add(leftTL);
+
+  const rightTL = new THREE.Mesh(tlGeo, materials.taillight);
+  rightTL.position.set(0.7, 0.68, -2.12);
+  group.add(rightTL);
+
+  return { group, wheels, headlights: [spotL, spotR], taillights: [leftTL, rightTL] };
 }
 
 // 5. Federal Police Cruiser

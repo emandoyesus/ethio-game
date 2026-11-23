@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { sound } from './audio';
 import { DrDrivingControls } from './controls';
 import { garage } from './garage';
-import { createVehicleMeshById, type Vehicle3DModel } from './models3d';
+import { createVehicleMeshById, materials, type Vehicle3DModel } from './models3d';
 import { Renderer3D, type CameraMode } from './renderer3d';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
@@ -685,6 +685,15 @@ export class GameEngine {
     if (this.playerModel.wheels.length >= 2) {
       this.playerModel.wheels[0].rotation.y = this.player.steerAngle * 0.45;
       this.playerModel.wheels[1].rotation.y = this.player.steerAngle * 0.45;
+    }
+
+    if (this.playerModel.taillights) {
+      const isReverse = this.player.gearMode === 'R';
+      const isBraking = this.player.brakePedal > 0.08;
+      const targetMat = isReverse ? materials.reverseLight : isBraking ? materials.taillightBraking : materials.taillight;
+      for (const tl of this.playerModel.taillights) {
+        tl.material = targetMat;
+      }
     }
 
     this.renderer3d.update(player3DPos, tangent, normal, speedRatio, this.player.steerAngle, this.player.bounce, dt);
