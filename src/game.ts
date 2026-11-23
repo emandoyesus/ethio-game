@@ -3,6 +3,7 @@ import { garage } from './garage';
 import { Renderer3D, type CameraMode } from './renderer3d';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
+import { Track3D } from './track3d';
 import type { GameState, Particle, Player, ProjectedPoint, RainDrop, RoadSegment, RouteStage, SkidMark, SpriteInstance, VehicleId } from './types';
 import { ui } from './ui';
 
@@ -13,6 +14,7 @@ export class GameEngine {
   private ctx: CanvasRenderingContext2D;
   private road: RoadManager;
   public renderer3d: Renderer3D;
+  public track3d: Track3D;
 
   public state: GameState = 'TITLE';
   public currentStageIndex: number = 0;
@@ -56,6 +58,7 @@ export class GameEngine {
     this.road = new RoadManager();
 
     this.renderer3d = new Renderer3D(this.canvas3d);
+    this.track3d = new Track3D(this.renderer3d.scene);
     this.stage = STAGES[this.currentStageIndex];
 
     this.player = this.createInitialPlayer();
@@ -66,6 +69,7 @@ export class GameEngine {
     sprites.init();
     this.road.buildTrack(this.stage);
     this.renderer3d.setupStageEnvironment(this.stage);
+    this.track3d.build(this.road, this.stage);
   }
 
   private createInitialPlayer(): Player {
@@ -311,6 +315,8 @@ export class GameEngine {
     this.player = this.createInitialPlayer();
     garage.applyToPlayer(this.player);
     this.road.buildTrack(this.stage);
+    this.renderer3d.setupStageEnvironment(this.stage);
+    this.track3d.build(this.road, this.stage);
     this.timeLeft = this.stage.timeLimit;
     this.particles = [];
     this.skidmarks = [];
@@ -334,6 +340,8 @@ export class GameEngine {
       this.particles = [];
       this.skidmarks = [];
       this.road.buildTrack(this.stage);
+      this.renderer3d.setupStageEnvironment(this.stage);
+      this.track3d.build(this.road, this.stage);
       this.state = 'PLAYING';
     } else {
       this.restartGame();
@@ -532,6 +540,11 @@ export class GameEngine {
 
     // Update traffic
     this.road.updateTraffic(dt);
+
+    // Update 3D Camera and terrain position
+    const { pos, normal } = this.track3d.getPointAtZ(this.player.z);
+    const player3DPos = pos.clone().addScaledVector(normal, this.player.x * 9.0);
+    this.renderer3d.update(player3DPos, speedRatio, this.player.steerAngle, this.player.bounce, dt);
 
     // 4. Collisions, Pickups & Combos
     this.checkCollisions(currentSegment);
