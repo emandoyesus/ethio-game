@@ -49,20 +49,21 @@ An authentic 3D Ethiopian highway arcade racer built with Three.js WebGL, vanill
 
 ---
 
-## ⌨️ Controls
+## ⌨️ Controls & Dr. Driving Simulation
 
-| Control | Keyboard | Touch / Mobile |
+| Control | Keyboard | Touch / On-Screen Canvas |
 | :--- | :--- | :--- |
-| **Accelerate** | <kbd>▲</kbd> or <kbd>W</kbd> | `⚡ GAS` |
-| **Brake / Reverse** | <kbd>▼</kbd> or <kbd>S</kbd> | `🛑 BRAKE` |
-| **Steer Left / Right** | <kbd>◀</kbd> / <kbd>▶</kbd> or <kbd>A</kbd> / <kbd>D</kbd> | `◀` / `▶` |
-| **Toggle 3D Camera** | <kbd>C</kbd> | `🎥 CAM` |
-| **Taxi Horn** | <kbd>H</kbd> or <kbd>Space</kbd> | `📢 HORN` |
-| **Taxi FM Radio** | <kbd>R</kbd> | `📻 RADIO` |
-| **Hazard Flashers** | <kbd>F</kbd> | `⚠️ HAZARDS` |
-| **Garage & Upgrades** | <kbd>G</kbd> | `🚗 GARAGE` |
-| **Pause Game** | <kbd>P</kbd> or <kbd>Escape</kbd> | `⏸️ PAUSE` |
-| **Toggle Sound** | <kbd>M</kbd> | `🔊 AUDIO` |
+| **Steering Wheel** | <kbd>◀</kbd> / <kbd>▶</kbd> or <kbd>A</kbd> / <kbd>D</kbd> | Arc-drag rotational on-screen steering wheel |
+| **Gas Pedal** | <kbd>▲</kbd> or <kbd>W</kbd> | Press & hold on-screen analog Gas pedal |
+| **Brake Pedal** | <kbd>▼</kbd> or <kbd>S</kbd> | Press & hold on-screen analog Brake pedal |
+| **PRND Shifter** | <kbd>Q</kbd> / <kbd>E</kbd> or <kbd>1</kbd>-<kbd>4</kbd> | Tap/drag on-screen PRND shifter lever slots |
+| **Toggle 3D Camera** | <kbd>C</kbd> | Click `🎥 CAM` button (*Chase ➔ Hood ➔ Top-Down*) |
+| **Taxi Horn** | <kbd>H</kbd> or <kbd>Space</kbd> | Tap center steering wheel boss (`📢 HORN`) |
+| **Taxi FM Radio** | <kbd>R</kbd> | Click `📻 RADIO` (4 stations) |
+| **Hazard Flashers** | <kbd>F</kbd> | Click `⚠️ HAZARDS` |
+| **Garage & Upgrades** | <kbd>G</kbd> | Click `🚗 GARAGE` |
+| **Pause Game** | <kbd>P</kbd> or <kbd>Escape</kbd> | Click `⏸️ PAUSE` |
+| **Toggle Sound** | <kbd>M</kbd> | Click `🔊 AUDIO` |
 | **Toggle Scanlines** | Click on-screen button | `📺 CRT` |
 | **Fullscreen** | Click on-screen button | `⛶ FULL` |
 
@@ -115,3 +116,7 @@ npm run preview
 * `v3.3.0`: 3D Traffic Vehicles, Zebu Cattle, Highland Goats, Potholes & Collectibles
 * `v3.4.0`: Tangent-Aligned Multi-Camera Tracking (Chase, Hood, Top-Down) & Stage Lighting
 * `v3.5.0`: Final 3D Polish, Landmark Viaduct Animations & Complete System Documentation
+* `v3.6.0`: Dr. Driving PRND Transmission System with Reverse Driving Physics & Neutral Free-Revving
+* `v3.7.0`: Rotatable On-Screen Steering Wheel with Arc-Drag Multi-Touch & Center Horn Cap
+* `v3.8.0`: Analog Gas & Brake Pedals with Visual Travel Depth & 3D Taillight Flare
+* `v3.9.0`: Complete Dr. Driving Cockpit Integration, Console Shifter & System Polish
