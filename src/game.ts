@@ -1,5 +1,7 @@
+import * as THREE from 'three';
 import { sound } from './audio';
 import { garage } from './garage';
+import { createVehicleMeshById, type Vehicle3DModel } from './models3d';
 import { Renderer3D, type CameraMode } from './renderer3d';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
@@ -15,6 +17,8 @@ export class GameEngine {
   private road: RoadManager;
   public renderer3d: Renderer3D;
   public track3d: Track3D;
+  public playerModel: Vehicle3DModel;
+  private currentVehicleId: VehicleId;
 
   public state: GameState = 'TITLE';
   public currentStageIndex: number = 0;
@@ -62,7 +66,11 @@ export class GameEngine {
     this.stage = STAGES[this.currentStageIndex];
 
     this.player = this.createInitialPlayer();
+    this.currentVehicleId = this.player.vehicleId;
     garage.applyToPlayer(this.player);
+
+    this.playerModel = createVehicleMeshById(this.player.vehicleId);
+    this.renderer3d.scene.add(this.playerModel.group);
 
     this.initEventListeners();
     this.resize();
@@ -70,6 +78,23 @@ export class GameEngine {
     this.road.buildTrack(this.stage);
     this.renderer3d.setupStageEnvironment(this.stage);
     this.track3d.build(this.road, this.stage);
+
+    const initPt = this.track3d.getPointAtZ(0);
+    this.playerModel.group.position.copy(initPt.pos);
+    this.playerModel.group.position.y += 0.05;
+  }
+
+  public updatePlayer3DModel() {
+    this.renderer3d.scene.remove(this.playerModel.group);
+    this.playerModel = createVehicleMeshById(this.player.vehicleId);
+    this.renderer3d.scene.add(this.playerModel.group);
+    this.currentVehicleId = this.player.vehicleId;
+  }
+
+  public checkVehicleModelUpdate() {
+    if (this.currentVehicleId !== this.player.vehicleId) {
+      this.updatePlayer3DModel();
+    }
   }
 
   private createInitialPlayer(): Player {
@@ -302,6 +327,7 @@ export class GameEngine {
     sound.init();
     sound.startMusic();
     garage.applyToPlayer(this.player);
+    this.checkVehicleModelUpdate();
     this.state = 'PLAYING';
     this.timeLeft = this.stage.timeLimit;
   }
@@ -314,6 +340,7 @@ export class GameEngine {
     this.stage = STAGES[this.currentStageIndex];
     this.player = this.createInitialPlayer();
     garage.applyToPlayer(this.player);
+    this.checkVehicleModelUpdate();
     this.road.buildTrack(this.stage);
     this.renderer3d.setupStageEnvironment(this.stage);
     this.track3d.build(this.road, this.stage);
@@ -541,9 +568,25 @@ export class GameEngine {
     // Update traffic
     this.road.updateTraffic(dt);
 
-    // Update 3D Camera and terrain position
-    const { pos, normal } = this.track3d.getPointAtZ(this.player.z);
+    // Sync 3D player mesh, wheels, headlights, and camera
+    const { pos, tangent, normal } = this.track3d.getPointAtZ(this.player.z);
     const player3DPos = pos.clone().addScaledVector(normal, this.player.x * 9.0);
+    player3DPos.y += 0.05 + this.player.bounce * 0.03;
+    this.playerModel.group.position.copy(player3DPos);
+
+    this.playerModel.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+    this.playerModel.group.rotateZ(-this.player.roll - this.player.steerAngle * 0.08);
+    this.playerModel.group.rotateX(this.player.pitch);
+
+    for (const w of this.playerModel.wheels) {
+      w.rotation.x += dt * (this.player.speed * 0.005);
+    }
+
+    if (this.playerModel.wheels.length >= 2) {
+      this.playerModel.wheels[0].rotation.y = this.player.steerAngle * 0.45;
+      this.playerModel.wheels[1].rotation.y = this.player.steerAngle * 0.45;
+    }
+
     this.renderer3d.update(player3DPos, speedRatio, this.player.steerAngle, this.player.bounce, dt);
 
     // 4. Collisions, Pickups & Combos
