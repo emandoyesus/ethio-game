@@ -504,14 +504,28 @@ export class UIManager {
     ctx.fillStyle = isRightSig ? '#22c55e' : 'rgba(34, 197, 94, 0.15)';
     ctx.fillText('▶', telX + 90, podY + 22);
 
-    // Gear indicator: 1 2 3 4 5
-    const gears = [1, 2, 3, 4, 5];
-    gears.forEach((g, idx) => {
-      const gx = telX + 28 + idx * 13;
-      const isCurrent = player.gear === g;
-      ctx.fillStyle = isCurrent ? '#facc15' : 'rgba(148, 163, 184, 0.35)';
-      ctx.font = isCurrent ? 'bold 12px "Chakra Petch", monospace' : '10px "Chakra Petch", monospace';
-      ctx.fillText(`${g}`, gx, podY + 22);
+    // Dr. Driving PRND Transmission Indicator: [P] [R] [N] [D]
+    const prnd = ['P', 'R', 'N', 'D'] as const;
+    prnd.forEach((m, idx) => {
+      const gx = telX + 22 + idx * 18;
+      const isCurrent = player.gearMode === m;
+      if (isCurrent) {
+        ctx.fillStyle = m === 'R' ? '#ef4444' : m === 'P' ? '#f59e0b' : m === 'N' ? '#38bdf8' : '#22c55e';
+        ctx.font = '900 13px "Chakra Petch", monospace';
+        // Subtle glow badge behind active gear
+        ctx.save();
+        ctx.fillStyle = m === 'R' ? 'rgba(239, 68, 68, 0.25)' : m === 'P' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(34, 197, 94, 0.25)';
+        ctx.beginPath();
+        ctx.roundRect(gx - 8, podY + 9, 16, 16, 3);
+        ctx.fill();
+        ctx.restore();
+      } else {
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
+        ctx.font = 'bold 11px "Chakra Petch", monospace';
+      }
+      ctx.textAlign = 'center';
+      const label = (m === 'D' && isCurrent) ? `D${player.gear}` : m;
+      ctx.fillText(label, gx, podY + 22);
     });
 
     // RPM Bar & Value

@@ -123,6 +123,8 @@ export interface SkidMark {
   alpha: number;
 }
 
+export type TransmissionGear = 'P' | 'R' | 'N' | 'D';
+
 export interface Player {
   vehicleId: VehicleId;
   x: number; // -1 to 1 across the road
@@ -140,6 +142,12 @@ export interface Player {
   passengersOnBoard: number;
   passengersTarget: number;
   health: number;
+
+  // Dr. Driving Transmission & Controls
+  gearMode: TransmissionGear;
+  gasPedal: number; // 0..1 analog throttle
+  brakePedal: number; // 0..1 analog braking
+  steeringWheelAngle: number; // Radians, continuous rotation
 
   // Realistic vehicle dynamics
   gear: number; // 1..5

@@ -6,7 +6,7 @@ import { Renderer3D, type CameraMode } from './renderer3d';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
 import { Track3D } from './track3d';
-import type { GameState, Particle, Player, ProjectedPoint, RainDrop, RoadSegment, RouteStage, SkidMark, SpriteInstance, VehicleId } from './types';
+import type { GameState, Particle, Player, ProjectedPoint, RainDrop, RoadSegment, RouteStage, SkidMark, SpriteInstance, TransmissionGear, VehicleId } from './types';
 import { ui } from './ui';
 
 export class GameEngine {
@@ -115,6 +115,12 @@ export class GameEngine {
       passengersOnBoard: 0,
       passengersTarget: this.stage ? this.stage.targetPassengers : 8,
       health: 100,
+
+      // Dr. Driving Transmission & Controls
+      gearMode: 'D',
+      gasPedal: 0,
+      brakePedal: 0,
+      steeringWheelAngle: 0,
 
       gear: 1,
       rpm: 1000,
@@ -226,6 +232,18 @@ export class GameEngine {
         }
       }
 
+      // Dr. Driving Gear Shifter Keys
+      if (e.key === 'q' || e.key === 'Q') {
+        if (this.state === 'PLAYING') this.shiftPrevGear();
+      }
+      if (e.key === 'e' || e.key === 'E') {
+        if (this.state === 'PLAYING') this.shiftNextGear();
+      }
+      if (e.key === '1') this.shiftGear('P');
+      if (e.key === '2') this.shiftGear('R');
+      if (e.key === '3') this.shiftGear('N');
+      if (e.key === '4') this.shiftGear('D');
+
       if (e.key === 'Enter' || (e.code === 'Space' && this.state !== 'PLAYING')) {
         if (this.state === 'TITLE' || this.state === 'GARAGE') {
           this.startGame();
@@ -313,6 +331,37 @@ export class GameEngine {
     this.player.hazardFlashers = !this.player.hazardFlashers;
     sound.playTurnSignalClick();
     ui.showToast(this.player.hazardFlashers ? '🚨 ድንገተኛ መብራት በራ (HAZARDS ON)' : '🚨 HAZARDS OFF', '🚨', '#facc15');
+  }
+
+  public shiftGear(target: TransmissionGear) {
+    if (this.player.gearMode === target) return;
+    this.player.gearMode = target;
+    sound.playTurnSignalClick();
+    const amhName =
+      target === 'P'
+        ? 'ፓርኪንግ (P - PARK)'
+        : target === 'R'
+        ? 'የኋላ ማርሽ (R - REVERSE)'
+        : target === 'N'
+        ? 'ሞተረኛ ነፃ (N - NEUTRAL)'
+        : 'መንዳት (D - DRIVE)';
+    ui.showToast(`⚙️ ማርሽ: ${amhName}`, '⚙️', target === 'R' ? '#ef4444' : target === 'P' ? '#f59e0b' : '#38bdf8');
+  }
+
+  public shiftNextGear() {
+    const gears: TransmissionGear[] = ['P', 'R', 'N', 'D'];
+    const idx = gears.indexOf(this.player.gearMode);
+    if (idx < gears.length - 1) {
+      this.shiftGear(gears[idx + 1]);
+    }
+  }
+
+  public shiftPrevGear() {
+    const gears: TransmissionGear[] = ['P', 'R', 'N', 'D'];
+    const idx = gears.indexOf(this.player.gearMode);
+    if (idx > 0) {
+      this.shiftGear(gears[idx - 1]);
+    }
   }
 
   public get width(): number {
@@ -450,35 +499,71 @@ export class GameEngine {
 
     const maxSpeed = isBoosting ? this.player.maxSpeed * 1.48 : this.player.maxSpeed;
 
-    // 3. User Controls & Input
-    const up = this.keys['arrowup'] || this.keys['w'];
-    const down = this.keys['arrowdown'] || this.keys['s'];
-    const left = this.keys['arrowleft'] || this.keys['a'];
-    const right = this.keys['arrowright'] || this.keys['d'];
+    // 3. User Controls & Analog Pedal Input
+    const up = !!(this.keys['arrowup'] || this.keys['w']);
+    const down = !!(this.keys['arrowdown'] || this.keys['s']);
+    const left = !!(this.keys['arrowleft'] || this.keys['a']);
+    const right = !!(this.keys['arrowright'] || this.keys['d']);
 
-    // Realistic Acceleration & Deceleration with Pitch Dynamics
     if (up) {
-      this.player.speed += this.player.accel * dt;
-      this.player.pitch = Math.max(-0.06, this.player.pitch - dt * 0.4); // Squat on acceleration
-    } else if (down) {
-      this.player.speed -= this.player.decel * dt;
-      this.player.pitch = Math.min(0.09, this.player.pitch + dt * 0.6); // Nose dive on braking
-      if (this.player.speed > 2500) {
-        this.spawnTireSmoke();
-        this.addSkidMark();
-        sound.startTireScreech();
+      this.player.gasPedal = Math.min(1.0, this.player.gasPedal + dt * 5.5);
+    } else {
+      this.player.gasPedal = Math.max(0.0, this.player.gasPedal - dt * 6.5);
+    }
+
+    if (down) {
+      this.player.brakePedal = Math.min(1.0, this.player.brakePedal + dt * 6.5);
+    } else {
+      this.player.brakePedal = Math.max(0.0, this.player.brakePedal - dt * 7.5);
+    }
+
+    // Dr. Driving PRND Transmission Physics
+    if (this.player.gearMode === 'P') {
+      this.player.speed = 0;
+      this.player.pitch *= 0.85;
+      sound.stopTireScreech();
+    } else if (this.player.gearMode === 'N') {
+      this.player.speed = Math.max(0, this.player.speed - (this.player.accel * 0.45 + this.player.decel * this.player.brakePedal) * dt);
+      this.player.pitch *= 0.85;
+      sound.stopTireScreech();
+    } else if (this.player.gearMode === 'R') {
+      const maxReverse = -3600;
+      if (this.player.gasPedal > 0.05) {
+        this.player.speed = Math.max(maxReverse, this.player.speed - (this.player.accel * 0.72 * this.player.gasPedal) * dt);
+        this.player.pitch = Math.max(-0.05, this.player.pitch - dt * 0.3 * this.player.gasPedal);
+      } else if (this.player.brakePedal > 0.05) {
+        this.player.speed = Math.min(0, this.player.speed + (this.player.decel * this.player.brakePedal) * dt);
+        this.player.pitch = Math.min(0.07, this.player.pitch + dt * 0.45 * this.player.brakePedal);
       } else {
+        this.player.speed = Math.min(0, this.player.speed + (this.player.accel * 0.45) * dt);
+        this.player.pitch *= 0.85;
+      }
+      sound.stopTireScreech();
+    } else {
+      // 'D' (Drive Forward)
+      if (this.player.gasPedal > 0.05) {
+        this.player.speed = Math.min(maxSpeed, this.player.speed + (this.player.accel * this.player.gasPedal) * dt);
+        this.player.pitch = Math.max(-0.06, this.player.pitch - dt * 0.4 * this.player.gasPedal);
+      } else if (this.player.brakePedal > 0.05) {
+        this.player.speed = Math.max(0, this.player.speed - (this.player.decel * this.player.brakePedal) * dt);
+        this.player.pitch = Math.min(0.09, this.player.pitch + dt * 0.6 * this.player.brakePedal);
+        if (this.player.speed > 2500) {
+          this.spawnTireSmoke();
+          this.addSkidMark();
+          sound.startTireScreech();
+        } else {
+          sound.stopTireScreech();
+        }
+      } else {
+        this.player.speed = Math.max(0, this.player.speed - (this.player.accel * 0.42) * dt);
+        this.player.pitch *= 0.85;
         sound.stopTireScreech();
       }
-    } else {
-      this.player.speed -= (this.player.accel * 0.42) * dt;
-      this.player.pitch *= 0.85; // Pitch centers
-      sound.stopTireScreech();
     }
 
     // Off-road penalty & Gravel vibration
     const isOffRoad = Math.abs(this.player.x) > 1.0;
-    if (isOffRoad) {
+    if (isOffRoad && this.player.gearMode === 'D') {
       const offRoadMax = this.player.maxSpeed * 0.45;
       if (this.player.speed > offRoadMax) {
         this.player.speed -= this.player.decel * 1.3 * dt;
@@ -488,22 +573,27 @@ export class GameEngine {
       this.spawnDust();
     }
 
-    this.player.speed = Math.max(0, Math.min(this.player.speed, maxSpeed));
-
-    // Realistic Steering, Body Roll & Turn Signals
-    const speedRatio = this.player.speed / this.player.maxSpeed;
+    // Dr. Driving Continuous Steering Wheel Dynamics
     if (left) {
-      this.player.steerAngle = Math.max(-1, this.player.steerAngle - dt * 6);
-      this.player.x -= this.player.turnSpeed * speedRatio * dt;
+      this.player.steeringWheelAngle = Math.max(-Math.PI * 2.2, this.player.steeringWheelAngle - dt * 8.5);
       this.player.turnSignal = 'left';
     } else if (right) {
-      this.player.steerAngle = Math.min(1, this.player.steerAngle + dt * 6);
-      this.player.x += this.player.turnSpeed * speedRatio * dt;
+      this.player.steeringWheelAngle = Math.min(Math.PI * 2.2, this.player.steeringWheelAngle + dt * 8.5);
       this.player.turnSignal = 'right';
     } else {
-      this.player.steerAngle *= 0.78; // Caster auto-centering
+      // Natural caster auto-centering
+      this.player.steeringWheelAngle *= Math.pow(0.04, dt);
+      if (Math.abs(this.player.steeringWheelAngle) < 0.01) this.player.steeringWheelAngle = 0;
       this.player.turnSignal = 'none';
     }
+
+    // Steer angle normalized (-1.0 to 1.0)
+    this.player.steerAngle = Math.max(-1.0, Math.min(1.0, this.player.steeringWheelAngle / (Math.PI * 2.0)));
+
+    // Lateral displacement along road
+    const speedRatio = Math.abs(this.player.speed) / this.player.maxSpeed;
+    const dirSign = this.player.gearMode === 'R' ? -1 : 1;
+    this.player.x += (dirSign * this.player.turnSpeed * this.player.steerAngle * speedRatio) * dt;
 
     // Pothole alignment bias drift (damaged suspension pulls to side)
     if (Math.abs(this.player.alignmentBias) > 0.01) {
@@ -608,8 +698,33 @@ export class GameEngine {
     }
   }
 
-  // Realistic Gear Transmission & RPM Curve
+  // Realistic Gear Transmission & RPM Curve (Dr. Driving PRND Engine)
   private updateRealisticGears(dt: number) {
+    if (this.player.gearMode === 'P') {
+      this.player.gear = 1;
+      const targetRpm = 950 + this.player.gasPedal * 4800; // Throttle revving in Park
+      this.player.rpm += (targetRpm - this.player.rpm) * dt * 12;
+      sound.updateEngineRealistic(this.player.rpm, 1, false);
+      return;
+    }
+
+    if (this.player.gearMode === 'N') {
+      this.player.gear = 1;
+      const targetRpm = 950 + this.player.gasPedal * 5800; // Free revving in Neutral
+      this.player.rpm += (targetRpm - this.player.rpm) * dt * 14;
+      sound.updateEngineRealistic(this.player.rpm, 1, false);
+      return;
+    }
+
+    if (this.player.gearMode === 'R') {
+      this.player.gear = 1;
+      const reverseRatio = Math.abs(this.player.speed) / 3600;
+      const targetRpm = Math.min(5200, 1050 + reverseRatio * 3200 + this.player.gasPedal * 1200);
+      this.player.rpm += (targetRpm - this.player.rpm) * dt * 10;
+      sound.updateEngineRealistic(this.player.rpm, 1, false);
+      return;
+    }
+
     const kmh = (this.player.speed / this.player.maxSpeed) * 165;
     let targetGear = 1;
 
