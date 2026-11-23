@@ -408,7 +408,7 @@ export class GameEngine {
       sound.stopEngine();
       this.track3d.updateEntities(this.road, dt, 0);
       const initPt = this.track3d.getPointAtZ(0);
-      this.renderer3d.update(initPt.pos, 0, 0, 0, dt);
+      this.renderer3d.update(initPt.pos, initPt.tangent, initPt.normal, 0, 0, 0, dt);
       return;
     }
 
@@ -591,7 +591,7 @@ export class GameEngine {
       this.playerModel.wheels[1].rotation.y = this.player.steerAngle * 0.45;
     }
 
-    this.renderer3d.update(player3DPos, speedRatio, this.player.steerAngle, this.player.bounce, dt);
+    this.renderer3d.update(player3DPos, tangent, normal, speedRatio, this.player.steerAngle, this.player.bounce, dt);
 
     // 4. Collisions, Pickups & Combos
     this.checkCollisions(currentSegment);

@@ -147,7 +147,15 @@ export class Renderer3D {
     this.scene.add(this.rainPoints);
   }
 
-  public update(playerPos: THREE.Vector3, playerSpeedRatio: number, steerAngle: number, bounce: number, dt: number) {
+  public update(
+    playerPos: THREE.Vector3,
+    tangent: THREE.Vector3,
+    normal: THREE.Vector3,
+    playerSpeedRatio: number,
+    steerAngle: number,
+    bounce: number,
+    dt: number
+  ) {
     // 1. Keep Terrain & Sun Centered Around Player
     this.terrainMesh.position.x = playerPos.x;
     this.terrainMesh.position.z = playerPos.z;
@@ -155,39 +163,38 @@ export class Renderer3D {
     this.sunLight.position.set(playerPos.x + 40, playerPos.y + 90, playerPos.z + 50);
     this.sunLight.target.position.copy(playerPos);
 
-    // 2. Camera Dynamic Following
-    const target = playerPos.clone();
-    target.y += 1.2 + bounce * 0.04;
+    // 2. Camera Dynamic Following Aligned with Highway Tangent
+    const lookAheadDist = 18.0;
+    const lookTarget = playerPos.clone().addScaledVector(tangent, lookAheadDist);
+    lookTarget.y += 1.4 + bounce * 0.04;
 
     if (this.cameraMode === 'CHASE') {
       const followDist = 8.5 + playerSpeedRatio * 2.5;
       const followHeight = 3.6 + bounce * 0.03;
-      const camTargetPos = new THREE.Vector3(
-        playerPos.x - steerAngle * 1.5,
-        playerPos.y + followHeight,
-        playerPos.z - followDist
-      );
+      const camTargetPos = playerPos
+        .clone()
+        .addScaledVector(tangent, -followDist)
+        .addScaledVector(normal, -steerAngle * 1.5);
+      camTargetPos.y += followHeight;
 
       this.camera.position.lerp(camTargetPos, Math.min(1.0, dt * 10));
-      this.camera.lookAt(target.x, target.y + 0.4, target.z + 14);
+      this.camera.lookAt(lookTarget);
       this.camera.rotation.z = -steerAngle * 0.04;
     } else if (this.cameraMode === 'HOOD') {
-      const hoodPos = new THREE.Vector3(
-        playerPos.x,
-        playerPos.y + 1.45 + bounce * 0.05,
-        playerPos.z + 0.9
-      );
+      const hoodPos = playerPos.clone().addScaledVector(tangent, 0.9);
+      hoodPos.y += 1.45 + bounce * 0.05;
       this.camera.position.copy(hoodPos);
-      this.camera.lookAt(playerPos.x + steerAngle * 2.0, playerPos.y + 1.2, playerPos.z + 25);
+
+      const hoodLookTarget = playerPos.clone().addScaledVector(tangent, 28.0).addScaledVector(normal, steerAngle * 2.0);
+      hoodLookTarget.y += 1.2;
+      this.camera.lookAt(hoodLookTarget);
       this.camera.rotation.z = -steerAngle * 0.06;
     } else {
-      const topPos = new THREE.Vector3(
-        playerPos.x * 0.6,
-        playerPos.y + 20,
-        playerPos.z - 16
-      );
+      // Top-down / Bird's Eye helicopter view
+      const topPos = playerPos.clone().addScaledVector(tangent, -16.0);
+      topPos.y += 22.0;
       this.camera.position.lerp(topPos, Math.min(1.0, dt * 8));
-      this.camera.lookAt(playerPos.x, playerPos.y, playerPos.z + 12);
+      this.camera.lookAt(playerPos.clone().addScaledVector(tangent, 10.0));
     }
 
     // 3. Update 3D Rain Droplets
