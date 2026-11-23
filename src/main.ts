@@ -15,6 +15,9 @@ app.innerHTML = `
         <span class="brand-sub">ADDIS TAXI RUSH</span>
       </div>
       <div class="header-actions">
+        <button id="btnCamera" class="arcade-btn" title="Toggle 3D Camera View (C)">
+          🎥 <span>CAM</span>
+        </button>
         <button id="btnRadio" class="arcade-btn" title="Toggle Addis Taxi FM Radio (R)">
           📻 <span>RADIO</span>
         </button>
@@ -37,7 +40,8 @@ app.innerHTML = `
     </header>
 
     <div class="canvas-viewport" id="canvasViewport">
-      <canvas id="gameCanvas"></canvas>
+      <canvas id="gameCanvas3d"></canvas>
+      <canvas id="gameCanvasHud"></canvas>
       <div class="scanlines" id="scanlines"></div>
 
       <!-- On-screen touch buttons for mobile / tablet devices -->
@@ -76,10 +80,18 @@ app.innerHTML = `
   </div>
 `;
 
-const canvas = document.querySelector<HTMLCanvasElement>('#gameCanvas')!;
-const game = new GameEngine(canvas);
+const canvas3d = document.querySelector<HTMLCanvasElement>('#gameCanvas3d')!;
+const canvasHud = document.querySelector<HTMLCanvasElement>('#gameCanvasHud')!;
+const game = new GameEngine(canvas3d, canvasHud);
 
 // Hook quick bar buttons
+const btnCamera = document.getElementById('btnCamera')!;
+btnCamera.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const mode = game.cycleCameraView();
+  btnCamera.innerHTML = `🎥 <span>${mode}</span>`;
+});
+
 const btnRadio = document.getElementById('btnRadio')!;
 btnRadio.addEventListener('click', (e) => {
   e.stopPropagation();

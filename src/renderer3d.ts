@@ -1,0 +1,221 @@
+import * as THREE from 'three';
+import type { RouteStage } from './types';
+
+export type CameraMode = 'CHASE' | 'HOOD' | 'TOP_DOWN';
+
+export class Renderer3D {
+  public scene: THREE.Scene;
+  public camera: THREE.PerspectiveCamera;
+  public renderer: THREE.WebGLRenderer;
+
+  public ambientLight: THREE.AmbientLight;
+  public sunLight: THREE.DirectionalLight;
+  public terrainMesh: THREE.Mesh;
+
+  public cameraMode: CameraMode = 'CHASE';
+
+  // 3D Weather Particle System
+  private rainGeometry: THREE.BufferGeometry | null = null;
+  private rainPoints: THREE.Points | null = null;
+  private rainCoords: Float32Array | null = null;
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.scene = new THREE.Scene();
+
+    // Perspective Camera: 60° FOV, proper initial position & aspect ratio
+    const width = Math.max(canvas.width, 900);
+    const height = Math.max(canvas.height, 600);
+    this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 2000);
+    this.camera.position.set(0, 4.5, -10);
+    this.camera.lookAt(0, 1.2, 20);
+
+    // WebGL Renderer with High-DPI support, Soft PCF Shadows & ACES Filmic Tone Mapping
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    this.renderer.setSize(width, height, false);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
+
+    // Atmospheric Lighting
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    this.scene.add(this.ambientLight);
+
+    this.sunLight = new THREE.DirectionalLight(0xfff7ed, 2.0);
+    this.sunLight.position.set(50, 100, 60);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.width = 1024;
+    this.sunLight.shadow.mapSize.height = 1024;
+    this.sunLight.shadow.camera.near = 10;
+    this.sunLight.shadow.camera.far = 400;
+    this.sunLight.shadow.camera.left = -60;
+    this.sunLight.shadow.camera.right = 60;
+    this.sunLight.shadow.camera.top = 60;
+    this.sunLight.shadow.camera.bottom = -60;
+    this.scene.add(this.sunLight);
+
+    // Massive Highland Ground Terrain (Ensures no empty void is ever visible)
+    const terrainGeo = new THREE.PlaneGeometry(3000, 3000, 32, 32);
+    terrainGeo.rotateX(-Math.PI / 2);
+    const terrainMat = new THREE.MeshStandardMaterial({
+      color: 0x22543d, // Rich Ethiopian highland green / acacia savanna
+      roughness: 0.95,
+      metalness: 0.05
+    });
+    this.terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+    this.terrainMesh.position.y = -0.05;
+    this.terrainMesh.receiveShadow = true;
+    this.scene.add(this.terrainMesh);
+
+    this.initRain();
+  }
+
+  public resize(width: number, height: number) {
+    if (width <= 0 || height <= 0) return;
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height, false);
+  }
+
+  public cycleCamera(): CameraMode {
+    if (this.cameraMode === 'CHASE') this.cameraMode = 'HOOD';
+    else if (this.cameraMode === 'HOOD') this.cameraMode = 'TOP_DOWN';
+    else this.cameraMode = 'CHASE';
+    return this.cameraMode;
+  }
+
+  public setupStageEnvironment(stage: RouteStage) {
+    if (stage.skyTheme === 'day') {
+      this.scene.background = new THREE.Color(0x38bdf8); // Sky blue
+      this.scene.fog = new THREE.FogExp2(0x93c5fd, 0.0015);
+      this.ambientLight.color.setHex(0xe0f2fe);
+      this.ambientLight.intensity = 0.9;
+      this.sunLight.color.setHex(0xfffbeb);
+      this.sunLight.intensity = 2.1;
+      (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x2d6a4f);
+    } else if (stage.skyTheme === 'sunset') {
+      this.scene.background = new THREE.Color(0xc2410c); // Sunset amber
+      this.scene.fog = new THREE.FogExp2(0xf97316, 0.0018);
+      this.ambientLight.color.setHex(0xfed7aa);
+      this.ambientLight.intensity = 0.7;
+      this.sunLight.color.setHex(0xfb923c);
+      this.sunLight.intensity = 1.7;
+      (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x431407);
+    } else {
+      // Entoto Mountain Night
+      this.scene.background = new THREE.Color(0x020617);
+      this.scene.fog = new THREE.FogExp2(0x090d16, 0.003);
+      this.ambientLight.color.setHex(0x1e293b);
+      this.ambientLight.intensity = 0.35;
+      this.sunLight.color.setHex(0x38bdf8);
+      this.sunLight.intensity = 0.5;
+      (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x061e14);
+    }
+
+    if (this.rainPoints) {
+      this.rainPoints.visible = stage.weather === 'rain' || stage.weather === 'sunshower';
+    }
+  }
+
+  private initRain() {
+    const rainCount = 1500;
+    this.rainGeometry = new THREE.BufferGeometry();
+    this.rainCoords = new Float32Array(rainCount * 3);
+
+    for (let i = 0; i < rainCount; i++) {
+      this.rainCoords[i * 3] = (Math.random() - 0.5) * 80;
+      this.rainCoords[i * 3 + 1] = Math.random() * 45;
+      this.rainCoords[i * 3 + 2] = (Math.random() - 0.5) * 120;
+    }
+
+    this.rainGeometry.setAttribute('position', new THREE.BufferAttribute(this.rainCoords, 3));
+
+    const rainMat = new THREE.PointsMaterial({
+      color: 0x93c5fd,
+      size: 0.18,
+      transparent: true,
+      opacity: 0.65
+    });
+
+    this.rainPoints = new THREE.Points(this.rainGeometry, rainMat);
+    this.rainPoints.visible = false;
+    this.scene.add(this.rainPoints);
+  }
+
+  public update(playerPos: THREE.Vector3, playerSpeedRatio: number, steerAngle: number, bounce: number, dt: number) {
+    // 1. Keep Terrain & Sun Centered Around Player
+    this.terrainMesh.position.x = playerPos.x;
+    this.terrainMesh.position.z = playerPos.z;
+
+    this.sunLight.position.set(playerPos.x + 40, playerPos.y + 90, playerPos.z + 50);
+    this.sunLight.target.position.copy(playerPos);
+
+    // 2. Camera Dynamic Following
+    const target = playerPos.clone();
+    target.y += 1.2 + bounce * 0.04;
+
+    if (this.cameraMode === 'CHASE') {
+      const followDist = 8.5 + playerSpeedRatio * 2.5;
+      const followHeight = 3.6 + bounce * 0.03;
+      const camTargetPos = new THREE.Vector3(
+        playerPos.x - steerAngle * 1.5,
+        playerPos.y + followHeight,
+        playerPos.z - followDist
+      );
+
+      this.camera.position.lerp(camTargetPos, Math.min(1.0, dt * 10));
+      this.camera.lookAt(target.x, target.y + 0.4, target.z + 14);
+      this.camera.rotation.z = -steerAngle * 0.04;
+    } else if (this.cameraMode === 'HOOD') {
+      const hoodPos = new THREE.Vector3(
+        playerPos.x,
+        playerPos.y + 1.45 + bounce * 0.05,
+        playerPos.z + 0.9
+      );
+      this.camera.position.copy(hoodPos);
+      this.camera.lookAt(playerPos.x + steerAngle * 2.0, playerPos.y + 1.2, playerPos.z + 25);
+      this.camera.rotation.z = -steerAngle * 0.06;
+    } else {
+      const topPos = new THREE.Vector3(
+        playerPos.x * 0.6,
+        playerPos.y + 20,
+        playerPos.z - 16
+      );
+      this.camera.position.lerp(topPos, Math.min(1.0, dt * 8));
+      this.camera.lookAt(playerPos.x, playerPos.y, playerPos.z + 12);
+    }
+
+    // 3. Update 3D Rain Droplets
+    if (this.rainPoints && this.rainPoints.visible && this.rainCoords && this.rainGeometry) {
+      this.rainPoints.position.set(playerPos.x, playerPos.y, playerPos.z);
+      const posAttr = this.rainGeometry.attributes.position;
+      const arr = posAttr.array as Float32Array;
+      const count = arr.length / 3;
+
+      for (let i = 0; i < count; i++) {
+        arr[i * 3 + 1] -= dt * 65;
+        if (arr[i * 3 + 1] < 0) {
+          arr[i * 3 + 1] = 45;
+        }
+      }
+      posAttr.needsUpdate = true;
+    }
+  }
+
+  public triggerLightning() {
+    const origIntensity = this.ambientLight.intensity;
+    this.ambientLight.intensity = 3.5;
+    setTimeout(() => {
+      this.ambientLight.intensity = origIntensity;
+    }, 90);
+  }
+
+  public render() {
+    this.renderer.render(this.scene, this.camera);
+  }
+}

@@ -1,5 +1,6 @@
 import { sound } from './audio';
 import { garage } from './garage';
+import { Renderer3D, type CameraMode } from './renderer3d';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
 import type { GameState, Particle, Player, ProjectedPoint, RainDrop, RoadSegment, RouteStage, SkidMark, SpriteInstance, VehicleId } from './types';
@@ -7,8 +8,11 @@ import { ui } from './ui';
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
+  private canvas3d: HTMLCanvasElement;
+  private canvasHud: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private road: RoadManager;
+  public renderer3d: Renderer3D;
 
   public state: GameState = 'TITLE';
   public currentStageIndex: number = 0;
@@ -44,11 +48,14 @@ export class GameEngine {
   // Near miss tracker
   private nearMissCooldown: number = 0;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext('2d')!;
+  constructor(canvas3d: HTMLCanvasElement, canvasHud: HTMLCanvasElement) {
+    this.canvas3d = canvas3d;
+    this.canvasHud = canvasHud;
+    this.canvas = canvasHud;
+    this.ctx = canvasHud.getContext('2d')!;
     this.road = new RoadManager();
 
+    this.renderer3d = new Renderer3D(this.canvas3d);
     this.stage = STAGES[this.currentStageIndex];
 
     this.player = this.createInitialPlayer();
@@ -58,6 +65,7 @@ export class GameEngine {
     this.resize();
     sprites.init();
     this.road.buildTrack(this.stage);
+    this.renderer3d.setupStageEnvironment(this.stage);
   }
 
   private createInitialPlayer(): Player {
@@ -104,10 +112,21 @@ export class GameEngine {
 
   private resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const rect = this.canvas.parentElement?.getBoundingClientRect() || { width: 960, height: 600 };
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
+    const rect = this.canvasHud.parentElement?.getBoundingClientRect() || { width: 960, height: 600 };
+    this.canvasHud.width = rect.width * dpr;
+    this.canvasHud.height = rect.height * dpr;
     this.ctx.scale(dpr, dpr);
+
+    this.canvas3d.width = rect.width * dpr;
+    this.canvas3d.height = rect.height * dpr;
+    this.renderer3d.resize(this.canvas3d.width, this.canvas3d.height);
+  }
+
+  public cycleCameraView(): CameraMode {
+    const mode = this.renderer3d.cycleCamera();
+    const nameAmh = mode === 'CHASE' ? 'የኋላ ካሜራ (CHASE CAM)' : mode === 'HOOD' ? 'የኮክፒት ካሜራ (HOOD CAM)' : 'የላይ ካሜራ (TOP DOWN)';
+    ui.showToast(`🎥 ${nameAmh}`, '🎥', '#38bdf8');
+    return mode;
   }
 
   private initEventListeners() {
@@ -116,6 +135,10 @@ export class GameEngine {
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       this.keys[e.key.toLowerCase()] = true;
       this.keys[e.code] = true;
+
+      if (e.key === 'c' || e.key === 'C') {
+        this.cycleCameraView();
+      }
 
       if (e.key === 'm' || e.key === 'M') {
         sound.toggleMute();
@@ -993,6 +1016,9 @@ export class GameEngine {
   private render() {
     const w = this.width;
     const h = this.height;
+
+    // 1. Render 3D WebGL scene
+    this.renderer3d.render();
 
     this.ctx.clearRect(0, 0, w, h);
 

@@ -135,10 +135,22 @@ body, html {
   background: #020617;
 }
 
-#gameCanvas {
+#gameCanvas3d,
+#gameCanvasHud {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   display: block;
+}
+
+#gameCanvas3d {
+  z-index: 1;
+}
+
+#gameCanvasHud {
+  z-index: 2;
   cursor: pointer;
 }
 
