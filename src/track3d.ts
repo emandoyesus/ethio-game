@@ -1,9 +1,35 @@
 import * as THREE from 'three';
+import {
+  createLada3D,
+  createBajaj3D,
+  createIsuzu3D,
+  createPolice3D,
+  createZebuCow3D,
+  createGoat3D,
+  createPothole3D,
+  createBirrCoin3D,
+  createBunnaJebena3D,
+  createFuelCan3D,
+  createPassenger3D,
+  createPoliceCone3D,
+  createAcaciaTree3D,
+  createEucalyptusTree3D,
+  createStreetLamp3D,
+  createBillboard3D,
+  createTaxiSign3D,
+  createCheckpointGate3D,
+  createCBETower3D,
+  createLightRailViaduct3D
+} from './models3d';
 import { ROAD, type RoadManager } from './road';
-import type { RouteStage } from './types';
+import type { RouteStage, SpriteInstance } from './types';
 
 export class Track3D {
   public group: THREE.Group;
+  public roadGroup: THREE.Group;
+  public entitiesGroup: THREE.Group;
+  public sceneryGroup: THREE.Group;
+
   public roadMesh: THREE.Mesh | null = null;
   public shoulderMesh: THREE.Mesh | null = null;
   public markingsMesh: THREE.Mesh | null = null;
@@ -12,20 +38,30 @@ export class Track3D {
   public spineNormals: THREE.Vector3[] = [];
   public spineTangents: THREE.Vector3[] = [];
 
+  private lrtTrainMesh: THREE.Object3D | null = null;
+  private lrtProgress: number = 0;
+  private policeLights: { red: THREE.PointLight; blue: THREE.PointLight }[] = [];
+
   constructor(scene: THREE.Scene) {
     this.group = new THREE.Group();
+    this.roadGroup = new THREE.Group();
+    this.entitiesGroup = new THREE.Group();
+    this.sceneryGroup = new THREE.Group();
+
+    this.group.add(this.roadGroup);
+    this.group.add(this.entitiesGroup);
+    this.group.add(this.sceneryGroup);
+
     scene.add(this.group);
   }
 
   public build(road: RoadManager, stage: RouteStage) {
-    // Clear previous meshes
-    while (this.group.children.length > 0) {
-      const child = this.group.children[0];
-      this.group.remove(child);
-      if ((child as THREE.Mesh).geometry) {
-        (child as THREE.Mesh).geometry.dispose();
-      }
-    }
+    // 1. Dispose old entities and scenery
+    this.clearGroup(this.roadGroup);
+    this.clearGroup(this.entitiesGroup);
+    this.clearGroup(this.sceneryGroup);
+    this.policeLights = [];
+    this.lrtTrainMesh = null;
 
     this.spinePoints = [];
     this.spineNormals = [];
@@ -35,7 +71,7 @@ export class Track3D {
     const total = segments.length;
     if (total === 0) return;
 
-    // 1. Calculate continuous smooth 3D Track Spine
+    // 2. Calculate continuous smooth 3D Track Spine
     let curX = 0;
     let dx = 0;
     const segLength3D = 6.0; // 6 meters per segment in 3D world space
@@ -63,8 +99,24 @@ export class Track3D {
       this.spineNormals.push(normal);
     }
 
-    // 2. Build 3D Road Geometry Ribbon (DoubleSide, Counter-Clockwise Winding)
+    // 3. Build Road Geometry Ribbon
     this.buildRoadRibbon(segments, stage);
+
+    // 4. Build Landmarks (CBE 209m Tower & Light Rail Viaduct)
+    this.buildLandmarks(stage);
+
+    // 5. Instantiate 3D Meshes for all track sprites
+    this.buildTrackEntities(road);
+  }
+
+  private clearGroup(g: THREE.Group) {
+    while (g.children.length > 0) {
+      const child = g.children[0];
+      g.remove(child);
+      if ((child as THREE.Mesh).geometry) {
+        (child as THREE.Mesh).geometry.dispose();
+      }
+    }
   }
 
   public getPointAtZ(trackZ: number): { pos: THREE.Vector3; tangent: THREE.Vector3; normal: THREE.Vector3 } {
@@ -221,7 +273,7 @@ export class Track3D {
     });
     this.roadMesh = new THREE.Mesh(roadGeo, roadMat);
     this.roadMesh.receiveShadow = true;
-    this.group.add(this.roadMesh);
+    this.roadGroup.add(this.roadMesh);
 
     // Volcanic Red Soil Shoulder Mesh
     const shoulderGeo = new THREE.BufferGeometry();
@@ -237,7 +289,7 @@ export class Track3D {
     });
     this.shoulderMesh = new THREE.Mesh(shoulderGeo, shoulderMat);
     this.shoulderMesh.receiveShadow = true;
-    this.group.add(this.shoulderMesh);
+    this.roadGroup.add(this.shoulderMesh);
 
     // Reflective Road Markings Mesh
     if (markVerts.length > 0) {
@@ -251,7 +303,178 @@ export class Track3D {
         side: THREE.DoubleSide
       });
       this.markingsMesh = new THREE.Mesh(markGeo, markMat);
-      this.group.add(this.markingsMesh);
+      this.roadGroup.add(this.markingsMesh);
+    }
+  }
+
+  private buildLandmarks(stage: RouteStage) {
+    if (stage.id === 1 || stage.id === 2) {
+      // 1. Commercial Bank of Ethiopia (CBE) 209m Skyscraper
+      const cbeIdx = Math.floor(this.spinePoints.length * 0.42);
+      if (this.spinePoints[cbeIdx]) {
+        const cbe = createCBETower3D();
+        const pt = this.spinePoints[cbeIdx];
+        const normal = this.spineNormals[cbeIdx];
+        cbe.position.copy(pt).addScaledVector(normal, 95.0);
+        this.sceneryGroup.add(cbe);
+      }
+
+      // 2. Addis Light Rail Transit (AALRT) Elevated Viaduct
+      const viaductIdx = Math.floor(this.spinePoints.length * 0.25);
+      if (this.spinePoints[viaductIdx]) {
+        const viaduct = createLightRailViaduct3D();
+        const pt = this.spinePoints[viaductIdx];
+        const normal = this.spineNormals[viaductIdx];
+        const tangent = this.spineTangents[viaductIdx];
+        viaduct.position.copy(pt).addScaledVector(normal, -24.0);
+        viaduct.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+        this.sceneryGroup.add(viaduct);
+        this.lrtTrainMesh = viaduct.children.find(c => c.position.y > 7.0) || null;
+      }
+    }
+  }
+
+  private buildTrackEntities(road: RoadManager) {
+    for (let i = 0; i < road.segments.length; i++) {
+      const seg = road.segments[i];
+      for (const sprite of seg.sprites) {
+        const meshData = this.instantiateSpriteMesh(sprite);
+        if (meshData) {
+          sprite.mesh3d = meshData;
+          this.entitiesGroup.add(meshData);
+        }
+      }
+    }
+  }
+
+  private instantiateSpriteMesh(sprite: SpriteInstance): THREE.Object3D | null {
+    switch (sprite.type) {
+      case 'TRAFFIC_LADA': {
+        const v = createLada3D();
+        return v.group;
+      }
+      case 'TRAFFIC_BAJAJ': {
+        const v = createBajaj3D();
+        return v.group;
+      }
+      case 'TRAFFIC_ISUZU': {
+        const v = createIsuzu3D();
+        return v.group;
+      }
+      case 'TRAFFIC_POLICE': {
+        const v = createPolice3D();
+        if (v.policeStrobeRed && v.policeStrobeBlue) {
+          this.policeLights.push({ red: v.policeStrobeRed, blue: v.policeStrobeBlue });
+        }
+        return v.group;
+      }
+      case 'OBSTACLE_POTHOLE':
+        return createPothole3D();
+      case 'OBSTACLE_GOAT':
+        return createGoat3D();
+      case 'OBSTACLE_COW':
+        return createZebuCow3D();
+      case 'ITEM_BIRR':
+        return createBirrCoin3D();
+      case 'ITEM_BUNNA':
+        return createBunnaJebena3D();
+      case 'ITEM_FUEL':
+        return createFuelCan3D();
+      case 'PASSENGER':
+      case 'SCENERY_ZEBRA_PEDESTRIAN':
+        return createPassenger3D();
+      case 'SCENERY_POLICE_CONE':
+        return createPoliceCone3D();
+      case 'SCENERY_RADAR_SIGN':
+      case 'SCENERY_TAXI_SIGN':
+        return createTaxiSign3D();
+      case 'SCENERY_ACACIA':
+        return createAcaciaTree3D();
+      case 'SCENERY_EUCALYPTUS':
+        return createEucalyptusTree3D();
+      case 'SCENERY_LAMP':
+        return createStreetLamp3D();
+      case 'SCENERY_BILLBOARD':
+        return createBillboard3D();
+      case 'SCENERY_TAXI_SIGN':
+        return createTaxiSign3D();
+      case 'CHECKPOINT_GATE':
+        return createCheckpointGate3D();
+      default:
+        return null;
+    }
+  }
+
+  public updateEntities(road: RoadManager, dt: number, playerZ: number) {
+    const totalTrackZ = road.trackLength;
+    const now = Date.now();
+
+    // Alternate Police Strobes
+    const redOn = now % 300 < 150;
+    for (const pl of this.policeLights) {
+      pl.red.intensity = redOn ? 7.0 : 0.2;
+      pl.blue.intensity = redOn ? 0.2 : 7.0;
+    }
+
+    // Animate LRT Train
+    if (this.lrtTrainMesh) {
+      this.lrtProgress = (this.lrtProgress + dt * 12.0) % 80;
+      this.lrtTrainMesh.position.z = -40 + this.lrtProgress;
+    }
+
+    const segments = road.segments;
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      for (const sprite of seg.sprites) {
+        const mesh = sprite.mesh3d as THREE.Object3D | undefined;
+        if (!mesh) continue;
+
+        // Hide collected items
+        if (sprite.collected) {
+          mesh.visible = false;
+          continue;
+        }
+
+        const spriteZ = seg.p1.z + (sprite.zOffset || 0);
+
+        // Distance relative to player
+        let dist = spriteZ - playerZ;
+        if (dist < -totalTrackZ / 2) dist += totalTrackZ;
+        if (dist > totalTrackZ / 2) dist -= totalTrackZ;
+
+        // View frustum draw distance (~400m ahead, 30m behind)
+        if (dist < -1500 || dist > 26000) {
+          mesh.visible = false;
+          continue;
+        }
+
+        mesh.visible = true;
+
+        const { pos, tangent, normal } = this.getPointAtZ(spriteZ);
+        const worldPos = pos.clone().addScaledVector(normal, sprite.offset * 9.0);
+
+        // Align mesh orientation with track tangent
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+
+        if (sprite.type === 'ITEM_BIRR') {
+          worldPos.y += 0.45;
+          mesh.position.copy(worldPos);
+          mesh.rotateY(now * 0.004);
+        } else if (sprite.type === 'ITEM_BUNNA') {
+          worldPos.y += 0.35 + Math.sin((spriteZ + now * 0.006)) * 0.12;
+          mesh.position.copy(worldPos);
+          mesh.rotateY(now * 0.002);
+        } else if (sprite.type === 'ITEM_FUEL') {
+          worldPos.y += 0.35 + Math.cos((spriteZ + now * 0.005)) * 0.1;
+          mesh.position.copy(worldPos);
+        } else if (sprite.type === 'OBSTACLE_POTHOLE') {
+          worldPos.y += 0.04;
+          mesh.position.copy(worldPos);
+        } else {
+          worldPos.y += 0.02;
+          mesh.position.copy(worldPos);
+        }
+      }
     }
   }
 }

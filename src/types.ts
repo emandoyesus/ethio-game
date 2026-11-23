@@ -68,6 +68,7 @@ export interface SpriteInstance {
   tag?: string; // e.g. passenger destination
   alertTimer?: number; // reaction when horn is sounded
   targetOffset?: number; // lane change target when yielding
+  mesh3d?: any;
 }
 
 export type SpriteType =
