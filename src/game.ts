@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { sound } from './audio';
+import { DrDrivingControls } from './controls';
 import { garage } from './garage';
 import { createVehicleMeshById, type Vehicle3DModel } from './models3d';
 import { Renderer3D, type CameraMode } from './renderer3d';
@@ -19,6 +20,7 @@ export class GameEngine {
   public track3d: Track3D;
   public playerModel: Vehicle3DModel;
   private currentVehicleId: VehicleId;
+  public controls: DrDrivingControls;
 
   public state: GameState = 'TITLE';
   public currentStageIndex: number = 0;
@@ -73,6 +75,7 @@ export class GameEngine {
     this.renderer3d.scene.add(this.playerModel.group);
 
     this.initEventListeners();
+    this.controls = new DrDrivingControls(this, this.canvasHud);
     this.resize();
     sprites.init();
     this.road.buildTrack(this.stage);
@@ -155,6 +158,9 @@ export class GameEngine {
     this.canvas3d.width = rect.width * dpr;
     this.canvas3d.height = rect.height * dpr;
     this.renderer3d.resize(this.canvas3d.width, this.canvas3d.height);
+    if (this.controls) {
+      this.controls.updateLayout(rect.width, rect.height);
+    }
   }
 
   public cycleCameraView(): CameraMode {
@@ -500,8 +506,8 @@ export class GameEngine {
     const maxSpeed = isBoosting ? this.player.maxSpeed * 1.48 : this.player.maxSpeed;
 
     // 3. User Controls & Analog Pedal Input
-    const up = !!(this.keys['arrowup'] || this.keys['w']);
-    const down = !!(this.keys['arrowdown'] || this.keys['s']);
+    const up = !!(this.keys['arrowup'] || this.keys['w'] || this.controls?.isGasHeld);
+    const down = !!(this.keys['arrowdown'] || this.keys['s'] || this.controls?.isBrakeHeld);
     const left = !!(this.keys['arrowleft'] || this.keys['a']);
     const right = !!(this.keys['arrowright'] || this.keys['d']);
 
@@ -580,8 +586,8 @@ export class GameEngine {
     } else if (right) {
       this.player.steeringWheelAngle = Math.min(Math.PI * 2.2, this.player.steeringWheelAngle + dt * 8.5);
       this.player.turnSignal = 'right';
-    } else {
-      // Natural caster auto-centering
+    } else if (!this.controls?.isWheelDragging) {
+      // Natural caster auto-centering when not actively being dragged or steered
       this.player.steeringWheelAngle *= Math.pow(0.04, dt);
       if (Math.abs(this.player.steeringWheelAngle) < 0.01) this.player.steeringWheelAngle = 0;
       this.player.turnSignal = 'none';
@@ -1237,7 +1243,7 @@ export class GameEngine {
     // 7. UI HUD
     const progress = this.player.z / this.road.trackLength;
     if (this.state === 'PLAYING') {
-      ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, garage.highScore, garage.walletBalance);
+      ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, garage.highScore, garage.walletBalance, this.controls?.layout);
     } else if (this.state === 'TITLE') {
       ui.renderTitleScreen(this.ctx, w, h, garage.highScore, garage.walletBalance);
     } else if (this.state === 'PAUSED') {

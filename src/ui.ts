@@ -1,6 +1,7 @@
 import { UPGRADE_PRICES, garage } from './garage';
 import { sprites } from './sprites';
 import type { Player, RouteStage, VehicleDef } from './types';
+import type { DrDrivingLayout } from './controls';
 
 export interface FloatingText {
   text: string;
@@ -123,7 +124,8 @@ export class UIManager {
     progressRatio: number,
     _isMuted: boolean,
     highScore: number,
-    walletBalance: number
+    walletBalance: number,
+    drDrivingLayout?: DrDrivingLayout
   ) {
     ctx.save();
 
@@ -322,8 +324,13 @@ export class UIManager {
       ctx.restore();
     });
 
-    // 5. TRUE AUTOMOTIVE DUAL CORNER CLUSTERS (Center is 100% CLEAR for the car!)
+    // 5. TRUE AUTOMOTIVE DUAL CORNER CLUSTERS
     this.renderDualCornerCockpit(ctx, width, height, player);
+
+    // 6. Dr. Driving Interactive Controls (Steering Wheel, Gas/Brake Pedals, PRND Shifter)
+    if (drDrivingLayout) {
+      this.renderDrDrivingControls(ctx, width, height, player, drDrivingLayout);
+    }
 
     ctx.restore();
   }
@@ -336,10 +343,10 @@ export class UIManager {
     const rpmRatio = Math.min(1, Math.max(0.12, player.rpm / 7500));
     const isBoosting = player.boostRemaining > 0;
 
-    // Dimensions for corner pods
+    // Dimensions for corner pods: float above Dr. Driving pedals & steering wheel
     const podW = 224;
     const podH = 88;
-    const podY = height - podH - 12;
+    const podY = height > 520 ? height - podH - 124 : height - podH - 12;
 
     // ----------------------------------------------------
     // LEFT POD: Vehicle Diagnostics (Fuel, Bunna Boost, Chassis)
@@ -574,6 +581,233 @@ export class UIManager {
     ctx.font = '8px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('W/↑ GAS  •  S/↓ BRAKE  •  A/D STEER  •  SPACE HORN  •  R RADIO  •  F HAZARDS', width / 2, legendY + 2);
+
+    ctx.restore();
+  }
+
+  // Dr. Driving Cockpit Controls: Rotatable Steering Wheel, Gas & Brake Pedals, PRND Shifter
+  public renderDrDrivingControls(
+    ctx: CanvasRenderingContext2D,
+    _width: number,
+    _height: number,
+    player: Player,
+    layout: DrDrivingLayout
+  ) {
+    ctx.save();
+    const { wheel, gas, brake, shifter } = layout;
+
+    // ----------------------------------------------------
+    // 1. ROTATABLE STEERING WHEEL WITH CENTER HORN BOSS
+    // ----------------------------------------------------
+    ctx.save();
+    ctx.translate(wheel.cx, wheel.cy);
+    ctx.rotate(player.steeringWheelAngle);
+
+    // Drop shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 12;
+
+    // Outer leather rim
+    const rimGrad = ctx.createRadialGradient(0, 0, wheel.r - 14, 0, 0, wheel.r + 4);
+    rimGrad.addColorStop(0, '#1e293b');
+    rimGrad.addColorStop(0.5, '#0f172a');
+    rimGrad.addColorStop(1, '#020617');
+
+    ctx.strokeStyle = rimGrad;
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.arc(0, 0, wheel.r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0; // reset shadow
+
+    // Inner rim stitch line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, wheel.r - 6, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 12 o'clock racing alignment yellow band
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.arc(0, 0, wheel.r, -Math.PI / 2 - 0.12, -Math.PI / 2 + 0.12);
+    ctx.stroke();
+
+    // 3 Metallic spokes (Left, Right, Bottom)
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(-wheel.r + 6, -5, wheel.r - wheel.hornR - 2, 10);
+    ctx.fillRect(wheel.hornR - 4, -5, wheel.r - wheel.hornR - 2, 10);
+    ctx.fillRect(-5, wheel.hornR - 4, 10, wheel.r - wheel.hornR - 2);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-wheel.r + 6, -5, wheel.r - wheel.hornR - 2, 10);
+    ctx.strokeRect(wheel.hornR - 4, -5, wheel.r - wheel.hornR - 2, 10);
+    ctx.strokeRect(-5, wheel.hornR - 4, 10, wheel.r - wheel.hornR - 2);
+
+    // Center Horn Boss (Hub)
+    const bossGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, wheel.hornR);
+    bossGrad.addColorStop(0, '#334155');
+    bossGrad.addColorStop(0.85, '#0f172a');
+    bossGrad.addColorStop(1, '#020617');
+
+    ctx.fillStyle = bossGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, wheel.hornR, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Horn icon & text
+    ctx.fillStyle = '#facc15';
+    ctx.font = 'bold 12px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('📢', 0, -3);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 7px "Chakra Petch", sans-serif';
+    ctx.fillText('HORN', 0, 9);
+
+    ctx.restore();
+
+    // Steering Angle HUD Indicator Arc (Stationary above the wheel)
+    const normSteer = player.steeringWheelAngle / (Math.PI * 2.2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(wheel.cx, wheel.cy - wheel.r - 8, 14, Math.PI * 0.8, Math.PI * 2.2);
+    ctx.stroke();
+
+    ctx.strokeStyle = normSteer < -0.05 ? '#ef4444' : normSteer > 0.05 ? '#22c55e' : '#38bdf8';
+    ctx.beginPath();
+    ctx.arc(wheel.cx, wheel.cy - wheel.r - 8, 14, Math.PI * 1.5, Math.PI * (1.5 + normSteer * 0.65), normSteer < 0);
+    ctx.stroke();
+
+    // ----------------------------------------------------
+    // 2. ANALOG PEDALS (BRAKE & GAS)
+    // ----------------------------------------------------
+    // --- BRAKE PEDAL ---
+    const brakeTravel = player.brakePedal * 9;
+    const isBraking = player.brakePedal > 0.08;
+
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.7)';
+    ctx.beginPath();
+    ctx.roundRect(brake.x - 3, brake.y - 2, brake.w + 6, brake.h + 12, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    const brakeGrad = ctx.createLinearGradient(brake.x, brake.y, brake.x, brake.y + brake.h);
+    brakeGrad.addColorStop(0, isBraking ? '#dc2626' : '#475569');
+    brakeGrad.addColorStop(1, isBraking ? '#7f1d1d' : '#1e293b');
+
+    ctx.fillStyle = brakeGrad;
+    ctx.beginPath();
+    ctx.roundRect(brake.x, brake.y + brakeTravel, brake.w, brake.h, 6);
+    ctx.fill();
+    ctx.strokeStyle = isBraking ? '#f87171' : 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = isBraking ? 'rgba(0, 0, 0, 0.5)' : '#0f172a';
+    for (let r = 0; r < 4; r++) {
+      ctx.fillRect(brake.x + 6, brake.y + brakeTravel + 12 + r * 9, brake.w - 12, 4);
+    }
+
+    ctx.fillStyle = isBraking ? '#fee2e2' : '#cbd5e1';
+    ctx.font = 'bold 9px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('BRAKE', brake.x + brake.w / 2, brake.y + brakeTravel + brake.h - 6);
+
+    // --- GAS PEDAL ---
+    const gasTravel = player.gasPedal * 12;
+    const isGasOn = player.gasPedal > 0.08;
+
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.7)';
+    ctx.beginPath();
+    ctx.roundRect(gas.x - 3, gas.y - 2, gas.w + 6, gas.h + 14, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.stroke();
+
+    const gasGrad = ctx.createLinearGradient(gas.x, gas.y, gas.x, gas.y + gas.h);
+    gasGrad.addColorStop(0, isGasOn ? '#0284c7' : '#334155');
+    gasGrad.addColorStop(1, isGasOn ? '#0c4a6e' : '#0f172a');
+
+    ctx.fillStyle = gasGrad;
+    ctx.beginPath();
+    ctx.roundRect(gas.x, gas.y + gasTravel, gas.w, gas.h, 5);
+    ctx.fill();
+    ctx.strokeStyle = isGasOn ? '#38bdf8' : 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = isGasOn ? 'rgba(0, 0, 0, 0.45)' : '#020617';
+    for (let s = 0; s < 3; s++) {
+      ctx.fillRect(gas.x + 7 + s * 9, gas.y + gasTravel + 10, 4, gas.h - 26);
+    }
+
+    ctx.fillStyle = isGasOn ? '#e0f2fe' : '#cbd5e1';
+    ctx.font = 'bold 9px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAS', gas.x + gas.w / 2, gas.y + gasTravel + gas.h - 6);
+
+    // ----------------------------------------------------
+    // 3. PRND SHIFTER LEVER CONSOLE
+    // ----------------------------------------------------
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(shifter.x, shifter.y, shifter.w, shifter.h, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Vertical guide groove
+    ctx.fillStyle = '#020617';
+    ctx.beginPath();
+    ctx.roundRect(shifter.x + shifter.w / 2 - 3, shifter.y + 10, 6, shifter.h - 20, 3);
+    ctx.fill();
+
+    let activeSlotY = shifter.slots[0].y;
+    for (const slot of shifter.slots) {
+      const isSel = player.gearMode === slot.gear;
+      if (isSel) activeSlotY = slot.y;
+
+      const slotColor = slot.gear === 'R' ? '#ef4444' : slot.gear === 'P' ? '#f59e0b' : slot.gear === 'N' ? '#38bdf8' : '#22c55e';
+      ctx.fillStyle = isSel ? slotColor : 'rgba(148, 163, 184, 0.4)';
+      ctx.font = isSel ? 'bold 11px "Chakra Petch", monospace' : '9px "Chakra Petch", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(slot.gear, shifter.x + shifter.w / 2, slot.y + 4);
+    }
+
+    // Chrome Shifter Knob & Lever Arm
+    const knobX = shifter.x + shifter.w / 2;
+    const knobY = activeSlotY;
+
+    // Lever Shaft
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(knobX - 2, knobY - 2, 4, 4);
+
+    // Chrome Knob
+    const knobGrad = ctx.createRadialGradient(knobX - 3, knobY - 3, 1, knobX, knobY, 9);
+    knobGrad.addColorStop(0, '#ffffff');
+    knobGrad.addColorStop(0.5, '#cbd5e1');
+    knobGrad.addColorStop(1, '#475569');
+
+    ctx.fillStyle = knobGrad;
+    ctx.beginPath();
+    ctx.arc(knobX, knobY, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
     ctx.restore();
   }

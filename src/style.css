@@ -175,17 +175,9 @@ body, html {
   opacity: 0;
 }
 
-/* Touch Controls Bar for Mobile & Tablets */
+/* Touch Controls Bar: Replaced by native Canvas Dr. Driving Steering Wheel & Analog Pedals */
 .touch-controls {
-  position: absolute;
-  bottom: 12px;
-  left: 0;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 16px;
-  pointer-events: none;
-  z-index: 20;
+  display: none !important;
 }
 
 .touch-cluster {
