@@ -1351,7 +1351,33 @@ export class GameEngine {
     // 7. UI HUD
     const progress = this.player.z / this.road.trackLength;
     if (this.state === 'PLAYING') {
-      ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, garage.highScore, garage.walletBalance, this.controls?.layout);
+      // Query trailing vehicles behind player within 2600 units for Dr. Driving Rearview Mirror
+      const trailingCars: { type: string; distBehind: number; laneOffset: number }[] = [];
+      const pz = this.player.z;
+      const totalSegs = this.road.totalSegments;
+      const playerSegIdx = Math.floor(pz / ROAD.SEGMENT_LENGTH);
+
+      for (let offset = -1; offset >= -14; offset--) {
+        const sIdx = (playerSegIdx + offset + totalSegs) % totalSegs;
+        const seg = this.road.segments[sIdx];
+        if (!seg) continue;
+        for (const sp of seg.sprites) {
+          if (typeof sp.type === 'string' && sp.type.startsWith('TRAFFIC_')) {
+            const spZ = seg.p1.z + (sp.zOffset || 0);
+            let dist = pz - spZ;
+            if (dist < 0) dist += this.road.trackLength;
+            if (dist > 50 && dist < 2600) {
+              trailingCars.push({
+                type: sp.type,
+                distBehind: dist,
+                laneOffset: sp.offset
+              });
+            }
+          }
+        }
+      }
+
+      ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, garage.highScore, garage.walletBalance, this.controls?.layout, trailingCars);
     } else if (this.state === 'TITLE') {
       ui.renderTitleScreen(this.ctx, w, h, garage.highScore, garage.walletBalance);
     } else if (this.state === 'PAUSED') {

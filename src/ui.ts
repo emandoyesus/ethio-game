@@ -125,7 +125,8 @@ export class UIManager {
     _isMuted: boolean,
     highScore: number,
     walletBalance: number,
-    drDrivingLayout?: DrDrivingLayout
+    drDrivingLayout?: DrDrivingLayout,
+    trailingCars: { type: string; distBehind: number; laneOffset: number }[] = []
   ) {
     ctx.save();
 
@@ -146,6 +147,9 @@ export class UIManager {
     ctx.fillRect(ribW, 0, ribW, 2);
     ctx.fillStyle = '#dc2626';
     ctx.fillRect(ribW * 2, 0, ribW, 2);
+
+    // Dr. Driving Windshield Active Rearview Mirror & Reverse Cam
+    this.renderRearviewMirror(ctx, width, player, trailingCars);
 
     // Left: Route Title & Economy Badge
     ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
@@ -264,7 +268,7 @@ export class UIManager {
     if (player.comboCount > 1) {
       ctx.save();
       const comboX = width / 2;
-      const comboY = 56;
+      const comboY = 110;
 
       ctx.fillStyle = 'rgba(234, 88, 12, 0.92)';
       ctx.beginPath();
@@ -281,8 +285,8 @@ export class UIManager {
       ctx.restore();
     }
 
-    // 3. Structured Toast Alert Notifications (Stacked below progress bar, zero overlap!)
-    const toastStartY = player.comboCount > 1 ? 78 : 58;
+    // 3. Structured Toast Alert Notifications (Stacked below rearview mirror, zero overlap!)
+    const toastStartY = 112 + (player.comboCount > 1 ? 28 : 0);
     this.toasts.forEach((toast, idx) => {
       ctx.save();
       const toastY = toastStartY + idx * 30;
@@ -809,6 +813,207 @@ export class UIManager {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
+    ctx.restore();
+  }
+
+  // Dr. Driving Windshield Active Rearview Mirror & Reverse Cam Guidelines
+  private renderRearviewMirror(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    player: Player,
+    trailingCars: { type: string; distBehind: number; laneOffset: number }[]
+  ) {
+    ctx.save();
+
+    const mirrorW = 210;
+    const mirrorH = 54;
+    const mirrorX = (width - mirrorW) / 2;
+    const mirrorY = 46;
+
+    // 1. Windshield Mounting Bracket
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(width / 2 - 5, mirrorY - 7, 10, 8, 2);
+    ctx.fill();
+
+    // 2. Beveled Mirror Bezel / Housing
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = '#090d16';
+    ctx.beginPath();
+    ctx.roundRect(mirrorX, mirrorY, mirrorW, mirrorH, 10);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // Anti-glare flip tab at bottom
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.roundRect(width / 2 - 9, mirrorY + mirrorH, 18, 5, [0, 0, 3, 3]);
+    ctx.fill();
+
+    // 3. Mirror Glass (clipped inside inner boundary)
+    const glassX = mirrorX + 4;
+    const glassY = mirrorY + 4;
+    const glassW = mirrorW - 8;
+    const glassH = mirrorH - 8;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(glassX, glassY, glassW, glassH, 7);
+    ctx.clip();
+
+    const isReverse = player.gearMode === 'R';
+
+    // Glass Background: Sky & Ground Perspective
+    const glassGrad = ctx.createLinearGradient(0, glassY, 0, glassY + glassH);
+    if (isReverse) {
+      glassGrad.addColorStop(0, '#04101c');
+      glassGrad.addColorStop(0.5, '#082f49');
+      glassGrad.addColorStop(1, '#020617');
+    } else {
+      glassGrad.addColorStop(0, '#0b1329');
+      glassGrad.addColorStop(0.45, '#1e293b');
+      glassGrad.addColorStop(1, '#0f172a');
+    }
+    ctx.fillStyle = glassGrad;
+    ctx.fillRect(glassX, glassY, glassW, glassH);
+
+    // Vanishing road perspective inside mirror
+    const centerX = glassX + glassW / 2;
+    const horizonY = glassY + glassH * 0.42;
+
+    ctx.strokeStyle = isReverse ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1;
+
+    // Road shoulders converging to horizon
+    ctx.beginPath();
+    ctx.moveTo(centerX - 8, horizonY);
+    ctx.lineTo(glassX + 10, glassY + glassH);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(centerX + 8, horizonY);
+    ctx.lineTo(glassX + glassW - 10, glassY + glassH);
+    ctx.stroke();
+
+    // Road center dashed line
+    ctx.strokeStyle = isReverse ? 'rgba(56, 189, 248, 0.35)' : 'rgba(250, 204, 21, 0.3)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(centerX, horizonY);
+    ctx.lineTo(centerX, glassY + glassH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 4. Render Trailing Vehicles in Mirror
+    trailingCars.forEach(car => {
+      const depthFrac = Math.max(0, Math.min(1, (2500 - car.distBehind) / 2400));
+      const carScale = 0.3 + depthFrac * 0.7;
+      const carY = horizonY + (glassY + glassH - horizonY) * depthFrac * 0.85;
+      const carX = centerX + car.laneOffset * (glassW * 0.35) * depthFrac;
+
+      const cw = 26 * carScale;
+      const ch = 15 * carScale;
+
+      ctx.fillStyle = car.type === 'TRAFFIC_POLICE' ? '#1e3a5f' : car.type === 'TRAFFIC_BAJAJ' ? '#047857' : '#1e293b';
+      ctx.beginPath();
+      ctx.roundRect(carX - cw / 2, carY - ch / 2, cw, ch, 3);
+      ctx.fill();
+
+      // Glowing headlights shining toward player
+      const headlightColor = isReverse ? '#38bdf8' : '#fef08a';
+      ctx.fillStyle = headlightColor;
+      const hlSize = 2.8 * carScale;
+      ctx.beginPath();
+      ctx.arc(carX - cw * 0.32, carY + ch * 0.1, hlSize, 0, Math.PI * 2);
+      ctx.arc(carX + cw * 0.32, carY + ch * 0.1, hlSize, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Soft headlight flare
+      ctx.fillStyle = 'rgba(254, 240, 138, 0.22)';
+      ctx.beginPath();
+      ctx.arc(carX, carY + ch * 0.1, cw * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 5. Dynamic Dr. Driving Backup Guidelines (When in Reverse [R])
+    if (isReverse) {
+      const steer = player.steerAngle;
+      const curveOffset = steer * 20;
+
+      const segments = [
+        { yStart: glassY + glassH * 0.38, yEnd: glassY + glassH * 0.6, color: '#22c55e' },
+        { yStart: glassY + glassH * 0.6, yEnd: glassY + glassH * 0.82, color: '#facc15' },
+        { yStart: glassY + glassH * 0.82, yEnd: glassY + glassH * 0.96, color: '#ef4444' }
+      ];
+
+      ctx.lineWidth = 1.8;
+      segments.forEach(seg => {
+        ctx.strokeStyle = seg.color;
+        const f0 = (seg.yStart - glassY) / glassH;
+        const f1 = (seg.yEnd - glassY) / glassH;
+
+        const leftX0 = centerX - 30 * f0 + curveOffset * f0 * f0;
+        const leftX1 = centerX - 30 * f1 + curveOffset * f1 * f1;
+        const rightX0 = centerX + 30 * f0 + curveOffset * f0 * f0;
+        const rightX1 = centerX + 30 * f1 + curveOffset * f1 * f1;
+
+        ctx.beginPath();
+        ctx.moveTo(leftX0, seg.yStart);
+        ctx.lineTo(leftX1, seg.yEnd);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(rightX0, seg.yStart);
+        ctx.lineTo(rightX1, seg.yEnd);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(leftX1, seg.yEnd);
+        ctx.lineTo(rightX1, seg.yEnd);
+        ctx.stroke();
+      });
+
+      // Top cam mode badge
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
+      ctx.beginPath();
+      ctx.roundRect(glassX + 6, glassY + 4, 66, 12, 3);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8px "Chakra Petch", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('R • REAR CAM', glassX + 39, glassY + 13);
+
+      ctx.fillStyle = '#22c55e';
+      ctx.font = 'bold 9px "Chakra Petch", monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('RADAR: OK', glassX + glassW - 6, glassY + 13);
+    } else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.beginPath();
+      ctx.roundRect(glassX + 6, glassY + 4, 78, 12, 3);
+      ctx.fill();
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 7.5px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('የኋላ መስታወት', glassX + 45, glassY + 13);
+    }
+
+    // Glass Subtle Convex Glare / Reflection Sheen
+    const sheenGrad = ctx.createLinearGradient(glassX, glassY, glassX + glassW, glassY + glassH);
+    sheenGrad.addColorStop(0, 'rgba(255, 255, 255, 0.16)');
+    sheenGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.04)');
+    sheenGrad.addColorStop(0.55, 'rgba(255, 255, 255, 0)');
+    sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0.08)');
+    ctx.fillStyle = sheenGrad;
+    ctx.fillRect(glassX, glassY, glassW, glassH);
+
+    ctx.restore();
     ctx.restore();
   }
 
