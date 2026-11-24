@@ -56,6 +56,8 @@ export const materials = {
   signalGreenOn: new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x22c55e, emissiveIntensity: 5.0 }),
   blinkerAmberOff: new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 }),
   blinkerAmberOn: new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xfbbf24, emissiveIntensity: 5.2 }),
+  flameBlue: new THREE.MeshBasicMaterial({ color: 0x00f0ff }),
+  flameOrange: new THREE.MeshBasicMaterial({ color: 0xff5500 }),
   asphaltPaintWhite: new THREE.MeshBasicMaterial({ color: 0xf8fafc, side: THREE.DoubleSide }),
   asphaltPaintYellow: new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide })
 };
@@ -67,6 +69,7 @@ export interface Vehicle3DModel {
   taillights?: THREE.Mesh[];
   leftBlinkers?: THREE.Mesh[];
   rightBlinkers?: THREE.Mesh[];
+  boostFlameJets?: THREE.Mesh[];
   policeStrobeRed?: THREE.PointLight;
   policeStrobeBlue?: THREE.PointLight;
 }
@@ -83,7 +86,7 @@ export interface TrafficLight3DModel {
 }
 
 // 1. Toyota HiAce Blue Minibus Taxi (The iconic Addis workhorse)
-export function createMinibus3D(): Vehicle3DModel {
+export function createMinibus3D(isPlayer: boolean = false): Vehicle3DModel {
   const group = new THREE.Group();
   const wheels: THREE.Mesh[] = [];
 
@@ -144,7 +147,7 @@ export function createMinibus3D(): Vehicle3DModel {
   rearBumper.position.set(0, 0.45, -2.42);
   group.add(rearBumper);
 
-  // Headlights & Spotlights
+  // Headlights (Only player vehicle gets active dynamic SpotLights to preserve high 60 FPS)
   const hlGeo = new THREE.BoxGeometry(0.35, 0.22, 0.1);
   const leftHL = new THREE.Mesh(hlGeo, materials.headlightOn);
   leftHL.position.set(-0.75, 0.78, 2.42);
@@ -154,17 +157,36 @@ export function createMinibus3D(): Vehicle3DModel {
   rightHL.position.set(0.75, 0.78, 2.42);
   group.add(rightHL);
 
-  const spotL = new THREE.SpotLight(0xfff8e7, 3.8, 50, Math.PI / 6, 0.4);
-  spotL.position.set(-0.75, 0.82, 2.5);
-  spotL.target.position.set(-0.75, 0, 20);
-  group.add(spotL);
-  group.add(spotL.target);
+  const headlights: THREE.SpotLight[] = [];
+  if (isPlayer) {
+    const spotL = new THREE.SpotLight(0xfff8e7, 3.8, 50, Math.PI / 6, 0.4);
+    spotL.position.set(-0.75, 0.82, 2.5);
+    spotL.target.position.set(-0.75, 0, 20);
+    group.add(spotL);
+    group.add(spotL.target);
+    headlights.push(spotL);
 
-  const spotR = new THREE.SpotLight(0xfff8e7, 3.8, 50, Math.PI / 6, 0.4);
-  spotR.position.set(0.75, 0.82, 2.5);
-  spotR.target.position.set(0.75, 0, 20);
-  group.add(spotR);
-  group.add(spotR.target);
+    const spotR = new THREE.SpotLight(0xfff8e7, 3.8, 50, Math.PI / 6, 0.4);
+    spotR.position.set(0.75, 0.82, 2.5);
+    spotR.target.position.set(0.75, 0, 20);
+    group.add(spotR);
+    group.add(spotR.target);
+    headlights.push(spotR);
+  }
+
+  // 3D Dual Boost Flame Jets
+  const boostFlameJets: THREE.Mesh[] = [];
+  if (isPlayer) {
+    const flameGeo = new THREE.ConeGeometry(0.12, 1.2, 8);
+    flameGeo.rotateX(Math.PI / 2);
+    [-0.55, 0.55].forEach(x => {
+      const jet = new THREE.Mesh(flameGeo, materials.flameBlue);
+      jet.position.set(x, 0.42, -2.55);
+      jet.visible = false;
+      group.add(jet);
+      boostFlameJets.push(jet);
+    });
+  }
 
   // Taillights
   const tlGeo = new THREE.BoxGeometry(0.28, 0.38, 0.1);
@@ -222,15 +244,16 @@ export function createMinibus3D(): Vehicle3DModel {
   return {
     group,
     wheels,
-    headlights: [spotL, spotR],
+    headlights,
     taillights: [leftTL, rightTL],
     leftBlinkers: [leftFB, leftRB],
-    rightBlinkers: [rightFB, rightRB]
+    rightBlinkers: [rightFB, rightRB],
+    boostFlameJets
   };
 }
 
 // 2. Classic Lada 2101 Taxi Sedan
-export function createLada3D(): Vehicle3DModel {
+export function createLada3D(isPlayer: boolean = false): Vehicle3DModel {
   const group = new THREE.Group();
   const wheels: THREE.Mesh[] = [];
 
@@ -275,17 +298,36 @@ export function createLada3D(): Vehicle3DModel {
   rightHL.position.set(0.68, 0.72, 2.22);
   group.add(rightHL);
 
-  const spotL = new THREE.SpotLight(0xfff8e7, 3.4, 45, Math.PI / 6, 0.4);
-  spotL.position.set(-0.68, 0.72, 2.3);
-  spotL.target.position.set(-0.68, 0, 20);
-  group.add(spotL);
-  group.add(spotL.target);
+  const headlights: THREE.SpotLight[] = [];
+  if (isPlayer) {
+    const spotL = new THREE.SpotLight(0xfff8e7, 3.4, 45, Math.PI / 6, 0.4);
+    spotL.position.set(-0.68, 0.72, 2.3);
+    spotL.target.position.set(-0.68, 0, 20);
+    group.add(spotL);
+    group.add(spotL.target);
+    headlights.push(spotL);
 
-  const spotR = new THREE.SpotLight(0xfff8e7, 3.4, 45, Math.PI / 6, 0.4);
-  spotR.position.set(0.68, 0.72, 2.3);
-  spotR.target.position.set(0.68, 0, 20);
-  group.add(spotR);
-  group.add(spotR.target);
+    const spotR = new THREE.SpotLight(0xfff8e7, 3.4, 45, Math.PI / 6, 0.4);
+    spotR.position.set(0.68, 0.72, 2.3);
+    spotR.target.position.set(0.68, 0, 20);
+    group.add(spotR);
+    group.add(spotR.target);
+    headlights.push(spotR);
+  }
+
+  // 3D Dual Boost Flame Jets
+  const boostFlameJets: THREE.Mesh[] = [];
+  if (isPlayer) {
+    const flameGeo = new THREE.ConeGeometry(0.1, 1.1, 8);
+    flameGeo.rotateX(Math.PI / 2);
+    [-0.45, 0.45].forEach(x => {
+      const jet = new THREE.Mesh(flameGeo, materials.flameBlue);
+      jet.position.set(x, 0.35, -2.25);
+      jet.visible = false;
+      group.add(jet);
+      boostFlameJets.push(jet);
+    });
+  }
 
   // 4 Wheels
   const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.26, 16);
@@ -337,15 +379,16 @@ export function createLada3D(): Vehicle3DModel {
   return {
     group,
     wheels,
-    headlights: [spotL, spotR],
+    headlights,
     taillights: [leftTL, rightTL],
     leftBlinkers: [leftFB, leftRB],
-    rightBlinkers: [rightFB, rightRB]
+    rightBlinkers: [rightFB, rightRB],
+    boostFlameJets
   };
 }
 
 // 3. Addis Bajaj (Auto-rickshaw 3-wheeler)
-export function createBajaj3D(): Vehicle3DModel {
+export function createBajaj3D(isPlayer: boolean = false): Vehicle3DModel {
   const group = new THREE.Group();
   const wheels: THREE.Mesh[] = [];
 
@@ -378,11 +421,27 @@ export function createBajaj3D(): Vehicle3DModel {
     wheels.push(rWheel);
   });
 
-  const spot = new THREE.SpotLight(0xfff8e7, 3.0, 40, Math.PI / 6, 0.4);
-  spot.position.set(0, 0.7, 2.0);
-  spot.target.position.set(0, 0, 20);
-  group.add(spot);
-  group.add(spot.target);
+  const headlights: THREE.SpotLight[] = [];
+  if (isPlayer) {
+    const spot = new THREE.SpotLight(0xfff8e7, 3.0, 40, Math.PI / 6, 0.4);
+    spot.position.set(0, 0.7, 2.0);
+    spot.target.position.set(0, 0, 20);
+    group.add(spot);
+    group.add(spot.target);
+    headlights.push(spot);
+  }
+
+  // 3D Dual Boost Flame Jets
+  const boostFlameJets: THREE.Mesh[] = [];
+  if (isPlayer) {
+    const flameGeo = new THREE.ConeGeometry(0.08, 0.9, 8);
+    flameGeo.rotateX(Math.PI / 2);
+    const jet = new THREE.Mesh(flameGeo, materials.flameBlue);
+    jet.position.set(0.35, 0.28, -1.35);
+    jet.visible = false;
+    group.add(jet);
+    boostFlameJets.push(jet);
+  }
 
   const blinkerGeo = new THREE.BoxGeometry(0.14, 0.14, 0.08);
   const leftBlinker = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
@@ -393,11 +452,11 @@ export function createBajaj3D(): Vehicle3DModel {
   rightBlinker.position.set(0.7, 0.55, -1.32);
   group.add(rightBlinker);
 
-  return { group, wheels, headlights: [spot], leftBlinkers: [leftBlinker], rightBlinkers: [rightBlinker] };
+  return { group, wheels, headlights, leftBlinkers: [leftBlinker], rightBlinkers: [rightBlinker], boostFlameJets };
 }
 
 // 4. Isuzu Heavy Freight Truck
-export function createIsuzu3D(): Vehicle3DModel {
+export function createIsuzu3D(isPlayer: boolean = false): Vehicle3DModel {
   const group = new THREE.Group();
   const wheels: THREE.Mesh[] = [];
 
@@ -426,17 +485,36 @@ export function createIsuzu3D(): Vehicle3DModel {
     wheels.push(w);
   });
 
-  const spotL = new THREE.SpotLight(0xfff8e7, 4.0, 55, Math.PI / 6, 0.4);
-  spotL.position.set(-0.85, 0.95, 2.9);
-  spotL.target.position.set(-0.85, 0, 20);
-  group.add(spotL);
-  group.add(spotL.target);
+  const headlights: THREE.SpotLight[] = [];
+  if (isPlayer) {
+    const spotL = new THREE.SpotLight(0xfff8e7, 4.0, 55, Math.PI / 6, 0.4);
+    spotL.position.set(-0.85, 0.95, 2.9);
+    spotL.target.position.set(-0.85, 0, 20);
+    group.add(spotL);
+    group.add(spotL.target);
+    headlights.push(spotL);
 
-  const spotR = new THREE.SpotLight(0xfff8e7, 4.0, 55, Math.PI / 6, 0.4);
-  spotR.position.set(0.85, 0.95, 2.9);
-  spotR.target.position.set(0.85, 0, 20);
-  group.add(spotR);
-  group.add(spotR.target);
+    const spotR = new THREE.SpotLight(0xfff8e7, 4.0, 55, Math.PI / 6, 0.4);
+    spotR.position.set(0.85, 0.95, 2.9);
+    spotR.target.position.set(0.85, 0, 20);
+    group.add(spotR);
+    group.add(spotR.target);
+    headlights.push(spotR);
+  }
+
+  // 3D Dual Boost Flame Jets
+  const boostFlameJets: THREE.Mesh[] = [];
+  if (isPlayer) {
+    const flameGeo = new THREE.ConeGeometry(0.14, 1.4, 8);
+    flameGeo.rotateX(Math.PI / 2);
+    [-0.6, 0.6].forEach(x => {
+      const jet = new THREE.Mesh(flameGeo, materials.flameBlue);
+      jet.position.set(x, 0.5, -3.75);
+      jet.visible = false;
+      group.add(jet);
+      boostFlameJets.push(jet);
+    });
+  }
 
   // Taillights
   const tlGeo = new THREE.BoxGeometry(0.24, 0.22, 0.08);
@@ -469,16 +547,17 @@ export function createIsuzu3D(): Vehicle3DModel {
   return {
     group,
     wheels,
-    headlights: [spotL, spotR],
+    headlights,
     taillights: [leftTL, rightTL],
     leftBlinkers: [leftFB, leftRB],
-    rightBlinkers: [rightFB, rightRB]
+    rightBlinkers: [rightFB, rightRB],
+    boostFlameJets
   };
 }
 
 // 5. Federal Police Cruiser
-export function createPolice3D(): Vehicle3DModel {
-  const model = createLada3D();
+export function createPolice3D(isPlayer: boolean = false): Vehicle3DModel {
+  const model = createLada3D(isPlayer);
   (model.group.children[0] as THREE.Mesh).material = materials.policeWhite;
 
   const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.84, 0.24, 4.0), materials.policeBlue);
@@ -503,18 +582,18 @@ export function createPolice3D(): Vehicle3DModel {
   return model;
 }
 
-export function createVehicleMeshById(id: VehicleId): Vehicle3DModel {
+export function createVehicleMeshById(id: VehicleId, isPlayer: boolean = false): Vehicle3DModel {
   switch (id) {
     case 'MINIBUS':
-      return createMinibus3D();
+      return createMinibus3D(isPlayer);
     case 'LADA':
-      return createLada3D();
+      return createLada3D(isPlayer);
     case 'BAJAJ':
-      return createBajaj3D();
+      return createBajaj3D(isPlayer);
     case 'ISUZU':
-      return createIsuzu3D();
+      return createIsuzu3D(isPlayer);
     default:
-      return createMinibus3D();
+      return createMinibus3D(isPlayer);
   }
 }
 

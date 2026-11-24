@@ -80,7 +80,7 @@ export class Track3D {
     let curX = 0;
     let dx = 0;
     const segLength3D = 6.0; // 6 meters per segment in 3D world space
-    const elevationScale = 0.04;
+    const elevationScale = 0.005; // Realistic smooth highway grade (~4-6%)
 
     for (let i = 0; i < total; i++) {
       const seg = segments[i];
@@ -202,30 +202,30 @@ export class Track3D {
       shoulderVerts.push(rightShoulderOut.x, rightShoulderOut.y, rightShoulderOut.z);
 
       if (i < count - 1) {
-        // Counter-Clockwise Road Quad: (0, 1, 2) and (1, 3, 2)
+        // Counter-Clockwise Road Quad facing UPWARDS: (r0, r2, r1) and (r1, r2, r3)
         const r0 = i * 2;
         const r1 = i * 2 + 1;
         const r2 = (i + 1) * 2;
         const r3 = (i + 1) * 2 + 1;
 
-        roadIndices.push(r0, r1, r2);
-        roadIndices.push(r1, r3, r2);
+        roadIndices.push(r0, r2, r1);
+        roadIndices.push(r1, r2, r3);
 
         // Left Shoulder Quad
         const sl0 = i * 4;
         const sl1 = i * 4 + 1;
         const sl2 = (i + 1) * 4;
         const sl3 = (i + 1) * 4 + 1;
-        shoulderIndices.push(sl0, sl1, sl2);
-        shoulderIndices.push(sl1, sl3, sl2);
+        shoulderIndices.push(sl0, sl2, sl1);
+        shoulderIndices.push(sl1, sl2, sl3);
 
         // Right Shoulder Quad
         const sr0 = i * 4 + 2;
         const sr1 = i * 4 + 3;
         const sr2 = (i + 1) * 4 + 2;
         const sr3 = (i + 1) * 4 + 3;
-        shoulderIndices.push(sr0, sr1, sr2);
-        shoulderIndices.push(sr1, sr3, sr2);
+        shoulderIndices.push(sr0, sr2, sr1);
+        shoulderIndices.push(sr1, sr2, sr3);
       }
 
       // Markings (Dashed highway lines, Stop Lines & Zebra crossings)
@@ -243,8 +243,8 @@ export class Track3D {
         markVerts.push(barNextL.x, barNextL.y + 0.12, barNextL.z);
         markVerts.push(barNextR.x, barNextR.y + 0.12, barNextR.z);
 
-        markIndices.push(idx, idx + 1, idx + 2);
-        markIndices.push(idx + 1, idx + 3, idx + 2);
+        markIndices.push(idx, idx + 2, idx + 1);
+        markIndices.push(idx + 1, idx + 2, idx + 3);
       } else if (seg && seg.hasZebraCrossing) {
         // Pedestrian Zebra Crosswalk bars
         const numBars = 10;
@@ -262,8 +262,8 @@ export class Track3D {
           markVerts.push(barNextL.x, barNextL.y + 0.11, barNextL.z);
           markVerts.push(barNextR.x, barNextR.y + 0.11, barNextR.z);
 
-          markIndices.push(idx, idx + 1, idx + 2);
-          markIndices.push(idx + 1, idx + 3, idx + 2);
+          markIndices.push(idx, idx + 2, idx + 1);
+          markIndices.push(idx + 1, idx + 2, idx + 3);
         }
       } else if (i % 2 === 0 && i < count - 1) {
         // Dashed Lane Stripes (3 Lanes)
@@ -280,8 +280,8 @@ export class Track3D {
           markVerts.push(sNextL.x, sNextL.y + 0.1, sNextL.z);
           markVerts.push(sNextR.x, sNextR.y + 0.1, sNextR.z);
 
-          markIndices.push(idx, idx + 1, idx + 2);
-          markIndices.push(idx + 1, idx + 3, idx + 2);
+          markIndices.push(idx, idx + 2, idx + 1);
+          markIndices.push(idx + 1, idx + 2, idx + 3);
         });
       }
     }
@@ -384,7 +384,7 @@ export class Track3D {
   private buildCrossTraffic(road: RoadManager) {
     for (const inter of road.intersections) {
       for (const cv of inter.crossTrafficVehicles) {
-        const model = cv.type === 'LADA' ? createLada3D() : cv.type === 'BAJAJ' ? createBajaj3D() : cv.type === 'MINIBUS' ? createMinibus3D() : createIsuzu3D();
+        const model = cv.type === 'LADA' ? createLada3D(false) : cv.type === 'BAJAJ' ? createBajaj3D(false) : cv.type === 'MINIBUS' ? createMinibus3D(false) : createIsuzu3D(false);
         cv.mesh3d = model.group;
         this.entitiesGroup.add(model.group);
       }
@@ -423,22 +423,22 @@ export class Track3D {
   private instantiateSpriteMesh(sprite: SpriteInstance, road: RoadManager): THREE.Object3D | null {
     switch (sprite.type) {
       case 'TRAFFIC_LADA': {
-        const v = createLada3D();
+        const v = createLada3D(false);
         v.group.userData.vehicleModel = v;
         return v.group;
       }
       case 'TRAFFIC_BAJAJ': {
-        const v = createBajaj3D();
+        const v = createBajaj3D(false);
         v.group.userData.vehicleModel = v;
         return v.group;
       }
       case 'TRAFFIC_ISUZU': {
-        const v = createIsuzu3D();
+        const v = createIsuzu3D(false);
         v.group.userData.vehicleModel = v;
         return v.group;
       }
       case 'TRAFFIC_POLICE': {
-        const v = createPolice3D();
+        const v = createPolice3D(false);
         v.group.userData.vehicleModel = v;
         if (v.policeStrobeRed && v.policeStrobeBlue) {
           this.policeLights.push({ red: v.policeStrobeRed, blue: v.policeStrobeBlue });
@@ -523,7 +523,7 @@ export class Track3D {
       }
 
       const pt = this.getPointAtZ(inter.zStopLine + ROAD.SEGMENT_LENGTH * 2);
-      const isNearPlayer = Math.abs(inter.zStopLine - playerZ) < 32000;
+      const isNearPlayer = Math.abs(inter.zStopLine - playerZ) < 18000;
 
       for (const cv of inter.crossTrafficVehicles) {
         if (!cv.mesh3d) continue;
@@ -566,8 +566,8 @@ export class Track3D {
         if (dist < -totalTrackZ / 2) dist += totalTrackZ;
         if (dist > totalTrackZ / 2) dist -= totalTrackZ;
 
-        // View frustum draw distance (~400m ahead, 30m behind)
-        if (dist < -1500 || dist > 26000) {
+        // View frustum draw distance (~270m ahead, 20m behind for smooth 60 FPS)
+        if (dist < -1200 || dist > 18000) {
           mesh.visible = false;
           continue;
         }

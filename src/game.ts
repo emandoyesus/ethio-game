@@ -7,7 +7,7 @@ import { Renderer3D, type CameraMode } from './renderer3d';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
 import { Track3D } from './track3d';
-import type { GameState, Particle, Player, ProjectedPoint, RacingLimitsGameMode, RainDrop, RoadSegment, RouteStage, SkidMark, SpriteInstance, TrafficFlow, TransmissionGear, VehicleId } from './types';
+import type { GameState, Particle, Player, RacingLimitsGameMode, RoadSegment, RouteStage, TrafficFlow, TransmissionGear, VehicleId } from './types';
 import { ui } from './ui';
 
 export class GameEngine {
@@ -29,9 +29,6 @@ export class GameEngine {
   public stage: RouteStage;
 
   public player: Player;
-  private cameraX: number = 0;
-  private cameraY: number = 1000;
-  private cameraZ: number = 0;
 
   private timeLeft: number = 75;
   private gameOverReason: string = '';
@@ -44,17 +41,12 @@ export class GameEngine {
   private screenShake: number = 0;
   private screenFlashRed: number = 0;
 
-  // Particle & Skidmark Systems
+  // Particle System
   private particles: Particle[] = [];
-  private skidmarks: SkidMark[] = [];
 
   // Weather System
-  private rainDrops: RainDrop[] = [];
   private lightningFlash: number = 0;
   private thunderTimer: number = 8;
-
-  // Sky parallax offset
-  private skyOffset: number = 0;
 
   // Near miss tracker
   private nearMissCooldown: number = 0;
@@ -75,7 +67,7 @@ export class GameEngine {
     this.currentVehicleId = this.player.vehicleId;
     garage.applyToPlayer(this.player);
 
-    this.playerModel = createVehicleMeshById(this.player.vehicleId);
+    this.playerModel = createVehicleMeshById(this.player.vehicleId, true);
     this.renderer3d.scene.add(this.playerModel.group);
 
     this.initEventListeners();
@@ -89,11 +81,13 @@ export class GameEngine {
     const initPt = this.track3d.getPointAtZ(0);
     this.playerModel.group.position.copy(initPt.pos);
     this.playerModel.group.position.y += 0.05;
+    this.renderer3d.camera.position.set(initPt.pos.x, initPt.pos.y + 3.6, initPt.pos.z - 8.5);
+    this.renderer3d.camera.lookAt(initPt.pos.x, initPt.pos.y + 1.4, initPt.pos.z + 18.0);
   }
 
   public updatePlayer3DModel() {
     this.renderer3d.scene.remove(this.playerModel.group);
-    this.playerModel = createVehicleMeshById(this.player.vehicleId);
+    this.playerModel = createVehicleMeshById(this.player.vehicleId, true);
     this.renderer3d.scene.add(this.playerModel.group);
     this.currentVehicleId = this.player.vehicleId;
   }
@@ -186,6 +180,15 @@ export class GameEngine {
 
       if (e.key === 'c' || e.key === 'C') {
         this.cycleCameraView();
+      }
+
+      if (e.key === 'o' || e.key === 'O') {
+        const isPerf = this.renderer3d.togglePerformanceMode();
+        ui.showToast(
+          isPerf ? '⚡ PERFORMANCE MODE: 60 FPS (Shadows OFF)' : '✨ HIGH QUALITY (Shadows ON)',
+          isPerf ? '⚡' : '✨',
+          isPerf ? '#22c55e' : '#38bdf8'
+        );
       }
 
       if (e.key === 'm' || e.key === 'M') {
@@ -482,7 +485,6 @@ export class GameEngine {
     this.track3d.build(this.road, this.stage);
     this.timeLeft = this.stage.timeLimit;
     this.particles = [];
-    this.skidmarks = [];
     this.state = 'PLAYING';
     sound.startMusic();
   }
@@ -501,7 +503,6 @@ export class GameEngine {
       this.player.fuel = this.player.maxFuel;
       this.timeLeft = this.stage.timeLimit;
       this.particles = [];
-      this.skidmarks = [];
       this.road.buildTrack(this.stage, this.trafficFlow);
       this.renderer3d.setupStageEnvironment(this.stage);
       this.track3d.build(this.road, this.stage);
@@ -528,7 +529,6 @@ export class GameEngine {
   private update(dt: number) {
     ui.update(dt);
     this.updateParticles(dt);
-    this.updateSkidmarks(dt);
     this.updateWeather(dt);
 
     if (this.nearMissCooldown > 0) {
@@ -693,7 +693,6 @@ export class GameEngine {
         this.player.pitch = Math.min(0.09, this.player.pitch + dt * 0.6 * this.player.brakePedal);
         if (this.player.speed > 2500) {
           this.spawnTireSmoke();
-          this.addSkidMark();
           sound.startTireScreech();
         } else {
           sound.stopTireScreech();
@@ -780,7 +779,6 @@ export class GameEngine {
     if ((left || right) && speedRatio > 0.72) {
       this.player.isDrifting = true;
       this.spawnTireSmoke();
-      this.addSkidMark();
       sound.startTireScreech();
     } else if (!down) {
       this.player.isDrifting = false;
@@ -789,7 +787,6 @@ export class GameEngine {
 
     // Advance distance
     this.player.z += this.player.speed * dt;
-    this.skyOffset += currentSegment.curve * speedRatio * 0.8;
 
     // Realistic multi-gear calculation
     this.updateRealisticGears(dt);
@@ -815,8 +812,10 @@ export class GameEngine {
     this.playerModel.group.position.copy(player3DPos);
 
     this.playerModel.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
-    this.playerModel.group.rotateZ(-this.player.roll - this.player.steerAngle * 0.08);
-    this.playerModel.group.rotateX(this.player.pitch);
+    const clampedRoll = Math.max(-0.35, Math.min(0.35, this.player.roll));
+    const clampedPitch = Math.max(-0.25, Math.min(0.25, this.player.pitch));
+    this.playerModel.group.rotateZ(-clampedRoll - this.player.steerAngle * 0.08);
+    this.playerModel.group.rotateX(clampedPitch);
 
     for (const w of this.playerModel.wheels) {
       w.rotation.x += dt * (this.player.speed * 0.005);
@@ -833,6 +832,19 @@ export class GameEngine {
       const targetMat = isReverse ? materials.reverseLight : isBraking ? materials.taillightBraking : materials.taillight;
       for (const tl of this.playerModel.taillights) {
         tl.material = targetMat;
+      }
+    }
+
+    // Dynamic 3D Boost Flame Jets (attached to rear exhaust pipes)
+    if (this.playerModel.boostFlameJets) {
+      const isBoostingNow = isBoosting && this.player.speed > 400 && this.player.gearMode === 'D';
+      for (const jet of this.playerModel.boostFlameJets) {
+        jet.visible = isBoostingNow;
+        if (isBoostingNow) {
+          jet.material = this.player.isNitroActive ? materials.flameBlue : materials.flameOrange;
+          const s = 0.85 + Math.random() * 0.35;
+          jet.scale.set(s, s * (this.player.isNitroActive ? 1.4 : 1.0), s);
+        }
       }
     }
 
@@ -1214,40 +1226,6 @@ export class GameEngine {
     }
   }
 
-  private addSkidMark() {
-    const w = this.width;
-    const h = this.height;
-    const carW = (w / 900) * 0.85 * 240;
-    const carX = w / 2;
-    const carY = h - 30;
-
-    [-carW * 0.3, carW * 0.3].forEach(offset => {
-      this.skidmarks.push({
-        x1: carX + offset - 4,
-        y1: carY,
-        x2: carX + offset + 4,
-        y2: carY + 8,
-        alpha: 0.6
-      });
-    });
-
-    if (this.skidmarks.length > 50) {
-      this.skidmarks.shift();
-    }
-  }
-
-  private updateSkidmarks(dt: number) {
-    for (let i = this.skidmarks.length - 1; i >= 0; i--) {
-      const sm = this.skidmarks[i];
-      sm.y1 += (this.player.speed * 0.04) * dt;
-      sm.y2 += (this.player.speed * 0.04) * dt;
-      sm.alpha -= dt * 0.5;
-      if (sm.alpha <= 0 || sm.y1 > this.height) {
-        this.skidmarks.splice(i, 1);
-      }
-    }
-  }
-
   private spawnDust() {
     const w = this.width;
     const h = this.height;
@@ -1379,7 +1357,6 @@ export class GameEngine {
   private updateWeather(dt: number) {
     const weather = this.stage.weather;
     if (this.state === 'PLAYING' && (weather === 'rain' || weather === 'sunshower')) {
-      const targetCount = weather === 'rain' ? 220 : 90;
       sound.startRainAudio(weather === 'rain' ? 0.7 : 0.35);
 
       // Thunder in heavy mountain rain
@@ -1389,31 +1366,11 @@ export class GameEngine {
           this.thunderTimer = 14 + Math.random() * 18;
           sound.playThunder();
           this.lightningFlash = 0.65;
-        }
-      }
-
-      while (this.rainDrops.length < targetCount) {
-        this.rainDrops.push({
-          x: Math.random() * this.width,
-          y: -20 - Math.random() * 100,
-          length: 14 + Math.random() * 16,
-          vy: 680 + Math.random() * 260,
-          vx: -120 - Math.random() * 60,
-          alpha: 0.35 + Math.random() * 0.4
-        });
-      }
-
-      for (let i = this.rainDrops.length - 1; i >= 0; i--) {
-        const drop = this.rainDrops[i];
-        drop.x += drop.vx * dt;
-        drop.y += drop.vy * dt;
-        if (drop.y > this.height) {
-          this.rainDrops.splice(i, 1);
+          this.renderer3d.triggerLightning();
         }
       }
     } else {
       sound.stopRainAudio();
-      this.rainDrops = [];
     }
 
     if (this.lightningFlash > 0) {
@@ -1437,24 +1394,6 @@ export class GameEngine {
     }
   }
 
-  // Pseudo-3D Projection
-  private project(p: { x: number; y: number; z: number }, cameraX: number, cameraY: number, cameraZ: number): ProjectedPoint {
-    const width = this.width;
-    const height = this.height;
-    const relativeZ = p.z - cameraZ;
-
-    if (relativeZ <= 0) {
-      return { x: 0, y: 0, scale: 0, w: 0 };
-    }
-
-    const scale = ROAD.CAMERA_DEPTH / relativeZ;
-    const projectedX = Math.round((width / 2) + (scale * (p.x - cameraX) * width / 2));
-    const projectedY = Math.round((height / 2) - (scale * (p.y - cameraY) * height / 2));
-    const projectedW = Math.round(scale * ROAD.ROAD_WIDTH * width / 2);
-
-    return { x: projectedX, y: projectedY, scale, w: projectedW };
-  }
-
   private render() {
     const w = this.width;
     const h = this.height;
@@ -1476,34 +1415,20 @@ export class GameEngine {
       this.ctx.translate(shakeX, shakeY);
     }
 
-    // 1. Sky & Horizon
-    this.renderSky(w, h);
-
-    // 2. Road & Sprites with atmospheric perspective
-    this.renderRoad(w, h);
-
-    // 3. Skidmarks
-    this.renderSkidmarks();
-
-    // 4. Night Headlights
-    if (this.stage.skyTheme === 'night') {
-      this.renderHeadlights(w, h);
-    }
-
-    // 5. Player Vehicle with realistic pitch, roll & bounce
-    this.renderPlayer(w, h);
-
-    // 6. Particles
+    // 2. Render Screen Particles (boost flames, tire smoke, sparks)
     this.renderParticles();
-
-    // 7. Dynamic Rain & Weather Overlay
-    this.renderRain(w, h);
 
     this.ctx.restore();
 
     // Red Light Infraction Screen Flash
     if (this.screenFlashRed > 0) {
       this.ctx.fillStyle = `rgba(239, 68, 68, ${Math.min(0.55, this.screenFlashRed * 0.5)})`;
+      this.ctx.fillRect(0, 0, w, h);
+    }
+
+    // Lightning Flash illumination
+    if (this.lightningFlash > 0) {
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(0.45, this.lightningFlash * 0.45)})`;
       this.ctx.fillRect(0, 0, w, h);
     }
 
@@ -1549,628 +1474,6 @@ export class GameEngine {
     }
   }
 
-  private renderSky(w: number, h: number) {
-    const theme = this.stage.skyTheme;
-    const horizon = h * 0.48;
-
-    // 1. Authentic Highland Atmosphere Gradient
-    const skyGrad = this.ctx.createLinearGradient(0, 0, 0, horizon);
-    if (theme === 'day') {
-      skyGrad.addColorStop(0, '#1d4ed8'); // High-altitude Ethiopian deep azure
-      skyGrad.addColorStop(0.4, '#3b82f6');
-      skyGrad.addColorStop(0.75, '#93c5fd');
-      skyGrad.addColorStop(1, '#dbeafe'); // Pale horizon haze
-    } else if (theme === 'sunset') {
-      skyGrad.addColorStop(0, '#1e1b4b'); // Deep indigo twilight zenith
-      skyGrad.addColorStop(0.3, '#701a75'); // Dusky plum
-      skyGrad.addColorStop(0.6, '#c2410c'); // African golden hour amber
-      skyGrad.addColorStop(0.85, '#f97316'); // Warm orange glow
-      skyGrad.addColorStop(1, '#fef08a'); // Radiant horizon gold
-    } else {
-      skyGrad.addColorStop(0, '#020617'); // Pitch highland night
-      skyGrad.addColorStop(0.6, '#0b1329');
-      skyGrad.addColorStop(1, '#111827');
-    }
-
-    this.ctx.fillStyle = skyGrad;
-    this.ctx.fillRect(0, 0, w, horizon);
-
-    // 2. Stars & Celestial Bodies
-    if (theme === 'night') {
-      // Twinkling stars
-      this.ctx.fillStyle = '#ffffff';
-      const starShift = (this.skyOffset * 5) % 800;
-      for (let s = 0; s < 45; s++) {
-        const sx = ((s * 47 - starShift) % w + w) % w;
-        const sy = (s * 31) % (horizon - 25);
-        const sSize = (s % 3 === 0) ? 2 : 1.2;
-        const sAlpha = 0.4 + 0.6 * Math.sin(Date.now() / 400 + s);
-        this.ctx.globalAlpha = sAlpha;
-        this.ctx.fillRect(sx, sy, sSize, sSize);
-      }
-      this.ctx.globalAlpha = 1.0;
-
-      // Crescent Moon with soft lunar halo
-      const moonX = w * 0.82;
-      const moonY = horizon * 0.28;
-
-      const moonGlow = this.ctx.createRadialGradient(moonX, moonY, 10, moonX, moonY, 45);
-      moonGlow.addColorStop(0, 'rgba(254, 240, 138, 0.25)');
-      moonGlow.addColorStop(1, 'rgba(254, 240, 138, 0)');
-      this.ctx.fillStyle = moonGlow;
-      this.ctx.beginPath();
-      this.ctx.arc(moonX, moonY, 45, 0, Math.PI * 2);
-      this.ctx.fill();
-
-      this.ctx.fillStyle = '#fef9c3';
-      this.ctx.beginPath();
-      this.ctx.arc(moonX, moonY, 16, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.fillStyle = '#0b1329';
-      this.ctx.beginPath();
-      this.ctx.arc(moonX + 6, moonY - 3, 13, 0, Math.PI * 2);
-      this.ctx.fill();
-    } else {
-      // Realistic Highland Sun with Atmospheric Flare
-      const sunX = w * 0.76;
-      const sunY = theme === 'sunset' ? horizon * 0.65 : horizon * 0.38;
-      const sunRadius = theme === 'sunset' ? 32 : 24;
-
-      // Outer Corona
-      const corona = this.ctx.createRadialGradient(sunX, sunY, sunRadius * 0.5, sunX, sunY, sunRadius * 3.8);
-      corona.addColorStop(0, theme === 'sunset' ? 'rgba(254, 215, 170, 0.45)' : 'rgba(255, 255, 255, 0.45)');
-      corona.addColorStop(0.5, theme === 'sunset' ? 'rgba(249, 115, 22, 0.18)' : 'rgba(254, 240, 138, 0.18)');
-      corona.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      this.ctx.fillStyle = corona;
-      this.ctx.beginPath();
-      this.ctx.arc(sunX, sunY, sunRadius * 3.8, 0, Math.PI * 2);
-      this.ctx.fill();
-
-      // Sun Disc
-      this.ctx.fillStyle = theme === 'sunset' ? '#fef08a' : '#ffffff';
-      this.ctx.beginPath();
-      this.ctx.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
-
-    // 3. Realistic Drifting Highland Clouds (Cumulus)
-    if (theme === 'day' || theme === 'sunset') {
-      const cloudShift = ((this.skyOffset * 12 + Date.now() * 0.008) % 1200);
-      const cloudColor = theme === 'sunset' ? 'rgba(254, 215, 170, 0.35)' : 'rgba(255, 255, 255, 0.55)';
-      const cloudShade = theme === 'sunset' ? 'rgba(194, 65, 12, 0.25)' : 'rgba(186, 230, 253, 0.35)';
-
-      this.ctx.fillStyle = cloudColor;
-      for (let c = 0; c < 5; c++) {
-        const cx = (((c * 260 - cloudShift) % (w + 300)) + w + 300) % (w + 300) - 150;
-        const cy = 20 + (c * 24) % 65;
-        const cw = 110 + (c * 20);
-
-        this.ctx.beginPath();
-        this.ctx.arc(cx, cy, 22, 0, Math.PI * 2);
-        this.ctx.arc(cx + 25, cy - 8, 28, 0, Math.PI * 2);
-        this.ctx.arc(cx + 55, cy - 4, 22, 0, Math.PI * 2);
-        this.ctx.arc(cx + 80, cy + 2, 18, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // Cloud base shadow
-        this.ctx.fillStyle = cloudShade;
-        this.ctx.beginPath();
-        this.ctx.roundRect(cx - 10, cy + 8, cw * 0.8, 10, 5);
-        this.ctx.fill();
-        this.ctx.fillStyle = cloudColor;
-      }
-    }
-
-    // 4. Distant Mountain Ridge 1 (Entoto Mountain Silhouette with organic rolling peaks)
-    const mtnColor1 = theme === 'night' ? '#091424' : theme === 'sunset' ? '#3b1236' : '#2b517e';
-    this.ctx.fillStyle = mtnColor1;
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, horizon);
-
-    const mtnShift1 = (this.skyOffset * 10) % 500;
-    for (let x = -500; x < w + 500; x += 120) {
-      const peakX = x - mtnShift1;
-      const peakH = 35 + ((Math.abs(x) * 17) % 30);
-      this.ctx.quadraticCurveTo(peakX + 40, horizon - peakH - 20, peakX + 80, horizon - peakH + 5);
-      this.ctx.quadraticCurveTo(peakX + 100, horizon - 15, peakX + 120, horizon);
-    }
-    this.ctx.lineTo(w, horizon);
-    this.ctx.closePath();
-    this.ctx.fill();
-
-    // 5. Mid Mountain Ridge 2 (Forested Eucalyptus foothills with tree silhouettes)
-    const mtnColor2 = theme === 'night' ? '#060e19' : theme === 'sunset' ? '#250c22' : '#1e3a5f';
-    this.ctx.fillStyle = mtnColor2;
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, horizon);
-
-    const mtnShift2 = (this.skyOffset * 22) % 400;
-    for (let x = -400; x < w + 400; x += 90) {
-      const hillX = x - mtnShift2;
-      const hillH = 22 + ((Math.abs(x) * 13) % 24);
-      this.ctx.quadraticCurveTo(hillX + 35, horizon - hillH, hillX + 70, horizon - 8);
-      this.ctx.lineTo(hillX + 90, horizon);
-    }
-    this.ctx.lineTo(w, horizon);
-    this.ctx.closePath();
-    this.ctx.fill();
-
-    // 6. ADDIS ABABA ICONIC SKYLINE: Commercial Bank of Ethiopia (CBE) Tower, Light Rail, and High-Rises
-    const cityColor = theme === 'night' ? '#040913' : theme === 'sunset' ? '#1b0918' : '#142742';
-    this.ctx.fillStyle = cityColor;
-    const cityShift = (this.skyOffset * 38) % 650;
-
-    for (let x = -650; x < w + 650; x += 110) {
-      const cx = x - cityShift;
-      const bIndex = Math.floor(x / 110);
-
-      // CBE Headquarters Tower (Iconic 209m skyscraper with tapering curved spire and illuminated crown)
-      if (bIndex % 6 === 0) {
-        const cbeH = 118;
-        const cbeX = cx;
-        const cbeY = horizon - cbeH;
-
-        // Curved main tower body
-        this.ctx.beginPath();
-        this.ctx.moveTo(cbeX + 4, horizon);
-        this.ctx.lineTo(cbeX + 6, cbeY + 22);
-        this.ctx.lineTo(cbeX + 17, cbeY); // Crown diamond apex
-        this.ctx.lineTo(cbeX + 28, cbeY + 22);
-        this.ctx.lineTo(cbeX + 30, horizon);
-        this.ctx.closePath();
-        this.ctx.fill();
-
-        // Distinctive illuminated glass spire & diamond crown
-        const crownColor = theme === 'night' || theme === 'sunset' ? '#38bdf8' : '#e0f2fe';
-        this.ctx.fillStyle = crownColor;
-        this.ctx.beginPath();
-        this.ctx.moveTo(cbeX + 17, cbeY + 2);
-        this.ctx.lineTo(cbeX + 12, cbeY + 16);
-        this.ctx.lineTo(cbeX + 22, cbeY + 16);
-        this.ctx.closePath();
-        this.ctx.fill();
-
-        // Red aviation beacon light on tower apex
-        this.ctx.fillStyle = '#ef4444';
-        this.ctx.beginPath();
-        this.ctx.arc(cbeX + 17, cbeY - 2, 2, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // Windows lighting on CBE tower
-        if (theme === 'night' || theme === 'sunset') {
-          this.ctx.fillStyle = 'rgba(254, 240, 138, 0.7)';
-          for (let f = 0; f < 6; f++) {
-            this.ctx.fillRect(cbeX + 10, cbeY + 26 + f * 14, 14, 2);
-          }
-        }
-
-        this.ctx.fillStyle = cityColor;
-      }
-      // Addis Light Rail Transit Viaduct Pillar & High-Rise
-      else if (bIndex % 6 === 3) {
-        // High-rise
-        const bh = 58 + ((Math.abs(x) % 5) * 10);
-        this.ctx.fillRect(cx, horizon - bh, 36, bh);
-
-        // Windows
-        if (theme === 'night' || theme === 'sunset') {
-          this.ctx.fillStyle = 'rgba(253, 224, 71, 0.65)';
-          this.ctx.fillRect(cx + 6, horizon - bh + 8, 4, 4);
-          this.ctx.fillRect(cx + 16, horizon - bh + 8, 4, 4);
-          this.ctx.fillRect(cx + 26, horizon - bh + 8, 4, 4);
-          this.ctx.fillRect(cx + 6, horizon - bh + 22, 4, 4);
-          this.ctx.fillRect(cx + 26, horizon - bh + 22, 4, 4);
-          this.ctx.fillStyle = cityColor;
-        }
-
-        // Elevated Light Rail viaduct beam
-        this.ctx.fillRect(cx - 35, horizon - 16, 75, 4);
-        this.ctx.fillRect(cx + 12, horizon - 16, 8, 16); // Concrete pillar
-      }
-      // Standard commercial building with antennas
-      else {
-        const bh = 34 + ((Math.abs(x) % 7) * 9);
-        this.ctx.fillRect(cx, horizon - bh, 38, bh);
-
-        // Communication antenna mast
-        if (bIndex % 2 === 0) {
-          this.ctx.fillRect(cx + 18, horizon - bh - 16, 2, 16);
-          this.ctx.fillStyle = '#ef4444';
-          this.ctx.fillRect(cx + 17, horizon - bh - 18, 4, 2);
-          this.ctx.fillStyle = cityColor;
-        }
-
-        // Night illuminated windows
-        if (theme === 'night' || theme === 'sunset') {
-          this.ctx.fillStyle = 'rgba(254, 240, 138, 0.55)';
-          this.ctx.fillRect(cx + 8, horizon - bh + 6, 6, 3);
-          this.ctx.fillRect(cx + 22, horizon - bh + 6, 6, 3);
-          this.ctx.fillStyle = cityColor;
-        }
-      }
-    }
-
-    // 7. Addis Ababa Light Rail Transit (LRT) Viaduct & Train (ቀላል ባቡር)
-    if (this.stage.id === 1 || this.stage.id === 2) {
-      const viaductY = horizon - 16;
-      this.ctx.fillStyle = theme === 'night' ? '#0f172a' : '#334155';
-      this.ctx.fillRect(0, viaductY, w, 4);
-
-      const pierShift = (this.skyOffset * 38) % 120;
-      for (let px = -120; px < w + 120; px += 120) {
-        this.ctx.fillRect(px - pierShift + 55, viaductY, 10, 16);
-      }
-
-      this.ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
-      this.ctx.lineWidth = 1;
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, viaductY - 14);
-      this.ctx.lineTo(w, viaductY - 14);
-      this.ctx.stroke();
-
-      const trainCycle = (Date.now() * 0.045 + this.skyOffset * 15) % (w + 350);
-      const trainX = trainCycle - 180;
-      const trainY = viaductY - 11;
-      const trainW = 120;
-      const trainH = 11;
-
-      const carW = 36;
-      for (let c = 0; c < 3; c++) {
-        const cx = trainX + c * 40;
-        if (cx + carW < 0 || cx > w) continue;
-
-        this.ctx.fillStyle = '#f8fafc';
-        this.ctx.fillRect(cx, trainY, carW, trainH);
-
-        this.ctx.fillStyle = '#15803d';
-        this.ctx.fillRect(cx, trainY, carW, 2.5);
-        this.ctx.fillRect(cx, trainY + trainH - 2.5, carW, 2.5);
-
-        this.ctx.fillStyle = (theme === 'night' || theme === 'sunset') ? '#fef08a' : '#0284c7';
-        for (let win = 0; win < 3; win++) {
-          this.ctx.fillRect(cx + 4 + win * 10, trainY + 3.5, 7, 4);
-        }
-
-        if (c < 2) {
-          this.ctx.fillStyle = '#1e293b';
-          this.ctx.fillRect(cx + carW, trainY + 2, 4, trainH - 3);
-        }
-      }
-
-      if (trainX + trainW >= 0 && trainX + trainW <= w) {
-        this.ctx.fillStyle = '#fef08a';
-        this.ctx.beginPath();
-        this.ctx.arc(trainX + trainW, trainY + trainH - 4, 2, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        const beamGrad = this.ctx.createLinearGradient(trainX + trainW, trainY + trainH - 4, trainX + trainW + 35, trainY + trainH - 4);
-        beamGrad.addColorStop(0, 'rgba(254, 240, 138, 0.4)');
-        beamGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
-        this.ctx.fillStyle = beamGrad;
-        this.ctx.beginPath();
-        this.ctx.moveTo(trainX + trainW, trainY + trainH - 6);
-        this.ctx.lineTo(trainX + trainW + 35, trainY + trainH - 12);
-        this.ctx.lineTo(trainX + trainW + 35, trainY + trainH + 4);
-        this.ctx.lineTo(trainX + trainW, trainY + trainH - 2);
-        this.ctx.closePath();
-        this.ctx.fill();
-      }
-
-      const pantoX = trainX + 58;
-      if (pantoX >= 0 && pantoX <= w) {
-        this.ctx.strokeStyle = '#94a3b8';
-        this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
-        this.ctx.moveTo(pantoX, trainY);
-        this.ctx.lineTo(pantoX + 3, trainY - 5);
-        this.ctx.lineTo(pantoX - 2, viaductY - 14);
-        this.ctx.stroke();
-      }
-    }
-  }
-
-  private renderRoad(w: number, h: number) {
-    const baseSegment = this.road.findSegment(this.player.z);
-    const basePercent = (this.player.z % ROAD.SEGMENT_LENGTH) / ROAD.SEGMENT_LENGTH;
-
-    const playerSegmentY = baseSegment.p1.y + (baseSegment.p2.y - baseSegment.p1.y) * basePercent;
-    this.cameraY = ROAD.CAMERA_HEIGHT + playerSegmentY;
-    this.cameraX = this.player.x * ROAD.ROAD_WIDTH;
-    this.cameraZ = this.player.z;
-
-    let maxy = h;
-    let x = 0;
-    let dx = -(baseSegment.curve * basePercent);
-
-    const visibleSprites: { sprite: SpriteInstance; seg: RoadSegment; scale: number; sx: number; sy: number }[] = [];
-
-    for (let n = 0; n < ROAD.DRAW_DISTANCE; n++) {
-      const segmentIndex = (baseSegment.index + n) % this.road.totalSegments;
-      const segment = this.road.segments[segmentIndex];
-      const looped = segment.index < baseSegment.index;
-
-      const p1Z = segment.p1.z + (looped ? this.road.trackLength : 0);
-      const p2Z = segment.p2.z + (looped ? this.road.trackLength : 0);
-
-      segment.clip = maxy;
-
-      const segmentX = segment.p1.x - x;
-      const p1 = this.project({ x: segmentX, y: segment.p1.y, z: p1Z }, this.cameraX, this.cameraY, this.cameraZ);
-      const p2 = this.project({ x: segment.p1.x - x - dx, y: segment.p2.y, z: p2Z }, this.cameraX, this.cameraY, this.cameraZ);
-
-      x += dx;
-      dx += segment.curve;
-
-      if (p1.y >= maxy || p2.y >= p1.y) continue;
-
-      // 1. Grass
-      this.ctx.fillStyle = segment.color.grass;
-      this.ctx.fillRect(0, p2.y, w, p1.y - p2.y);
-
-      // 2. Earthy Gravel Road Shoulder (Realistic verge)
-      this.renderPoly(
-        p1.x - p1.w * 1.35, p1.y,
-        p1.x - p1.w * 1.15, p1.y,
-        p2.x - p2.w * 1.15, p2.y,
-        p2.x - p2.w * 1.35, p2.y,
-        segment.color.shoulder
-      );
-      this.renderPoly(
-        p1.x + p1.w * 1.15, p1.y,
-        p1.x + p1.w * 1.35, p1.y,
-        p2.x + p2.w * 1.35, p2.y,
-        p2.x + p2.w * 1.15, p2.y,
-        segment.color.shoulder
-      );
-
-      // 3. Weathered Kerbs
-      this.renderPoly(
-        p1.x - p1.w * 1.15, p1.y,
-        p1.x - p1.w, p1.y,
-        p2.x - p2.w, p2.y,
-        p2.x - p2.w * 1.15, p2.y,
-        segment.color.kerb
-      );
-      this.renderPoly(
-        p1.x + p1.w, p1.y,
-        p1.x + p1.w * 1.15, p1.y,
-        p2.x + p2.w * 1.15, p2.y,
-        p2.x + p2.w, p2.y,
-        segment.color.kerb
-      );
-
-      // 4. Road Asphalt Surface
-      this.renderPoly(
-        p1.x - p1.w, p1.y,
-        p1.x + p1.w, p1.y,
-        p2.x + p2.w, p2.y,
-        p2.x - p2.w, p2.y,
-        segment.color.road
-      );
-
-      // 5. Realistic Dark Tire Groove Tracks (Rubber wear from traffic)
-      const laneW1 = (p1.w * 2) / ROAD.LANES;
-      const laneW2 = (p2.w * 2) / ROAD.LANES;
-      for (let l = 0; l < ROAD.LANES; l++) {
-        const laneMid1 = p1.x - p1.w + laneW1 * (l + 0.5);
-        const laneMid2 = p2.x - p2.w + laneW2 * (l + 0.5);
-
-        // Left & right tire tracks within each lane
-        [-laneW1 * 0.28, laneW1 * 0.28].forEach(trackOff1 => {
-          const trackOff2 = (trackOff1 / laneW1) * laneW2;
-          this.renderPoly(
-            laneMid1 + trackOff1 - 3, p1.y,
-            laneMid1 + trackOff1 + 3, p1.y,
-            laneMid2 + trackOff2 + 3, p2.y,
-            laneMid2 + trackOff2 - 3, p2.y,
-            'rgba(18, 20, 24, 0.45)'
-          );
-        });
-      }
-
-      // Wet road specular sheen (highland rain / sunshower reflection)
-      if (this.stage.isWetRoad) {
-        this.renderPoly(
-          p1.x - p1.w * 0.8, p1.y,
-          p1.x + p1.w * 0.8, p1.y,
-          p2.x + p2.w * 0.8, p2.y,
-          p2.x - p2.w * 0.8, p2.y,
-          this.stage.weather === 'sunshower' ? 'rgba(253, 224, 71, 0.08)' : 'rgba(186, 230, 253, 0.07)'
-        );
-      }
-
-      // 6. Dash Lane Line Stripes (Reflective highway paint)
-      if (segment.color.lane && segment.color.lane !== 'transparent') {
-        let laneX1 = p1.x - p1.w + laneW1;
-        let laneX2 = p2.x - p2.w + laneW2;
-
-        for (let l = 1; l < ROAD.LANES; l++) {
-          this.renderPoly(
-            laneX1 - 2.5, p1.y,
-            laneX1 + 2.5, p1.y,
-            laneX2 + 2.5, p2.y,
-            laneX2 - 2.5, p2.y,
-            segment.color.lane
-          );
-          laneX1 += laneW1;
-          laneX2 += laneW2;
-        }
-      }
-
-      // Pedestrian Zebra Crosswalk Markings ("የእግረኛ ማቋረጫ")
-      if (segment.hasZebraCrossing) {
-        const numBars = 12;
-        const totalW1 = p1.w * 1.84;
-        const totalW2 = p2.w * 1.84;
-        const startX1 = p1.x - p1.w * 0.92;
-        const startX2 = p2.x - p2.w * 0.92;
-
-        for (let b = 0; b < numBars; b++) {
-          const fracL = (b + 0.18) / numBars;
-          const fracR = (b + 0.82) / numBars;
-          const bx1L = startX1 + totalW1 * fracL;
-          const bx1R = startX1 + totalW1 * fracR;
-          const bx2L = startX2 + totalW2 * fracL;
-          const bx2R = startX2 + totalW2 * fracR;
-
-          this.renderPoly(
-            bx1L, p1.y,
-            bx1R, p1.y,
-            bx2R, p2.y,
-            bx2L, p2.y,
-            '#f8fafc'
-          );
-        }
-      }
-
-      // 7. Distance Atmospheric Fog Haze
-      const fogRatio = Math.min(1, Math.max(0, (n - 60) / (ROAD.DRAW_DISTANCE - 70)));
-      if (fogRatio > 0) {
-        this.ctx.fillStyle = this.stage.fogColor;
-        this.ctx.globalAlpha = fogRatio * 0.85;
-        this.ctx.fillRect(0, p2.y, w, p1.y - p2.y + 1);
-        this.ctx.globalAlpha = 1.0;
-      }
-
-      maxy = p1.y;
-
-      if (segment.sprites.length > 0) {
-        for (const sprite of segment.sprites) {
-          if (sprite.collected) continue;
-          const spriteZ = p1Z + (sprite.zOffset || 0);
-          const sprProj = this.project(
-            { x: segmentX + sprite.offset * ROAD.ROAD_WIDTH, y: segment.p1.y, z: spriteZ },
-            this.cameraX,
-            this.cameraY,
-            this.cameraZ
-          );
-          if (sprProj.scale > 0) {
-            visibleSprites.push({
-              sprite,
-              seg: segment,
-              scale: sprProj.scale,
-              sx: sprProj.x,
-              sy: sprProj.y
-            });
-          }
-        }
-      }
-    }
-
-    // Render sprites Back-to-Front
-    visibleSprites.sort((a, b) => a.scale - b.scale);
-
-    for (const item of visibleSprites) {
-      this.renderSprite(item.sprite, item.sx, item.sy, item.scale);
-    }
-  }
-
-  private renderPoly(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, x4: number, y4: number, color: string) {
-    this.ctx.fillStyle = color;
-    this.ctx.beginPath();
-    this.ctx.moveTo(x1, y1);
-    this.ctx.lineTo(x2, y2);
-    this.ctx.lineTo(x3, y3);
-    this.ctx.lineTo(x4, y4);
-    this.ctx.closePath();
-    this.ctx.fill();
-  }
-
-  private renderSprite(spriteInstance: SpriteInstance, sx: number, sy: number, scale: number) {
-    const spriteKey = spriteInstance.type;
-    const spr = sprites.get(spriteKey) || (typeof spriteKey === 'string' && spriteKey.startsWith('PASSENGER') ? sprites.get('PASSENGER') : undefined);
-    if (!spr) return;
-
-    const scaleFactor = spriteKey === 'CHECKPOINT_GATE' ? 4.2 : 2.8;
-    const destW = Math.round(spr.width * scale * (this.width / 2) * scaleFactor);
-    const destH = Math.round(spr.height * scale * (this.width / 2) * scaleFactor);
-
-    if (destW < 2 || destH < 2) return;
-
-    const destX = Math.round(sx - destW * spr.anchorX);
-    const destY = Math.round(sy - destH * spr.anchorY);
-
-    this.ctx.drawImage(spr.canvas, destX, destY, destW, destH);
-  }
-
-  private renderHeadlights(w: number, h: number) {
-    this.ctx.save();
-    const carX = w / 2;
-    const carY = h - 60 + this.player.bounce;
-
-    const grad = this.ctx.createLinearGradient(0, h * 0.5, 0, carY);
-    grad.addColorStop(0, 'rgba(254, 240, 138, 0.0)');
-    grad.addColorStop(0.5, 'rgba(254, 240, 138, 0.12)');
-    grad.addColorStop(1, 'rgba(254, 240, 138, 0.35)');
-
-    this.ctx.fillStyle = grad;
-    this.ctx.beginPath();
-    this.ctx.moveTo(carX - 50, carY);
-    this.ctx.lineTo(carX - 220, h * 0.52);
-    this.ctx.lineTo(carX + 220, h * 0.52);
-    this.ctx.lineTo(carX + 50, carY);
-    this.ctx.closePath();
-    this.ctx.fill();
-
-    this.ctx.restore();
-  }
-
-  private renderSkidmarks() {
-    this.ctx.save();
-    for (const sm of this.skidmarks) {
-      this.ctx.strokeStyle = `rgba(10, 10, 12, ${sm.alpha})`;
-      this.ctx.lineWidth = 4;
-      this.ctx.beginPath();
-      this.ctx.moveTo(sm.x1, sm.y1);
-      this.ctx.lineTo(sm.x2, sm.y2);
-      this.ctx.stroke();
-    }
-    this.ctx.restore();
-  }
-
-  private renderPlayer(w: number, h: number) {
-    const isBoosting = this.player.boostRemaining > 0;
-    const down = this.keys['arrowdown'] || this.keys['s'];
-    const left = this.keys['arrowleft'] || this.keys['a'];
-    const right = this.keys['arrowright'] || this.keys['d'];
-
-    const dir = left ? 'LEFT' : right ? 'RIGHT' : 'STRAIGHT';
-    const vId = this.player.vehicleId || 'MINIBUS';
-    const key = `PLAYER_${vId}_${dir}${isBoosting ? '_BOOST' : ''}${down ? '_BRAKE' : ''}`;
-    const spr = sprites.get(key) || sprites.get(`PLAYER_${vId}_STRAIGHT`) || sprites.get('PLAYER_TAXI_STRAIGHT');
-    if (!spr) return;
-
-    this.ctx.save();
-
-    // Scale calculation
-    const carScale = (w / 900) * 0.85;
-    const carW = spr.width * carScale;
-    const carH = spr.height * carScale;
-    const carX = w / 2;
-    const carY = h - 28 + this.player.bounce;
-
-    this.ctx.translate(carX, carY);
-
-    // Realistic Chassis Roll (leaning when steering) & Pitch (dive/squat)
-    this.ctx.rotate(this.player.roll);
-    this.ctx.scale(1.0, 1.0 + this.player.pitch);
-
-    // Dynamic Brake Light Glow cast onto the road surface behind the vehicle
-    if (down && this.player.speed > 50) {
-      const brakeGlow = this.ctx.createRadialGradient(0, 8, 10, 0, 16, 90);
-      brakeGlow.addColorStop(0, 'rgba(239, 68, 68, 0.45)');
-      brakeGlow.addColorStop(0.6, 'rgba(220, 38, 38, 0.2)');
-      brakeGlow.addColorStop(1, 'rgba(220, 38, 38, 0)');
-      this.ctx.fillStyle = brakeGlow;
-      this.ctx.beginPath();
-      this.ctx.ellipse(0, 14, 90, 24, 0, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
-
-    this.ctx.drawImage(spr.canvas, -carW / 2, -carH, carW, carH);
-    this.ctx.restore();
-  }
-
   private renderParticles() {
     this.ctx.save();
     for (const p of this.particles) {
@@ -2185,30 +1488,6 @@ export class GameEngine {
         this.ctx.fill();
       }
     }
-    this.ctx.restore();
-  }
-
-  private renderRain(w: number, h: number) {
-    if (this.rainDrops.length === 0 && this.lightningFlash <= 0) return;
-
-    this.ctx.save();
-
-    // Lightning Flash illumination
-    if (this.lightningFlash > 0) {
-      this.ctx.fillStyle = `rgba(255, 255, 255, ${this.lightningFlash * 0.55})`;
-      this.ctx.fillRect(0, 0, w, h);
-    }
-
-    // Slanted rain drop streaks
-    this.ctx.strokeStyle = this.stage.weather === 'sunshower' ? 'rgba(254, 240, 138, 0.45)' : 'rgba(224, 242, 254, 0.55)';
-    this.ctx.lineWidth = 1.25;
-    this.ctx.beginPath();
-    for (const drop of this.rainDrops) {
-      this.ctx.moveTo(drop.x, drop.y);
-      this.ctx.lineTo(drop.x + (drop.vx * 0.022), drop.y + drop.length);
-    }
-    this.ctx.stroke();
-
     this.ctx.restore();
   }
 }

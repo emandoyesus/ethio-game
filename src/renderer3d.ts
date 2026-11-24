@@ -36,9 +36,10 @@ export class Renderer3D {
       powerPreference: 'high-performance'
     });
     this.renderer.setSize(width, height, false);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // Optimized pixel ratio capped at 1.25 to prevent GPU fillrate stalls on 2K/4K/Retina displays
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
 
@@ -49,8 +50,8 @@ export class Renderer3D {
     this.sunLight = new THREE.DirectionalLight(0xfff7ed, 2.0);
     this.sunLight.position.set(50, 100, 60);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 1024;
-    this.sunLight.shadow.mapSize.height = 1024;
+    this.sunLight.shadow.mapSize.width = 512;
+    this.sunLight.shadow.mapSize.height = 512;
     this.sunLight.shadow.camera.near = 10;
     this.sunLight.shadow.camera.far = 400;
     this.sunLight.shadow.camera.left = -60;
@@ -59,8 +60,8 @@ export class Renderer3D {
     this.sunLight.shadow.camera.bottom = -60;
     this.scene.add(this.sunLight);
 
-    // Massive Highland Ground Terrain (Ensures no empty void is ever visible)
-    const terrainGeo = new THREE.PlaneGeometry(3000, 3000, 32, 32);
+    // Massive Highland Ground Terrain (Optimized mesh density)
+    const terrainGeo = new THREE.PlaneGeometry(2400, 2400, 12, 12);
     terrainGeo.rotateX(-Math.PI / 2);
     const terrainMat = new THREE.MeshStandardMaterial({
       color: 0x22543d, // Rich Ethiopian highland green / acacia savanna
@@ -73,6 +74,24 @@ export class Renderer3D {
     this.scene.add(this.terrainMesh);
 
     this.initRain();
+  }
+
+  public isPerformanceMode: boolean = false;
+
+  public togglePerformanceMode(): boolean {
+    this.isPerformanceMode = !this.isPerformanceMode;
+    if (this.isPerformanceMode) {
+      this.renderer.shadowMap.enabled = false;
+      this.sunLight.castShadow = false;
+      this.renderer.setPixelRatio(1.0);
+      this.ambientLight.intensity = 1.05;
+    } else {
+      this.renderer.shadowMap.enabled = true;
+      this.sunLight.castShadow = true;
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+      this.ambientLight.intensity = 0.85;
+    }
+    return this.isPerformanceMode;
   }
 
   public resize(width: number, height: number) {
@@ -157,9 +176,8 @@ export class Renderer3D {
     dt: number,
     isBoosting: boolean = false
   ) {
-    // 1. Keep Terrain & Sun Centered Around Player
-    this.terrainMesh.position.x = playerPos.x;
-    this.terrainMesh.position.z = playerPos.z;
+    // 1. Keep Terrain & Sun Centered and Elevation-Synced Around Player
+    this.terrainMesh.position.set(playerPos.x, playerPos.y - 0.2, playerPos.z);
 
     this.sunLight.position.set(playerPos.x + 40, playerPos.y + 90, playerPos.z + 50);
     this.sunLight.target.position.copy(playerPos);
@@ -174,31 +192,35 @@ export class Renderer3D {
     const lookTarget = playerPos.clone().addScaledVector(tangent, lookAheadDist);
     lookTarget.y += 1.4 + bounce * 0.04;
 
+    // Stable horizontal forward vector for camera positioning behind vehicle
+    const horizTangent = new THREE.Vector3(tangent.x, 0, tangent.z).normalize();
+    if (horizTangent.lengthSq() === 0) horizTangent.set(0, 0, 1);
+
     if (this.cameraMode === 'CHASE') {
       const followDist = 8.5 + playerSpeedRatio * 2.8;
       const followHeight = 3.6 + bounce * 0.03;
       const camTargetPos = playerPos
         .clone()
-        .addScaledVector(tangent, -followDist)
+        .addScaledVector(horizTangent, -followDist)
         .addScaledVector(normal, -steerAngle * 1.5);
-      camTargetPos.y += followHeight;
+      camTargetPos.y = playerPos.y + followHeight;
 
       this.camera.position.lerp(camTargetPos, Math.min(1.0, dt * 10));
       this.camera.lookAt(lookTarget);
-      this.camera.rotation.z = -steerAngle * 0.04;
+      this.camera.rotateZ(-steerAngle * 0.035);
     } else if (this.cameraMode === 'HOOD') {
       const hoodPos = playerPos.clone().addScaledVector(tangent, 0.9);
-      hoodPos.y += 1.45 + bounce * 0.05;
+      hoodPos.y = playerPos.y + 1.45 + bounce * 0.05;
       this.camera.position.copy(hoodPos);
 
       const hoodLookTarget = playerPos.clone().addScaledVector(tangent, 28.0).addScaledVector(normal, steerAngle * 2.0);
-      hoodLookTarget.y += 1.2;
+      hoodLookTarget.y = playerPos.y + 1.2;
       this.camera.lookAt(hoodLookTarget);
-      this.camera.rotation.z = -steerAngle * 0.06;
+      this.camera.rotateZ(-steerAngle * 0.04);
     } else {
       // Top-down / Bird's Eye helicopter view
-      const topPos = playerPos.clone().addScaledVector(tangent, -16.0);
-      topPos.y += 22.0;
+      const topPos = playerPos.clone().addScaledVector(horizTangent, -16.0);
+      topPos.y = playerPos.y + 22.0;
       this.camera.position.lerp(topPos, Math.min(1.0, dt * 8));
       this.camera.lookAt(playerPos.clone().addScaledVector(tangent, 10.0));
     }

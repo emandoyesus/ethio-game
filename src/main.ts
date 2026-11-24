@@ -30,6 +30,9 @@ app.innerHTML = `
         <button id="btnPause" class="arcade-btn" title="Pause Game (P)">
           ⏸️ <span>PAUSE</span>
         </button>
+        <button id="btnPerf" class="arcade-btn" title="Toggle 60 FPS Performance Mode (O)">
+          ⚡ <span>PERF</span>
+        </button>
         <button id="btnCrt" class="arcade-btn" title="Toggle CRT Scanlines">
           📺 <span>CRT</span>
         </button>
@@ -129,6 +132,18 @@ btnPause.addEventListener('click', (e) => {
 });
 
 const scanlines = document.getElementById('scanlines')!;
+const btnPerf = document.getElementById('btnPerf')!;
+btnPerf.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isPerf = game.renderer3d.togglePerformanceMode();
+  btnPerf.innerHTML = isPerf ? `⚡ <span style="color:#22c55e">60 FPS</span>` : `✨ <span>HQ</span>`;
+  ui.showToast(
+    isPerf ? '⚡ PERFORMANCE MODE: 60 FPS (Shadows OFF)' : '✨ HIGH QUALITY (Shadows ON)',
+    isPerf ? '⚡' : '✨',
+    isPerf ? '#22c55e' : '#38bdf8'
+  );
+});
+
 const btnCrt = document.getElementById('btnCrt')!;
 btnCrt.addEventListener('click', (e) => {
   e.stopPropagation();
