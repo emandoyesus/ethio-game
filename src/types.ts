@@ -1,5 +1,8 @@
 export type GameState = 'TITLE' | 'PLAYING' | 'PAUSED' | 'GAMEOVER' | 'STAGE_CLEAR' | 'GARAGE';
 
+export type RacingLimitsGameMode = 'CAREER' | 'INFINITE' | 'TIME_ATTACK' | 'FREE_RIDE';
+export type TrafficFlow = 'ONE_WAY' | 'TWO_WAY';
+
 export type VehicleId = 'MINIBUS' | 'LADA' | 'BAJAJ' | 'ISUZU';
 
 export interface VehicleDef {

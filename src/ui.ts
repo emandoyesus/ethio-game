@@ -1,7 +1,15 @@
 import { UPGRADE_PRICES, garage } from './garage';
 import { sprites } from './sprites';
-import type { Player, RouteStage, VehicleDef } from './types';
+import type { Player, RacingLimitsGameMode, RouteStage, TrafficFlow, VehicleDef } from './types';
 import type { DrDrivingLayout } from './controls';
+
+export interface TitleHitbox {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 export interface FloatingText {
   text: string;
@@ -46,6 +54,7 @@ export class UIManager {
   private toasts: ToastNotification[] = [];
   private toastCounter: number = 0;
   public garageHitboxes: GarageButtonHitbox[] = [];
+  public titleHitboxes: TitleHitbox[] = [];
 
   public showToast(text: string, icon: string = '📢', color: string = '#facc15') {
     this.toasts.unshift({
@@ -126,7 +135,9 @@ export class UIManager {
     highScore: number,
     walletBalance: number,
     drDrivingLayout?: DrDrivingLayout,
-    trailingCars: { type: string; distBehind: number; laneOffset: number }[] = []
+    trailingCars: { type: string; distBehind: number; laneOffset: number }[] = [],
+    gameMode: RacingLimitsGameMode = 'CAREER',
+    trafficFlow: TrafficFlow = 'ONE_WAY'
   ) {
     ctx.save();
 
@@ -163,11 +174,19 @@ export class UIManager {
     ctx.fillStyle = '#facc15';
     ctx.font = 'bold 13px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`${stage.nameAmharic}`, 24, 24);
+    const modeAmh = gameMode === 'INFINITE'
+      ? '♾️ ማለቂያ የሌለው (INFINITE)'
+      : gameMode === 'TIME_ATTACK'
+      ? '⏱️ የጊዜ ውድድር (TIME ATTACK)'
+      : gameMode === 'FREE_RIDE'
+      ? '🕊️ ነፃ ጉዞ (FREE RIDE)'
+      : `${stage.nameAmharic}`;
+    ctx.fillText(modeAmh, 24, 24);
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '10px "Chakra Petch", sans-serif';
-    ctx.fillText(`${stage.name}  •  💼 ${walletBalance} ETB  •  👑 ${highScore}`, 24, 38);
+    const flowText = trafficFlow === 'TWO_WAY' ? '⚡ TWO-WAY' : '➡️ ONE-WAY';
+    ctx.fillText(`${stage.name}  •  ${flowText}  •  💼 ${walletBalance} ETB  •  👑 ${highScore}`, 24, 38);
 
     // Center: Modern Route Progress Bar with Kilometers Remaining
     const progW = Math.min(280, width * 0.3);
@@ -202,35 +221,54 @@ export class UIManager {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Distance in Kilometers
+    // Distance in Kilometers / Mode Status
     const totalKm = (stage.trackLength / 1000).toFixed(1);
     const currentKm = Math.min(Number(totalKm), (fillProg * Number(totalKm))).toFixed(1);
     ctx.fillStyle = '#94a3b8';
     ctx.font = 'bold 9px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`ROUTE DISTANCE: ${currentKm} / ${totalKm} KM`, width / 2, progY + 22);
+    if (gameMode === 'INFINITE') {
+      ctx.fillText(`♾️ INFINITE HIGHWAY: ${(player.z / 1000).toFixed(2)} KM SURVIVED`, width / 2, progY + 22);
+    } else if (gameMode === 'TIME_ATTACK') {
+      ctx.fillText(`⏱️ TIME ATTACK: ${(player.z / 1000).toFixed(2)} KM • OVERTAKES ADD +2.5s!`, width / 2, progY + 22);
+    } else if (gameMode === 'FREE_RIDE') {
+      ctx.fillText(`🕊️ FREE CRUISE: ${(player.z / 1000).toFixed(2)} KM • NO PRESSURE`, width / 2, progY + 22);
+    } else {
+      ctx.fillText(`ROUTE DISTANCE: ${currentKm} / ${totalKm} KM`, width / 2, progY + 22);
+    }
 
     // Right: Essential Objectives (Shift Time, Passengers, Fare)
-    // Cleanly spaced on the right with NO external buttons colliding!
     const timeColor = timeLeft < 15 ? '#ef4444' : '#facc15';
     const passTargetMet = player.passengersOnBoard >= stage.targetPassengers;
 
-    // Time Left Badge
+    // Time Left / Mode Badge
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
     ctx.roundRect(width - 275, 8, 72, 38, 6);
     ctx.fill();
-    ctx.strokeStyle = timeColor;
+    ctx.strokeStyle = gameMode === 'FREE_RIDE' ? '#38bdf8' : timeColor;
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.fillStyle = timeColor;
+    ctx.fillStyle = gameMode === 'FREE_RIDE' ? '#38bdf8' : timeColor;
     ctx.font = 'bold 15px "Chakra Petch", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`${Math.max(0, Math.ceil(timeLeft))}s`, width - 239, 25);
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '8px "Chakra Petch", sans-serif';
-    ctx.fillText('TIME LEFT', width - 239, 38);
+    if (gameMode === 'FREE_RIDE') {
+      ctx.fillText('FREE', width - 239, 25);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '8px "Chakra Petch", sans-serif';
+      ctx.fillText('CRUISE', width - 239, 38);
+    } else if (gameMode === 'INFINITE') {
+      ctx.fillText(`${(player.z / 1000).toFixed(1)}K`, width - 239, 25);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '8px "Chakra Petch", sans-serif';
+      ctx.fillText('KM DIST', width - 239, 38);
+    } else {
+      ctx.fillText(`${Math.max(0, Math.ceil(timeLeft))}s`, width - 239, 25);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '8px "Chakra Petch", sans-serif';
+      ctx.fillText('TIME LEFT', width - 239, 38);
+    }
 
     // Passengers Delivered Badge
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
@@ -1017,86 +1055,240 @@ export class UIManager {
     ctx.restore();
   }
 
-  public renderTitleScreen(ctx: CanvasRenderingContext2D, width: number, height: number, highScore: number, walletBalance: number) {
+  public renderTitleScreen(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    highScore: number,
+    walletBalance: number,
+    selectedMode: RacingLimitsGameMode = 'CAREER',
+    selectedFlow: TrafficFlow = 'ONE_WAY'
+  ) {
     ctx.save();
+    this.titleHitboxes = [];
     this.garageHitboxes = [];
 
-    ctx.fillStyle = 'rgba(8, 12, 22, 0.9)';
+    ctx.fillStyle = 'rgba(8, 12, 22, 0.92)';
     ctx.fillRect(0, 0, width, height);
 
     const midX = width / 2;
-    const midY = height / 2 - 25;
+    const midY = height / 2 - 32;
 
     // Ethiopian Flag Ribbon
-    const ribW = Math.min(540, width * 0.86);
+    const ribW = Math.min(560, width * 0.9);
     const startRibX = midX - ribW / 2;
     ctx.fillStyle = '#16a34a';
-    ctx.fillRect(startRibX, midY - 148, ribW / 3, 6);
+    ctx.fillRect(startRibX, midY - 146, ribW / 3, 5);
     ctx.fillStyle = '#facc15';
-    ctx.fillRect(startRibX + ribW / 3, midY - 148, ribW / 3, 6);
+    ctx.fillRect(startRibX + ribW / 3, midY - 146, ribW / 3, 5);
     ctx.fillStyle = '#dc2626';
-    ctx.fillRect(startRibX + (ribW / 3) * 2, midY - 148, ribW / 3, 6);
+    ctx.fillRect(startRibX + (ribW / 3) * 2, midY - 146, ribW / 3, 5);
 
+    // Amharic Title
     ctx.fillStyle = '#facc15';
-    ctx.font = '900 46px "Noto Sans Ethiopic", sans-serif';
+    ctx.font = '900 42px "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
     ctx.shadowColor = '#0284c7';
-    ctx.shadowBlur = 16;
-    ctx.fillText('አዲስ ታክሲ ራሽ', midX, midY - 84);
+    ctx.shadowBlur = 14;
+    ctx.fillText('አዲስ ታክሲ ራሽ', midX, midY - 92);
 
+    // Subtitle
     ctx.fillStyle = '#ffffff';
-    ctx.font = '800 28px "Chakra Petch", sans-serif';
+    ctx.font = '800 24px "Chakra Petch", sans-serif';
     ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 8;
-    ctx.fillText('ADDIS TAXI RUSH', midX, midY - 44);
+    ctx.shadowBlur = 6;
+    ctx.fillText('ADDIS TAXI RUSH • RACING LIMITS', midX, midY - 58);
+    ctx.shadowBlur = 0;
 
     const selV = garage.selectedVehicle;
     ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 15px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
-    ctx.fillText(`CURRENT RIDE: ${selV.nameAmharic} (${selV.name})`, midX, midY - 14);
+    ctx.font = 'bold 13px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+    ctx.fillText(`CURRENT RIDE: ${selV.nameAmharic} (${selV.name})`, midX, midY - 32);
 
-    // Instructions Box
-    ctx.fillStyle = 'rgba(30, 41, 59, 0.92)';
+    // ----------------------------------------------------
+    // RACING LIMITS MODE & FLOW CONSOLE BOX
+    // ----------------------------------------------------
+    const boxW = Math.min(560, width * 0.92);
+    const boxH = 205;
+    const boxX = midX - boxW / 2;
+    const boxY = midY - 18;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
     ctx.beginPath();
-    ctx.roundRect(midX - 270, midY + 8, 540, 160, 12);
+    ctx.roundRect(boxX, boxY, boxW, boxH, 12);
     ctx.fill();
     ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '13.5px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+    // 1. GAME MODE SELECTION (4 Tabs)
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 10px "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
-    const leftPad = midX - 240;
-    ctx.fillText('🚕 Drive across Addis Ababa: Minibus, Lada, Bajaj, or Isuzu Truck!', leftPad, midY + 36);
-    ctx.fillText('👥 Pull over to the RIGHT curb to pick up passengers ("መገናኛ!")', leftPad, midY + 62);
-    ctx.fillText('📢 Press H / SPACE to honk: clears cows, goats, and traffic!', leftPad, midY + 88);
-    ctx.fillText('☕ Collect steaming Bunna (ቡና) cups for extreme Turbo Boost!', leftPad, midY + 114);
-    ctx.fillText('🔥 Near-miss overtakes build Speed Combos for massive fares!', leftPad, midY + 140);
+    ctx.fillText('GAME MODE / የውድድር ዓይነት:', boxX + 16, boxY + 20);
+
+    const modes: { id: RacingLimitsGameMode; icon: string; amh: string; eng: string }[] = [
+      { id: 'CAREER', icon: '🏆', amh: 'የስራ ውድድር', eng: 'CAREER' },
+      { id: 'INFINITE', icon: '♾️', amh: 'ማለቂያ የሌለው', eng: 'INFINITE' },
+      { id: 'TIME_ATTACK', icon: '⏱️', amh: 'የጊዜ ውድድር', eng: 'TIME ATTACK' },
+      { id: 'FREE_RIDE', icon: '🕊️', amh: 'ነፃ ጉዞ', eng: 'FREE RIDE' }
+    ];
+
+    const tabGap = 8;
+    const tabW = (boxW - 32 - tabGap * 3) / 4;
+    const tabH = 46;
+    const tabsY = boxY + 28;
+
+    modes.forEach((m, idx) => {
+      const tx = boxX + 16 + idx * (tabW + tabGap);
+      const isSel = selectedMode === m.id;
+
+      ctx.fillStyle = isSel ? 'rgba(56, 189, 248, 0.25)' : 'rgba(30, 41, 59, 0.6)';
+      ctx.beginPath();
+      ctx.roundRect(tx, tabsY, tabW, tabH, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = isSel ? '#38bdf8' : 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = isSel ? 2 : 1;
+      ctx.stroke();
+
+      ctx.fillStyle = isSel ? '#facc15' : '#e2e8f0';
+      ctx.font = 'bold 11px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${m.icon} ${m.amh}`, tx + tabW / 2, tabsY + 20);
+
+      ctx.fillStyle = isSel ? '#38bdf8' : '#94a3b8';
+      ctx.font = 'bold 9px "Chakra Petch", sans-serif';
+      ctx.fillText(m.eng, tx + tabW / 2, tabsY + 36);
+
+      this.titleHitboxes.push({
+        id: `mode_${m.id}`,
+        x: tx,
+        y: tabsY,
+        w: tabW,
+        h: tabH
+      });
+    });
+
+    // 2. TRAFFIC FLOW SELECTION (One-Way vs Two-Way Oncoming)
+    const flowY = tabsY + tabH + 16;
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 10px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('TRAFFIC FLOW / የትራፊክ አቅጣጫ:', boxX + 16, flowY + 8);
+
+    const flows: { id: TrafficFlow; icon: string; amh: string; eng: string; perk: string }[] = [
+      { id: 'ONE_WAY', icon: '➡️', amh: 'አንድ አቅጣጫ', eng: 'ONE-WAY', perk: 'All lanes move forward' },
+      { id: 'TWO_WAY', icon: '⚡', amh: 'ሁለት አቅጣጫ', eng: 'TWO-WAY ONCOMING', perk: 'Facing oncoming traffic (+20 ETB/s)' }
+    ];
+
+    const flowGap = 12;
+    const flowW = (boxW - 32 - flowGap) / 2;
+    const flowH = 38;
+    const flowBtnY = flowY + 16;
+
+    flows.forEach((f, idx) => {
+      const fx = boxX + 16 + idx * (flowW + flowGap);
+      const isSel = selectedFlow === f.id;
+
+      ctx.fillStyle = isSel ? (f.id === 'TWO_WAY' ? 'rgba(239, 68, 68, 0.28)' : 'rgba(34, 197, 94, 0.25)') : 'rgba(30, 41, 59, 0.6)';
+      ctx.beginPath();
+      ctx.roundRect(fx, flowBtnY, flowW, flowH, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = isSel ? (f.id === 'TWO_WAY' ? '#ef4444' : '#22c55e') : 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = isSel ? 2 : 1;
+      ctx.stroke();
+
+      ctx.fillStyle = isSel ? '#ffffff' : '#cbd5e1';
+      ctx.font = 'bold 12px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${f.icon} ${f.amh} (${f.eng})`, fx + flowW / 2, flowBtnY + 18);
+
+      ctx.fillStyle = isSel ? (f.id === 'TWO_WAY' ? '#fca5a5' : '#86efac') : '#64748b';
+      ctx.font = '9px "Chakra Petch", sans-serif';
+      ctx.fillText(f.perk, fx + flowW / 2, flowBtnY + 31);
+
+      this.titleHitboxes.push({
+        id: `flow_${f.id}`,
+        x: fx,
+        y: flowBtnY,
+        w: flowW,
+        h: flowH
+      });
+    });
+
+    // 3. Dynamic Mode Description Banner
+    const descY = flowBtnY + flowH + 12;
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.6)';
+    ctx.beginPath();
+    ctx.roundRect(boxX + 16, descY, boxW - 32, 28, 6);
+    ctx.fill();
+
+    const modeDescs: Record<RacingLimitsGameMode, string> = {
+      CAREER: '🚕 Missions & passenger pick-ups across historic Addis Ababa routes',
+      INFINITE: '♾️ Non-stop highway survival! Weave through dense traffic as far as you can!',
+      TIME_ATTACK: '⏱️ 60s countdown! Pull off close overtakes at > 90 km/h to add +2.5s to the clock!',
+      FREE_RIDE: '🕊️ Relaxed highway cruise. Zero time limits, zero crash fines, pure driving enjoyment.'
+    };
 
     ctx.fillStyle = '#facc15';
-    ctx.font = 'bold 15px "Chakra Petch", sans-serif';
+    ctx.font = '11px "Chakra Petch", "Noto Sans Ethiopic", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`💼 WALLET: ${walletBalance} ETB  |  👑 RECORD: ${highScore} ETB`, midX, midY + 195);
+    ctx.fillText(modeDescs[selectedMode], midX, descY + 18);
+
+    // Economy Status
+    ctx.fillStyle = '#facc15';
+    ctx.font = 'bold 13px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`💼 WALLET: ${walletBalance} ETB  |  👑 RECORD: ${highScore} ETB`, midX, boxY + boxH + 22);
 
     const pulse = 0.75 + 0.25 * Math.sin(Date.now() / 200);
 
-    // [START DRIVING] Button
+    // 4. ACTION BUTTONS: [START DRIVING] & [GARAGE]
+    const btnW = Math.min(230, (boxW - 16) / 2);
+    const btnsY = boxY + boxH + 34;
+
+    // [START DRIVING]
     ctx.fillStyle = `rgba(34, 197, 94, ${pulse})`;
     ctx.beginPath();
-    ctx.roundRect(midX - 240, midY + 215, 230, 46, 8);
+    ctx.roundRect(midX - btnW - 8, btnsY, btnW, 44, 8);
     ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px "Chakra Petch", sans-serif';
-    ctx.fillText('▶ START DRIVING (ENTER)', midX - 125, midY + 244);
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
-    // [GARAGE & UPGRADES] Button
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 15px "Chakra Petch", sans-serif';
+    ctx.fillText('▶ START RACE (ENTER)', midX - btnW / 2 - 8, btnsY + 27);
+
+    this.titleHitboxes.push({
+      id: 'btn_start',
+      x: midX - btnW - 8,
+      y: btnsY,
+      w: btnW,
+      h: 44
+    });
+
+    // [GARAGE & UPGRADES]
     ctx.fillStyle = '#0284c7';
     ctx.beginPath();
-    ctx.roundRect(midX + 10, midY + 215, 230, 46, 8);
+    ctx.roundRect(midX + 8, btnsY, btnW, 44, 8);
     ctx.fill();
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
     ctx.fillStyle = '#ffffff';
-    ctx.fillText('🚗 GARAGE / ጋራዥ (G)', midX + 125, midY + 244);
+    ctx.fillText('🚗 GARAGE / ጋራዥ (G)', midX + btnW / 2 + 8, btnsY + 27);
+
+    this.titleHitboxes.push({
+      id: 'btn_garage',
+      x: midX + 8,
+      y: btnsY,
+      w: btnW,
+      h: 44
+    });
 
     ctx.restore();
   }

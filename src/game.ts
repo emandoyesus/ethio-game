@@ -7,7 +7,7 @@ import { Renderer3D, type CameraMode } from './renderer3d';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
 import { Track3D } from './track3d';
-import type { GameState, Particle, Player, ProjectedPoint, RainDrop, RoadSegment, RouteStage, SkidMark, SpriteInstance, TransmissionGear, VehicleId } from './types';
+import type { GameState, Particle, Player, ProjectedPoint, RacingLimitsGameMode, RainDrop, RoadSegment, RouteStage, SkidMark, SpriteInstance, TrafficFlow, TransmissionGear, VehicleId } from './types';
 import { ui } from './ui';
 
 export class GameEngine {
@@ -23,6 +23,8 @@ export class GameEngine {
   public controls: DrDrivingControls;
 
   public state: GameState = 'TITLE';
+  public gameMode: RacingLimitsGameMode = 'CAREER';
+  public trafficFlow: TrafficFlow = 'ONE_WAY';
   public currentStageIndex: number = 0;
   public stage: RouteStage;
 
@@ -275,11 +277,25 @@ export class GameEngine {
       if (this.state === 'GARAGE') {
         this.handleGarageClick(clickX, clickY);
       } else if (this.state === 'TITLE') {
-        const midX = this.width / 2;
-        const midY = this.height / 2 - 25;
-        if (clickX >= midX + 10 && clickX <= midX + 240 && clickY >= midY + 215 && clickY <= midY + 261) {
-          this.openGarage();
-        } else {
+        let clicked = false;
+        for (const hb of ui.titleHitboxes) {
+          if (clickX >= hb.x && clickX <= hb.x + hb.w && clickY >= hb.y && clickY <= hb.y + hb.h) {
+            clicked = true;
+            if (hb.id.startsWith('mode_')) {
+              this.gameMode = hb.id.replace('mode_', '') as RacingLimitsGameMode;
+              sound.playClick();
+            } else if (hb.id.startsWith('flow_')) {
+              this.trafficFlow = hb.id.replace('flow_', '') as TrafficFlow;
+              sound.playClick();
+            } else if (hb.id === 'btn_start') {
+              this.startGame();
+            } else if (hb.id === 'btn_garage') {
+              this.openGarage();
+            }
+            break;
+          }
+        }
+        if (!clicked) {
           this.startGame();
         }
       } else if (this.state === 'GAMEOVER') {
@@ -385,7 +401,64 @@ export class GameEngine {
     garage.applyToPlayer(this.player);
     this.checkVehicleModelUpdate();
     this.state = 'PLAYING';
-    this.timeLeft = this.stage.timeLimit;
+
+    if (this.gameMode === 'INFINITE') {
+      this.timeLeft = 999999;
+      this.stage = {
+        id: 99,
+        name: 'Addis - Adama Expressway (Endless)',
+        nameAmharic: 'አዲስ - አዳማ የፍጥነት መንገድ (ማለቂያ የሌለው)',
+        subtitle: 'High-Speed Infinite Highway Slalom',
+        trackLength: 16000,
+        targetPassengers: 0,
+        timeLimit: 999999,
+        skyTheme: 'day',
+        fogColor: '#93c5fd',
+        weather: 'clear',
+        isWetRoad: false
+      };
+    } else if (this.gameMode === 'TIME_ATTACK') {
+      this.timeLeft = 60.0;
+      this.stage = {
+        id: 98,
+        name: 'Bole Airport Expressway (Time Attack)',
+        nameAmharic: 'ቦሌ ኤርፖርት የፍጥነት መንገድ (የጊዜ ውድድር)',
+        subtitle: '60s Countdown • Near Misses Add +2.5s!',
+        trackLength: 14000,
+        targetPassengers: 0,
+        timeLimit: 60,
+        skyTheme: 'sunset',
+        fogColor: '#f97316',
+        weather: 'clear',
+        isWetRoad: false
+      };
+    } else if (this.gameMode === 'FREE_RIDE') {
+      this.timeLeft = 999999;
+      this.stage = {
+        id: 97,
+        name: 'Entoto Panoramic Highway (Free Ride)',
+        nameAmharic: 'እንጦጦ ፓኖራሚክ መንገድ (ነፃ ጉዞ)',
+        subtitle: 'Zero Pressure • Pure Scenic Driving',
+        trackLength: 12000,
+        targetPassengers: 0,
+        timeLimit: 999999,
+        skyTheme: 'day',
+        fogColor: '#93c5fd',
+        weather: 'clear',
+        isWetRoad: false
+      };
+    } else {
+      this.stage = STAGES[this.currentStageIndex];
+      this.timeLeft = this.stage.timeLimit;
+    }
+
+    this.player.z = 0;
+    this.player.speed = 0;
+    this.player.fuel = this.player.maxFuel;
+    this.player.passengersOnBoard = 0;
+    this.road.buildTrack(this.stage);
+    this.renderer3d.setupStageEnvironment(this.stage);
+    this.track3d.build(this.road, this.stage);
   }
 
   public restartGame() {
@@ -475,8 +548,32 @@ export class GameEngine {
     }
 
     // 1. Time & Fuel countdown
-    this.timeLeft -= dt;
-    this.player.fuel -= dt * 1.35;
+    if (this.gameMode !== 'FREE_RIDE' && this.gameMode !== 'INFINITE') {
+      this.timeLeft -= dt;
+      if (this.timeLeft <= 0) {
+        if (this.player.fareCollected > 0) garage.addEarnings(this.player.fareCollected);
+        this.state = 'GAMEOVER';
+        this.gameOverReason = this.gameMode === 'TIME_ATTACK' ? '⏱️ ጊዜው አልቋል! (Time Expired!)' : 'ጊዜው አልቋል! (Shift Time Expired!)';
+        sound.playCrash();
+        return;
+      }
+    }
+
+    if (this.gameMode !== 'FREE_RIDE') {
+      this.player.fuel -= dt * 1.35;
+      if (this.player.fuel <= 0) {
+        if (this.player.fareCollected > 0) garage.addEarnings(this.player.fareCollected);
+        this.state = 'GAMEOVER';
+        this.gameOverReason = 'ነዳጅ አልቋል! (Ran Out of Fuel!)';
+        sound.playCrash();
+        return;
+      }
+    }
+
+    // Infinite Highway Seamless Wrapping
+    if (this.gameMode === 'INFINITE' && this.player.z >= this.road.trackLength - 2500) {
+      this.player.z -= (this.road.trackLength - 5000);
+    }
 
     // Combo timer decay
     if (this.player.comboTimer > 0) {
@@ -484,22 +581,6 @@ export class GameEngine {
       if (this.player.comboTimer <= 0) {
         this.player.comboCount = 0;
       }
-    }
-
-    if (this.timeLeft <= 0) {
-      if (this.player.fareCollected > 0) garage.addEarnings(this.player.fareCollected);
-      this.state = 'GAMEOVER';
-      this.gameOverReason = 'ጊዜው አልቋል! (Shift Time Expired!)';
-      sound.playCrash();
-      return;
-    }
-
-    if (this.player.fuel <= 0) {
-      if (this.player.fareCollected > 0) garage.addEarnings(this.player.fareCollected);
-      this.state = 'GAMEOVER';
-      this.gameOverReason = 'ነዳጅ አልቋል! (Ran Out of Fuel!)';
-      sound.playCrash();
-      return;
     }
 
     // 2. Bunna Turbo Boost
@@ -710,8 +791,8 @@ export class GameEngine {
     this.checkCollisions(currentSegment);
     this.checkIntersectionRules();
 
-    // 5. Stage Finish Check
-    if (this.player.z >= this.road.trackLength - 20 * ROAD.SEGMENT_LENGTH) {
+    // 5. Stage Finish Check (CAREER mode only)
+    if (this.gameMode === 'CAREER' && this.player.z >= this.road.trackLength - 20 * ROAD.SEGMENT_LENGTH) {
       if (this.player.fareCollected > 0) garage.addEarnings(this.player.fareCollected);
       const finishedContracts = garage.checkContractCompletion(this.stage.id, this.player.passengersOnBoard, this.timeLeft);
       finishedContracts.forEach(c => {
@@ -801,6 +882,10 @@ export class GameEngine {
             const comboBonus = Math.round(15 * this.player.comboCount * multiplier);
             this.player.fareCollected += comboBonus;
             sound.playNearMiss();
+            if (this.gameMode === 'TIME_ATTACK') {
+              this.timeLeft = Math.min(120, this.timeLeft + 2.5);
+              ui.showToast('⏱️ +2.5s TIME EXTENDED!', '⏱️', '#38bdf8');
+            }
             if (this.player.comboCount >= 3 && Math.random() < 0.6) {
               sound.speakWeyala('PRAISE');
             }
@@ -1377,9 +1462,9 @@ export class GameEngine {
         }
       }
 
-      ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, garage.highScore, garage.walletBalance, this.controls?.layout, trailingCars);
+      ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, garage.highScore, garage.walletBalance, this.controls?.layout, trailingCars, this.gameMode, this.trafficFlow);
     } else if (this.state === 'TITLE') {
-      ui.renderTitleScreen(this.ctx, w, h, garage.highScore, garage.walletBalance);
+      ui.renderTitleScreen(this.ctx, w, h, garage.highScore, garage.walletBalance, this.gameMode, this.trafficFlow);
     } else if (this.state === 'PAUSED') {
       ui.renderPauseScreen(this.ctx, w, h);
     } else if (this.state === 'GAMEOVER') {
