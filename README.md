@@ -20,6 +20,15 @@ An authentic 3D Ethiopian highway arcade racer built with Three.js WebGL, vanill
   * 3,000m × 3,000m continuous highland savanna ground terrain (no floating cars or empty voids).
   * Directional sun lighting with PCF soft shadows and ACES Filmic tone mapping.
   * Real-time 3D rain particle system with illuminated lightning flashes.
+* **Dr. Driving Urban Intersections & 3D Traffic Light Grid**:
+  * **Overhead Highway Traffic Light Gantries**: High-truss gantries situated across major Addis junctions (Kazanchis, Piazza, Bole, Olympia, Meskel Square, Abanefso, and Shiro Meda). Features dynamic 3-phase cycle: **Green (13s)**, **Amber (3s)**, and **Red (10s)** with emissive signal lenses and overhead illuminators.
+  * **Asphalt Surface Markings**: Solid white stop bars, 3-lane directional asphalt arrows (left, through, right), and pedestrian zebra crossings.
+  * **Red Light Law Enforcement**: Passing the stop line during a red light triggers a **-100 ETB traffic citation**, synthesized Ethiopian dual-tone police pea whistle (**"ፊሽካ"**), Weyala warning, and red screen flash.
+  * **Lawful Driver Bonus**: Halting before the stop line during red and waiting until green rewards **+75 ETB bonus fare** and coin chime.
+  * **Cross-Street Traffic Flow & T-Bone Physics**: Autonomous cross traffic (Ladas, Bajajs, Minibuses, Isuzu trucks) flows perpendicular during red cycles; running the junction box results in violent T-bone collisions, rollover chassis tilt, and damage penalties.
+* **Dr. Driving Cockpit Active Rearview Mirror**:
+  * Windshield-mounted beveled convex rearview mirror displaying trailing traffic vehicles behind the taxi with depth perspective and glowing headlights.
+  * **Dynamic Reverse Parking Guidelines**: Shifting into Reverse (<kbd>R</kbd>) transforms the mirror into a digital backup monitor with multi-tiered green/yellow/red distance guides and steering-wheel-linked curved trajectory rails.
 * **Multi-Camera System (<kbd>C</kbd> or `🎥 CAM`)**:
   * **Chase Cam**: Dynamic trailing perspective aligned with the highway tangent, with high-speed zoom and steering lean.
   * **Hood Cam**: High-speed first-person bumper view over the front hood.
@@ -120,3 +129,8 @@ npm run preview
 * `v3.7.0`: Rotatable On-Screen Steering Wheel with Arc-Drag Multi-Touch & Center Horn Cap
 * `v3.8.0`: Analog Gas & Brake Pedals with Visual Travel Depth & 3D Taillight Flare
 * `v3.9.0`: Complete Dr. Driving Cockpit Integration, Console Shifter & System Polish
+* `v4.0.0`: Urban Intersections, 3D Traffic Light Gantries, Stop Lines, and Signal State Machine
+* `v4.1.0`: Red Light Infraction Fine (-100 ETB), Lawful Driver Bonus (+75 ETB), and Police Pea Whistle ("ፊሽካ")
+* `v4.2.0`: Autonomous Cross-Street Traffic, AABB Junction Box Collision Detection, and T-Bone Rollover Physics
+* `v4.3.0`: Dr. Driving Windshield Rearview Mirror with Live Trailing Reflections & [R] Dynamic Parking Guidelines
+* `v4.4.0`: Comprehensive Option 3 Urban Traffic Grid, Collision Physics & Cockpit Documentation Release
