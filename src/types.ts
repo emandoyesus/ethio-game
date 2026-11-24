@@ -110,6 +110,10 @@ export interface SpriteInstance {
   mesh3d?: any;
   isOncoming?: boolean;
   oncomingWhooshed?: boolean;
+  blinkerState?: 'none' | 'left' | 'right';
+  blinkerTimer?: number;
+  laneChangeCooldown?: number;
+  isYielding?: boolean;
 }
 
 export type SpriteType =

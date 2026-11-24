@@ -873,7 +873,7 @@ class SoundManager {
   }
 
   // Ethiopian Weyala Street Callouts
-  public speakWeyala(phrase: 'CALL_MEGENAGNA' | 'CALL_BOLE' | 'CALL_PIAZZA' | 'CALL_MERKATO' | 'BOARDING' | 'SLOW_DOWN' | 'PRAISE' | 'POTHOLE_SCARE' | 'POLICE_RED' | 'LAWFUL') {
+  public speakWeyala(phrase: 'CALL_MEGENAGNA' | 'CALL_BOLE' | 'CALL_PIAZZA' | 'CALL_MERKATO' | 'BOARDING' | 'SLOW_DOWN' | 'PRAISE' | 'POTHOLE_SCARE' | 'POLICE_RED' | 'LAWFUL' | 'HORN_YIELD') {
     this.playWeyalaThump();
 
     const phrases: Record<string, string> = {
@@ -886,7 +886,8 @@ class SoundManager {
       PRAISE: 'አቦ ይመችህ!',
       POTHOLE_SCARE: 'ወይኔ ጉድጓዱ!',
       POLICE_RED: 'ፖሊስ! ቀዩን አለፍከው!',
-      LAWFUL: 'ጎበዝ ሹፌር! ሕግ አክባሪ!'
+      LAWFUL: 'ጎበዝ ሹፌር! ሕግ አክባሪ!',
+      HORN_YIELD: 'መንገድ ለቀቁ! ግባበት!'
     };
 
     const text = phrases[phrase] || 'መገናኛ!';

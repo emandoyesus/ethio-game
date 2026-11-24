@@ -349,6 +349,9 @@ export class GameEngine {
     if (result.clearedAnimals) {
       sound.playGoatBleat();
       ui.addFloatingText('📢 መንገድ ተለቀቀ! (ROAD CLEARED!)', this.width / 2, this.height - 130, '#22c55e');
+    } else if (result.scariedCount > 0) {
+      ui.addFloatingText('📢 መኪኖች መንገድ ለቀቁ! (TRAFFIC YIELDED!)', this.width / 2, this.height - 130, '#38bdf8');
+      if (Math.random() < 0.6) sound.speakWeyala('HORN_YIELD');
     } else {
       ui.addFloatingText('📢 ፒፕ ፒፕ! (PEEP!)', this.width / 2, this.height - 120, '#facc15');
     }

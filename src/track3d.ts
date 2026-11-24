@@ -22,7 +22,9 @@ import {
   createCBETower3D,
   createLightRailViaduct3D,
   createTrafficLightGantry3D,
-  createLaneArrowMesh3D
+  createLaneArrowMesh3D,
+  materials,
+  type Vehicle3DModel
 } from './models3d';
 import { ROAD, type RoadManager } from './road';
 import type { RouteStage, SpriteInstance } from './types';
@@ -422,18 +424,22 @@ export class Track3D {
     switch (sprite.type) {
       case 'TRAFFIC_LADA': {
         const v = createLada3D();
+        v.group.userData.vehicleModel = v;
         return v.group;
       }
       case 'TRAFFIC_BAJAJ': {
         const v = createBajaj3D();
+        v.group.userData.vehicleModel = v;
         return v.group;
       }
       case 'TRAFFIC_ISUZU': {
         const v = createIsuzu3D();
+        v.group.userData.vehicleModel = v;
         return v.group;
       }
       case 'TRAFFIC_POLICE': {
         const v = createPolice3D();
+        v.group.userData.vehicleModel = v;
         if (v.policeStrobeRed && v.policeStrobeBlue) {
           this.policeLights.push({ red: v.policeStrobeRed, blue: v.policeStrobeBlue });
         }
@@ -574,6 +580,25 @@ export class Track3D {
         // Align mesh orientation with track tangent (face oncoming vehicles 180° towards player)
         const meshDir = sprite.isOncoming ? tangent.clone().negate() : tangent;
         mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), meshDir);
+
+        // Racing Limits: Traffic Turn Signal Blinker & Hazard Animation
+        const vModel = mesh.userData?.vehicleModel as Vehicle3DModel | undefined;
+        if (vModel) {
+          const blinkPhase = Math.floor(now / 160) % 2 === 0;
+          const leftOn = (sprite.blinkerState === 'left' || sprite.isYielding) && blinkPhase;
+          const rightOn = (sprite.blinkerState === 'right' || sprite.isYielding) && blinkPhase;
+
+          if (vModel.leftBlinkers) {
+            for (const b of vModel.leftBlinkers) {
+              b.material = leftOn ? materials.blinkerAmberOn : materials.blinkerAmberOff;
+            }
+          }
+          if (vModel.rightBlinkers) {
+            for (const b of vModel.rightBlinkers) {
+              b.material = rightOn ? materials.blinkerAmberOn : materials.blinkerAmberOff;
+            }
+          }
+        }
 
         if (sprite.type === 'ITEM_BIRR') {
           worldPos.y += 0.45;

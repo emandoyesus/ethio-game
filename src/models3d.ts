@@ -54,6 +54,8 @@ export const materials = {
   signalYellowOn: new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xfbbf24, emissiveIntensity: 5.0 }),
   signalGreenOff: new THREE.MeshStandardMaterial({ color: 0x052e16, roughness: 0.9 }),
   signalGreenOn: new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x22c55e, emissiveIntensity: 5.0 }),
+  blinkerAmberOff: new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 }),
+  blinkerAmberOn: new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xfbbf24, emissiveIntensity: 5.2 }),
   asphaltPaintWhite: new THREE.MeshBasicMaterial({ color: 0xf8fafc, side: THREE.DoubleSide }),
   asphaltPaintYellow: new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide })
 };
@@ -63,6 +65,8 @@ export interface Vehicle3DModel {
   wheels: THREE.Mesh[];
   headlights: THREE.SpotLight[];
   taillights?: THREE.Mesh[];
+  leftBlinkers?: THREE.Mesh[];
+  rightBlinkers?: THREE.Mesh[];
   policeStrobeRed?: THREE.PointLight;
   policeStrobeBlue?: THREE.PointLight;
 }
@@ -197,7 +201,32 @@ export function createMinibus3D(): Vehicle3DModel {
     group.add(cap);
   });
 
-  return { group, wheels, headlights: [spotL, spotR], taillights: [leftTL, rightTL] };
+  // Turn Signal Blinkers
+  const blinkerGeo = new THREE.BoxGeometry(0.18, 0.18, 0.08);
+  const leftFB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  leftFB.position.set(-1.0, 0.78, 2.42);
+  group.add(leftFB);
+
+  const leftRB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  leftRB.position.set(-1.0, 0.84, -2.42);
+  group.add(leftRB);
+
+  const rightFB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  rightFB.position.set(1.0, 0.78, 2.42);
+  group.add(rightFB);
+
+  const rightRB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  rightRB.position.set(1.0, 0.84, -2.42);
+  group.add(rightRB);
+
+  return {
+    group,
+    wheels,
+    headlights: [spotL, spotR],
+    taillights: [leftTL, rightTL],
+    leftBlinkers: [leftFB, leftRB],
+    rightBlinkers: [rightFB, rightRB]
+  };
 }
 
 // 2. Classic Lada 2101 Taxi Sedan
@@ -287,7 +316,32 @@ export function createLada3D(): Vehicle3DModel {
   rightTL.position.set(0.7, 0.68, -2.12);
   group.add(rightTL);
 
-  return { group, wheels, headlights: [spotL, spotR], taillights: [leftTL, rightTL] };
+  // Turn Signal Blinkers
+  const blinkerGeo = new THREE.BoxGeometry(0.18, 0.18, 0.08);
+  const leftFB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  leftFB.position.set(-1.0, 0.78, 2.42);
+  group.add(leftFB);
+
+  const leftRB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  leftRB.position.set(-1.0, 0.84, -2.42);
+  group.add(leftRB);
+
+  const rightFB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  rightFB.position.set(1.0, 0.78, 2.42);
+  group.add(rightFB);
+
+  const rightRB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  rightRB.position.set(1.0, 0.84, -2.42);
+  group.add(rightRB);
+
+  return {
+    group,
+    wheels,
+    headlights: [spotL, spotR],
+    taillights: [leftTL, rightTL],
+    leftBlinkers: [leftFB, leftRB],
+    rightBlinkers: [rightFB, rightRB]
+  };
 }
 
 // 3. Addis Bajaj (Auto-rickshaw 3-wheeler)
@@ -330,7 +384,16 @@ export function createBajaj3D(): Vehicle3DModel {
   group.add(spot);
   group.add(spot.target);
 
-  return { group, wheels, headlights: [spot] };
+  const blinkerGeo = new THREE.BoxGeometry(0.14, 0.14, 0.08);
+  const leftBlinker = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  leftBlinker.position.set(-0.7, 0.55, -1.32);
+  group.add(leftBlinker);
+
+  const rightBlinker = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  rightBlinker.position.set(0.7, 0.55, -1.32);
+  group.add(rightBlinker);
+
+  return { group, wheels, headlights: [spot], leftBlinkers: [leftBlinker], rightBlinkers: [rightBlinker] };
 }
 
 // 4. Isuzu Heavy Freight Truck
@@ -385,7 +448,32 @@ export function createIsuzu3D(): Vehicle3DModel {
   rightTL.position.set(0.7, 0.68, -2.12);
   group.add(rightTL);
 
-  return { group, wheels, headlights: [spotL, spotR], taillights: [leftTL, rightTL] };
+  // Turn Signal Blinkers
+  const blinkerGeo = new THREE.BoxGeometry(0.18, 0.18, 0.08);
+  const leftFB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  leftFB.position.set(-1.0, 0.78, 2.42);
+  group.add(leftFB);
+
+  const leftRB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  leftRB.position.set(-1.0, 0.84, -2.42);
+  group.add(leftRB);
+
+  const rightFB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  rightFB.position.set(1.0, 0.78, 2.42);
+  group.add(rightFB);
+
+  const rightRB = new THREE.Mesh(blinkerGeo, materials.blinkerAmberOff);
+  rightRB.position.set(1.0, 0.84, -2.42);
+  group.add(rightRB);
+
+  return {
+    group,
+    wheels,
+    headlights: [spotL, spotR],
+    taillights: [leftTL, rightTL],
+    leftBlinkers: [leftFB, leftRB],
+    rightBlinkers: [rightFB, rightRB]
+  };
 }
 
 // 5. Federal Police Cruiser

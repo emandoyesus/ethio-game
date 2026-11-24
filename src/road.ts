@@ -428,10 +428,14 @@ export class RoadManager {
           spr.targetOffset = spr.offset < 0 ? -1.65 : 1.65;
           clearedAnimals = true;
           scariedCount++;
-        } else if (spr.type === 'TRAFFIC_BAJAJ' || spr.type === 'TRAFFIC_LADA') {
-          if (Math.abs(spr.offset - playerX) < 0.55) {
-            spr.targetOffset = spr.offset < 0 ? 0.65 : -0.65;
-            spr.alertTimer = 1.8;
+        } else if (spr.type === 'TRAFFIC_BAJAJ' || spr.type === 'TRAFFIC_LADA' || spr.type === 'TRAFFIC_ISUZU') {
+          if (!spr.isOncoming && Math.abs(spr.offset - playerX) < 0.65) {
+            const yieldRight = spr.offset >= 0;
+            spr.targetOffset = yieldRight ? 0.75 : -0.75;
+            spr.blinkerState = yieldRight ? 'right' : 'left';
+            spr.blinkerTimer = 2.4;
+            spr.isYielding = true;
+            spr.alertTimer = 2.0;
             scariedCount++;
           }
         }
@@ -447,9 +451,61 @@ export class RoadManager {
       for (let j = seg.sprites.length - 1; j >= 0; j--) {
         const sprite = seg.sprites[j];
 
-        if (sprite.targetOffset !== undefined && Math.abs(sprite.offset - sprite.targetOffset) > 0.02) {
-          const shiftSpeed = (sprite.type === 'OBSTACLE_GOAT' || sprite.type === 'OBSTACLE_COW') ? 3.5 : 1.8;
-          sprite.offset += Math.sign(sprite.targetOffset - sprite.offset) * shiftSpeed * dt;
+        const isTrafficCar = sprite.type === 'TRAFFIC_LADA' || sprite.type === 'TRAFFIC_BAJAJ' || sprite.type === 'TRAFFIC_ISUZU';
+
+        // 1. Autonomous Lane Changing for traffic cars
+        if (isTrafficCar && !sprite.isOncoming) {
+          if (sprite.laneChangeCooldown === undefined) {
+            sprite.laneChangeCooldown = 7 + Math.random() * 12;
+          } else {
+            sprite.laneChangeCooldown -= dt;
+            if (sprite.laneChangeCooldown <= 0 && sprite.targetOffset === undefined) {
+              const forwardLanes = [-0.65, 0, 0.65];
+              const currentLaneIdx = forwardLanes.reduce((closest, lane, idx) => {
+                return Math.abs(lane - sprite.offset) < Math.abs(forwardLanes[closest] - sprite.offset) ? idx : closest;
+              }, 0);
+
+              let targetIdx = currentLaneIdx;
+              if (currentLaneIdx === 1) {
+                targetIdx = Math.random() < 0.5 ? 0 : 2;
+              } else if (currentLaneIdx === 0) {
+                targetIdx = 1;
+              } else {
+                targetIdx = 1;
+              }
+
+              const newLane = forwardLanes[targetIdx];
+              sprite.targetOffset = newLane;
+              sprite.blinkerState = newLane < sprite.offset ? 'left' : 'right';
+              sprite.blinkerTimer = 2.2;
+              sprite.isYielding = false;
+              sprite.laneChangeCooldown = 11 + Math.random() * 15;
+            }
+          }
+        }
+
+        // 2. Blinker timer countdown
+        if (sprite.blinkerTimer !== undefined && sprite.blinkerTimer > 0) {
+          sprite.blinkerTimer -= dt;
+          if (sprite.blinkerTimer <= 0) {
+            sprite.blinkerState = 'none';
+            sprite.isYielding = false;
+          }
+        }
+
+        // 3. Smooth offset lerping towards targetOffset
+        if (sprite.targetOffset !== undefined) {
+          const diff = sprite.targetOffset - sprite.offset;
+          if (Math.abs(diff) > 0.02) {
+            const shiftSpeed = (sprite.type === 'OBSTACLE_GOAT' || sprite.type === 'OBSTACLE_COW') ? 3.5 : sprite.isYielding ? 2.5 : 1.4;
+            sprite.offset += Math.sign(diff) * shiftSpeed * dt;
+          } else {
+            sprite.offset = sprite.targetOffset;
+            sprite.targetOffset = undefined;
+            if (!sprite.isYielding) {
+              sprite.blinkerState = 'none';
+            }
+          }
         }
 
         if (sprite.speed && sprite.speed !== 0) {
