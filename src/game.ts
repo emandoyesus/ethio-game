@@ -805,7 +805,7 @@ export class GameEngine {
       }
     }
 
-    this.renderer3d.update(player3DPos, tangent, normal, speedRatio, this.player.steerAngle, this.player.bounce, dt);
+    this.renderer3d.update(player3DPos, tangent, normal, speedRatio, this.player.steerAngle, this.player.bounce, dt, isBoosting);
 
     // 4. Collisions, Pickups & Combos
     this.checkCollisions(currentSegment);

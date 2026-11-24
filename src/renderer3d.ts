@@ -154,7 +154,8 @@ export class Renderer3D {
     playerSpeedRatio: number,
     steerAngle: number,
     bounce: number,
-    dt: number
+    dt: number,
+    isBoosting: boolean = false
   ) {
     // 1. Keep Terrain & Sun Centered Around Player
     this.terrainMesh.position.x = playerPos.x;
@@ -163,13 +164,18 @@ export class Renderer3D {
     this.sunLight.position.set(playerPos.x + 40, playerPos.y + 90, playerPos.z + 50);
     this.sunLight.target.position.copy(playerPos);
 
-    // 2. Camera Dynamic Following Aligned with Highway Tangent
+    // 2. Racing Limits Dynamic FOV & Speed Warping (Tunnel Vision from 60° up to 78°, 84° on boost)
+    const targetFov = 60 + (playerSpeedRatio * 16.0) + (isBoosting ? 8.0 : 0.0);
+    this.camera.fov += (targetFov - this.camera.fov) * Math.min(1.0, dt * 6.5);
+    this.camera.updateProjectionMatrix();
+
+    // 3. Camera Dynamic Following Aligned with Highway Tangent
     const lookAheadDist = 18.0;
     const lookTarget = playerPos.clone().addScaledVector(tangent, lookAheadDist);
     lookTarget.y += 1.4 + bounce * 0.04;
 
     if (this.cameraMode === 'CHASE') {
-      const followDist = 8.5 + playerSpeedRatio * 2.5;
+      const followDist = 8.5 + playerSpeedRatio * 2.8;
       const followHeight = 3.6 + bounce * 0.03;
       const camTargetPos = playerPos
         .clone()
@@ -197,7 +203,14 @@ export class Renderer3D {
       this.camera.lookAt(playerPos.clone().addScaledVector(tangent, 10.0));
     }
 
-    // 3. Update 3D Rain Droplets
+    // 4. Aerodynamic High-Speed Camera Vibration (> 130 km/h)
+    if (playerSpeedRatio > 0.75) {
+      const jitterIntensity = (playerSpeedRatio - 0.75) * 0.08;
+      this.camera.position.x += (Math.random() - 0.5) * jitterIntensity;
+      this.camera.position.y += (Math.random() - 0.5) * jitterIntensity;
+    }
+
+    // 5. Update 3D Rain Droplets
     if (this.rainPoints && this.rainPoints.visible && this.rainCoords && this.rainGeometry) {
       this.rainPoints.position.set(playerPos.x, playerPos.y, playerPos.z);
       const posAttr = this.rainGeometry.attributes.position;
