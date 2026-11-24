@@ -554,6 +554,40 @@ class SoundManager {
     }
   }
 
+  // High-Speed Racing Limits Doppler Oncoming Pass-by Whoosh
+  public playOncomingWhoosh() {
+    if (!this.ctx || this.isMuted) return;
+    this.init();
+    const t = this.ctx.currentTime;
+    try {
+      const osc = this.ctx.createOscillator();
+      const filter = this.ctx.createBiquadFilter();
+      const gain = this.ctx.createGain();
+
+      // Steep acoustic Doppler shift (480 Hz down to 110 Hz)
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(480, t);
+      osc.frequency.exponentialRampToValueAtTime(110, t + 0.32);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1200, t);
+      filter.frequency.exponentialRampToValueAtTime(320, t + 0.32);
+
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.28, t + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.36);
+    } catch {
+      // Audio fallback
+    }
+  }
+
   public playBunnaBoost() {
     if (!this.ctx || this.isMuted) return;
     this.init();

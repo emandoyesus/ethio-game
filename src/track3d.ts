@@ -568,8 +568,9 @@ export class Track3D {
         const { pos, tangent, normal } = this.getPointAtZ(spriteZ);
         const worldPos = pos.clone().addScaledVector(normal, sprite.offset * 9.0);
 
-        // Align mesh orientation with track tangent
-        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+        // Align mesh orientation with track tangent (face oncoming vehicles 180° towards player)
+        const meshDir = sprite.isOncoming ? tangent.clone().negate() : tangent;
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), meshDir);
 
         if (sprite.type === 'ITEM_BIRR') {
           worldPos.y += 0.45;

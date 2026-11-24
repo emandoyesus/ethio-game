@@ -58,6 +58,7 @@ export class GameEngine {
 
   // Near miss tracker
   private nearMissCooldown: number = 0;
+  private oncomingLaneTimer: number = 0;
 
   constructor(canvas3d: HTMLCanvasElement, canvasHud: HTMLCanvasElement) {
     this.canvas3d = canvas3d;
@@ -456,7 +457,7 @@ export class GameEngine {
     this.player.speed = 0;
     this.player.fuel = this.player.maxFuel;
     this.player.passengersOnBoard = 0;
-    this.road.buildTrack(this.stage);
+    this.road.buildTrack(this.stage, this.trafficFlow);
     this.renderer3d.setupStageEnvironment(this.stage);
     this.track3d.build(this.road, this.stage);
   }
@@ -470,7 +471,7 @@ export class GameEngine {
     this.player = this.createInitialPlayer();
     garage.applyToPlayer(this.player);
     this.checkVehicleModelUpdate();
-    this.road.buildTrack(this.stage);
+    this.road.buildTrack(this.stage, this.trafficFlow);
     this.renderer3d.setupStageEnvironment(this.stage);
     this.track3d.build(this.road, this.stage);
     this.timeLeft = this.stage.timeLimit;
@@ -495,7 +496,7 @@ export class GameEngine {
       this.timeLeft = this.stage.timeLimit;
       this.particles = [];
       this.skidmarks = [];
-      this.road.buildTrack(this.stage);
+      this.road.buildTrack(this.stage, this.trafficFlow);
       this.renderer3d.setupStageEnvironment(this.stage);
       this.track3d.build(this.road, this.stage);
       this.state = 'PLAYING';
@@ -589,6 +590,25 @@ export class GameEngine {
       this.player.boostRemaining -= dt;
       if (this.player.boostRemaining < 0) this.player.boostRemaining = 0;
       this.spawnBoostFlames();
+    }
+
+    // Racing Limits: Two-Way Oncoming Lane Continuous Score & Risk Multiplier
+    if (this.trafficFlow === 'TWO_WAY') {
+      const inOncomingLane = this.player.x < -0.32;
+      const atHighSpeed = this.player.speed > 3600; // > ~75 km/h
+
+      if (inOncomingLane && atHighSpeed) {
+        this.oncomingLaneTimer += dt;
+        const reward = Math.round(dt * 24);
+        this.player.fareCollected += reward;
+
+        // Periodic floating toast notification
+        if (Math.floor(this.oncomingLaneTimer * 3.5) !== Math.floor((this.oncomingLaneTimer - dt) * 3.5)) {
+          ui.addFloatingText('⚠️ በተቃራኒ መስመር! +20 ETB/s', this.width / 2, this.height / 2 - 80, '#ef4444');
+        }
+      } else {
+        this.oncomingLaneTimer = 0;
+      }
     }
 
     const maxSpeed = isBoosting ? this.player.maxSpeed * 1.48 : this.player.maxSpeed;
@@ -869,6 +889,22 @@ export class GameEngine {
 
         const spriteZ = seg.p1.z + (sprite.zOffset || 0);
         const zDist = Math.abs(spriteZ - this.player.z);
+
+        // Racing Limits: Oncoming Vehicle Doppler Pass & High-Risk Near-Miss
+        if (sprite.isOncoming && zDist < 420 && !sprite.oncomingWhooshed) {
+          sprite.oncomingWhooshed = true;
+          sound.playOncomingWhoosh();
+
+          const dx = Math.abs(this.player.x - sprite.offset);
+          if (dx < 1.4 && this.player.speed > 4600) {
+            this.player.comboCount += 2;
+            this.player.comboTimer = 5.0;
+            const oncomingBonus = Math.round(50 * (this.player.vehicleId === 'BAJAJ' ? 1.5 : 1.0));
+            this.player.fareCollected += oncomingBonus;
+            ui.showToast('⚡ አስደናቂ ተቃራኒ ማለፍ! (+50 ETB ONCOMING DAREDEVIL!)', '⚡', '#ef4444');
+            ui.addFloatingText('⚡ ONCOMING DAREDEVIL! +50 ETB', this.width / 2 - 80, this.height / 2 - 40, '#ef4444');
+          }
+        }
 
         // Near-Miss Combo check with traffic
         if (sprite.type === 'TRAFFIC_LADA' || sprite.type === 'TRAFFIC_BAJAJ' || sprite.type === 'TRAFFIC_ISUZU') {

@@ -323,6 +323,28 @@ export class UIManager {
       ctx.restore();
     }
 
+    // Racing Limits: Active Oncoming Lane Warning Pill
+    if (trafficFlow === 'TWO_WAY' && player.x < -0.32 && player.speed > 3600) {
+      ctx.save();
+      const warnX = width / 2;
+      const warnY = player.comboCount > 1 ? 138 : 106;
+      const pulseWarn = 0.8 + 0.2 * Math.sin(Date.now() / 90);
+
+      ctx.fillStyle = `rgba(220, 38, 38, ${pulseWarn * 0.92})`;
+      ctx.beginPath();
+      ctx.roundRect(warnX - 150, warnY - 12, 300, 24, 12);
+      ctx.fill();
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('⚠️ በተቃራኒ መስመር • ONCOMING LANE (+20 ETB/s)', warnX, warnY + 4);
+      ctx.restore();
+    }
+
     // 3. Structured Toast Alert Notifications (Stacked below rearview mirror, zero overlap!)
     const toastStartY = 112 + (player.comboCount > 1 ? 28 : 0);
     this.toasts.forEach((toast, idx) => {

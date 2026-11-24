@@ -108,6 +108,8 @@ export interface SpriteInstance {
   alertTimer?: number; // reaction when horn is sounded
   targetOffset?: number; // lane change target when yielding
   mesh3d?: any;
+  isOncoming?: boolean;
+  oncomingWhooshed?: boolean;
 }
 
 export type SpriteType =

@@ -1,4 +1,4 @@
-import type { IntersectionZone, RoadSegment, RouteStage, SpriteType } from './types';
+import type { IntersectionZone, RoadSegment, RouteStage, SpriteType, TrafficFlow } from './types';
 
 export const ROAD = {
   SEGMENT_LENGTH: 200,
@@ -58,7 +58,7 @@ export class RoadManager {
   public totalSegments: number = 0;
   public intersections: IntersectionZone[] = [];
 
-  public buildTrack(stage: RouteStage) {
+  public buildTrack(stage: RouteStage, trafficFlow: TrafficFlow = 'ONE_WAY') {
     this.segments = [];
     this.intersections = [];
 
@@ -171,7 +171,7 @@ export class RoadManager {
     this.totalSegments = this.segments.length;
     this.trackLength = this.totalSegments * ROAD.SEGMENT_LENGTH;
 
-    this.populateTrack(stage);
+    this.populateTrack(stage, trafficFlow);
     this.setupIntersections(stage);
   }
 
@@ -179,7 +179,7 @@ export class RoadManager {
     return a + (b - a) * (-Math.cos(percent * Math.PI) / 2 + 0.5);
   }
 
-  private populateTrack(stage: RouteStage) {
+  private populateTrack(stage: RouteStage, trafficFlow: TrafficFlow = 'ONE_WAY') {
     const total = this.totalSegments;
 
     // Checkpoint gate at finish
@@ -333,8 +333,19 @@ export class RoadManager {
       const seg = this.segments[segIndex];
       if (!seg) continue;
 
-      const lane = [-0.65, 0, 0.65][Math.floor(Math.random() * 3)];
+      let lane = [-0.65, 0, 0.65][Math.floor(Math.random() * 3)];
       const roll = Math.random();
+
+      // In Two-Way traffic mode: left lane (offset -0.65) is dedicated oncoming traffic!
+      let isOncoming = false;
+      if (trafficFlow === 'TWO_WAY') {
+        if (Math.random() < 0.44) {
+          lane = -0.65;
+          isOncoming = true;
+        } else {
+          lane = Math.random() < 0.5 ? 0 : 0.65;
+        }
+      }
 
       let vType: SpriteType;
       let speed: number;
@@ -350,12 +361,18 @@ export class RoadManager {
         speed = 1000 + Math.random() * 800;
       }
 
+      if (isOncoming) {
+        // High-speed oncoming traffic hurtling towards player in left lane
+        speed = -(2400 + Math.random() * 1400);
+      }
+
       seg.sprites.push({
         type: vType,
         offset: lane,
         targetOffset: lane,
         speed,
-        zOffset: 0
+        zOffset: 0,
+        isOncoming
       });
     }
 
@@ -435,10 +452,11 @@ export class RoadManager {
           sprite.offset += Math.sign(sprite.targetOffset - sprite.offset) * shiftSpeed * dt;
         }
 
-        if (sprite.speed && sprite.speed > 0) {
+        if (sprite.speed && sprite.speed !== 0) {
           const moveDist = sprite.speed * dt;
           const currentZ = seg.p1.z + (sprite.zOffset || 0);
-          const newZ = (currentZ + moveDist) % this.trackLength;
+          let newZ = (currentZ + moveDist) % this.trackLength;
+          if (newZ < 0) newZ += this.trackLength;
           const newSeg = this.findSegment(newZ);
 
           if (newSeg.index !== seg.index) {
