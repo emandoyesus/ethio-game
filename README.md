@@ -29,6 +29,26 @@ An authentic 3D Ethiopian highway arcade racer built with Three.js WebGL, vanill
 * **Dr. Driving Cockpit Active Rearview Mirror**:
   * Windshield-mounted beveled convex rearview mirror displaying trailing traffic vehicles behind the taxi with depth perspective and glowing headlights.
   * **Dynamic Reverse Parking Guidelines**: Shifting into Reverse (<kbd>R</kbd>) transforms the mirror into a digital backup monitor with multi-tiered green/yellow/red distance guides and steering-wheel-linked curved trajectory rails.
+* **Racing Limits Multi-Mode Highway Racing & Traffic Flow**:
+  * **Game Modes**:
+    * **Career Mode (የስራ ጉዞ)**: Authentic taxi route contracts with passenger boarding targets, checkpoint gates, urban traffic light intersections, and fares.
+    * **Infinite Highway (ማለቂያ የሌለው መንገድ)**: Endless Addis-Adama expressway slalom with zero passenger pressure; high-speed survival scoring with seamless track looping.
+    * **Time Attack (የጊዜ ውድድር)**: High-stakes 60-second countdown sprint where precision near misses and oncoming daredevil passes extend the timer by **+2.5s**.
+    * **Free Ride (ነፃ ጉዞ)**: Relaxed, unhurried scenic cruise across the Entoto highland pass with zero timer or fuel depletion.
+  * **Traffic Flow Selectors**:
+    * **One-Way Traffic Flow (አንድ አቅጣጫ)**: All traffic heads forward across 3 lanes.
+    * **Two-Way Oncoming Traffic Flow (ሁለት አቅጣጫ)**: Oncoming traffic charges head-on down the left lane with 180° rotated 3D models and glaring headlights. Continuous high-speed driving in oncoming lane rewards **+20 ETB/s risk bonus**; close passes generate acoustic Doppler shifts and **+50 ETB Oncoming Daredevil bonus**.
+* **Dynamic FOV Tunnel Vision & Aerodynamic Camera Shake**:
+  * Dynamic camera FOV expands from 60° to 78° as vehicle speed climbs above 100 km/h, warping to 84° during Nitrous boost.
+  * Aerodynamic camera vibration simulates turbulent airflow and wind buffeting above 130 km/h.
+* **Nitrous Oxide (N2O) Boost System (<kbd>N</kbd> / <kbd>Shift</kbd>)**:
+  * Dual cyan and electric-blue plasma exhaust flame jets ignite with high-boost turbo turbine spool whistle.
+  * Releasing boost triggers triple-stage mechanical wastegate blow-off flutter.
+  * Dynamic refill through near-miss overtakes (+18%), oncoming daredevil passes (+25%), oncoming lane driving (+14%/s), and Bunna coffee pickups (100%).
+  * Cockpit HUD diagnostics pod displays live segmented cyan N2O boost gauge.
+* **Reactive Traffic AI & Lane-Changing Blinkers**:
+  * Autonomous AI vehicles assess open lanes, signal with flashing amber turn indicators (3.5 Hz) for 1.2s, and smoothly steer between lanes.
+  * Honking the horn (<kbd>Space</kbd> / <kbd>H</kbd>) triggers urgent yielding reactions: traffic activates hazard blinkers and swerves to the shoulder, accompanied by Weyala praise callouts ("መንገድ ለቀቁ! ግባበት!").
 * **Multi-Camera System (<kbd>C</kbd> or `🎥 CAM`)**:
   * **Chase Cam**: Dynamic trailing perspective aligned with the highway tangent, with high-speed zoom and steering lean.
   * **Hood Cam**: High-speed first-person bumper view over the front hood.
@@ -66,6 +86,7 @@ An authentic 3D Ethiopian highway arcade racer built with Three.js WebGL, vanill
 | **Gas Pedal** | <kbd>▲</kbd> or <kbd>W</kbd> | Press & hold on-screen analog Gas pedal |
 | **Brake Pedal** | <kbd>▼</kbd> or <kbd>S</kbd> | Press & hold on-screen analog Brake pedal |
 | **PRND Shifter** | <kbd>Q</kbd> / <kbd>E</kbd> or <kbd>1</kbd>-<kbd>4</kbd> | Tap/drag on-screen PRND shifter lever slots |
+| **Nitrous Oxide Boost** | <kbd>N</kbd> or <kbd>Shift</kbd> | Auto-boost during high-speed forward acceleration |
 | **Toggle 3D Camera** | <kbd>C</kbd> | Click `🎥 CAM` button (*Chase ➔ Hood ➔ Top-Down*) |
 | **Taxi Horn** | <kbd>H</kbd> or <kbd>Space</kbd> | Tap center steering wheel boss (`📢 HORN`) |
 | **Taxi FM Radio** | <kbd>R</kbd> | Click `📻 RADIO` (4 stations) |
@@ -134,3 +155,9 @@ npm run preview
 * `v4.2.0`: Autonomous Cross-Street Traffic, AABB Junction Box Collision Detection, and T-Bone Rollover Physics
 * `v4.3.0`: Dr. Driving Windshield Rearview Mirror with Live Trailing Reflections & [R] Dynamic Parking Guidelines
 * `v4.4.0`: Comprehensive Option 3 Urban Traffic Grid, Collision Physics & Cockpit Documentation Release
+* `v5.0.0`: Racing Limits Multi-Mode Architecture & Traffic Flow Selector (Career, Infinite Highway, Time Attack, Free Ride)
+* `v5.1.0`: Two-Way Oncoming Traffic Flow, Doppler Shift Audio, and Oncoming Lane Risk Multiplier (+20 ETB/s)
+* `v5.2.0`: Dynamic FOV Tunnel Vision (60° to 84°), Aerodynamic Camera Vibration & Speed Warping (>130 km/h)
+* `v5.3.0`: Nitrous Oxide Boost System with Dual Blue Flame Jets, Turbo Turbine Spool, and BOV Flutter
+* `v5.4.0`: Reactive Traffic AI with Flashing Amber Turn Signals, Autonomous Lane Changes, and Horn Yielding
+* `v5.5.0`: Comprehensive Racing Limits Engine Documentation, Controls Matrix, and Release Verification
