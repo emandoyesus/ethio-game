@@ -88,6 +88,7 @@ An authentic 3D Ethiopian highway arcade racer built with Three.js WebGL, vanill
 | **PRND Shifter** | <kbd>Q</kbd> / <kbd>E</kbd> or <kbd>1</kbd>-<kbd>4</kbd> | Tap/drag on-screen PRND shifter lever slots |
 | **Nitrous Oxide Boost** | <kbd>N</kbd> or <kbd>Shift</kbd> | Auto-boost during high-speed forward acceleration |
 | **Toggle 3D Camera** | <kbd>C</kbd> | Click `🎥 CAM` button (*Chase ➔ Hood ➔ Top-Down*) |
+| **60 FPS Performance Mode** | <kbd>O</kbd> | Click `⚡ PERF` button (Disable shadows & optimize 60 FPS) |
 | **Taxi Horn** | <kbd>H</kbd> or <kbd>Space</kbd> | Tap center steering wheel boss (`📢 HORN`) |
 | **Taxi FM Radio** | <kbd>R</kbd> | Click `📻 RADIO` (4 stations) |
 | **Hazard Flashers** | <kbd>F</kbd> | Click `⚠️ HAZARDS` |
@@ -161,3 +162,15 @@ npm run preview
 * `v5.3.0`: Nitrous Oxide Boost System with Dual Blue Flame Jets, Turbo Turbine Spool, and BOV Flutter
 * `v5.4.0`: Reactive Traffic AI with Flashing Amber Turn Signals, Autonomous Lane Changes, and Horn Yielding
 * `v5.5.0`: Comprehensive Racing Limits Engine Documentation, Controls Matrix, and Release Verification
+* `v5.6.0`: 60 FPS Performance Overhaul, Elimination of Dual-Engine Bottlenecks, 80+ Light Pruning, and Camera Stabilization
+* `v5.6.1`: Performance Architecture Documentation, Highway Grade Optimization, and Release Verification
+
+---
+
+## ⚡ 60 FPS Performance Architecture & Optimization
+
+To ensure smooth 60+ FPS on standard laptops, PCs, and mobile devices:
+1. **Elimination of Dual-Engine Rendering Overhead**: The legacy 2D OutRun software rasterizer (1,400+ polygon fills and curve loops per frame) has been completely retired from the HUD overlay, reserving `canvasHud` strictly for lightweight binnacles, steering wheel, and retro arcade gauges.
+2. **Dynamic Light Pruning (GPU Fillrate Optimization)**: Traffic vehicles (40–65 cars) now utilize high-performance emissive materials (`headlightOn`) rather than hardware `THREE.SpotLight` instances. Only the player vehicle casts dynamic spotlights, eliminating 80–120 active dynamic lights that choked WebGL shaders.
+3. **Highway Grade & Camera Stabilization**: Spine elevation scale calibrated to a realistic highway standard (`0.005`), upward counter-clockwise face winding order, terrain elevation sync (`terrainMesh.position.y = playerPos.y - 0.2`), and horizontal-tangent chase camera tracking eliminate clipping below the asphalt.
+4. **Instant 60 FPS Performance Toggle**: Toggle between High Quality (soft shadows, 1.25x pixel ratio) and Performance Mode (shadows disabled, 1.0x pixel ratio) via the `⚡ PERF` header button or <kbd>O</kbd> key.
