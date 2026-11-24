@@ -40,6 +40,7 @@ export class GameEngine {
   private keys: { [key: string]: boolean } = {};
   private lastTime: number = 0;
   private screenShake: number = 0;
+  private screenFlashRed: number = 0;
 
   // Particle & Skidmark Systems
   private particles: Particle[] = [];
@@ -459,6 +460,11 @@ export class GameEngine {
       if (this.screenShake < 0) this.screenShake = 0;
     }
 
+    if (this.screenFlashRed > 0) {
+      this.screenFlashRed -= dt * 2.2;
+      if (this.screenFlashRed < 0) this.screenFlashRed = 0;
+    }
+
     if (this.state !== 'PLAYING') {
       sound.stopEngine();
       this.road.updateIntersections(dt);
@@ -702,6 +708,7 @@ export class GameEngine {
 
     // 4. Collisions, Pickups & Combos
     this.checkCollisions(currentSegment);
+    this.checkIntersectionRules();
 
     // 5. Stage Finish Check
     if (this.player.z >= this.road.trackLength - 20 * ROAD.SEGMENT_LENGTH) {
@@ -939,6 +946,49 @@ export class GameEngine {
               }
             }
           }
+        }
+      }
+    }
+  }
+
+  // Dr. Driving Traffic Light Enforcement & Lawful Driver Rewards
+  private checkIntersectionRules() {
+    const pz = this.player.z;
+
+    for (const inter of this.road.intersections) {
+      const stopZ = inter.zStopLine;
+
+      // 1. Approaching Red Light: Detect Lawful Driver Stop (within 1600 track units before line)
+      const distToStop = stopZ - pz;
+      if (distToStop > 0 && distToStop < 1600) {
+        if (inter.lightState === 'RED' && this.player.speed < 250) {
+          inter.playerStoppedAtRed = true;
+        }
+      }
+
+      // 2. Crossing Stop Line check
+      if (pz >= stopZ && pz <= inter.zEnd) {
+        if (inter.lightState === 'RED' && !inter.playerViolatedRed) {
+          // Traffic Infraction: Blew through red light stop line!
+          inter.playerViolatedRed = true;
+          inter.playerStoppedAtRed = false;
+          this.screenFlashRed = 1.0;
+          this.screenShake = 4.0;
+          sound.playPoliceWhistle();
+          sound.speakWeyala('POLICE_RED');
+          this.player.comboCount = 0;
+          this.player.fareCollected = Math.max(0, this.player.fareCollected - 100);
+          ui.showToast('🚨 ቀይ መብራት ጥሰዋል! (-100 ETB RED LIGHT VIOLATION!)', '🚨', '#ef4444');
+          ui.addFloatingText('🚨 ቀይ መብራት ጥሰት! -100 ETB', this.width / 2, this.height / 2 - 50, '#ef4444');
+        } else if (inter.lightState === 'GREEN' && inter.playerStoppedAtRed && !inter.playerPassedGreen) {
+          // Lawful Driver Bonus: Stopped at red and waited for green light!
+          inter.playerPassedGreen = true;
+          inter.playerStoppedAtRed = false;
+          this.player.fareCollected += 75;
+          sound.playCoin();
+          sound.speakWeyala('LAWFUL');
+          ui.showToast('✅ ሕጋዊ አሽከርካሪ! (+75 ETB LAWFUL DRIVER BONUS)', '✅', '#22c55e');
+          ui.addFloatingText('✅ ሕጋዊ አሽከርካሪ! +75 ETB', this.width / 2, this.height / 2 - 50, '#22c55e');
         }
       }
     }
@@ -1250,6 +1300,12 @@ export class GameEngine {
     this.renderRain(w, h);
 
     this.ctx.restore();
+
+    // Red Light Infraction Screen Flash
+    if (this.screenFlashRed > 0) {
+      this.ctx.fillStyle = `rgba(239, 68, 68, ${Math.min(0.55, this.screenFlashRed * 0.5)})`;
+      this.ctx.fillRect(0, 0, w, h);
+    }
 
     // 7. UI HUD
     const progress = this.player.z / this.road.trackLength;

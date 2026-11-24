@@ -500,6 +500,60 @@ class SoundManager {
     }
   }
 
+  // Authentic Ethiopian Traffic Police Pea Whistle (ፊሽካ)
+  public playPoliceWhistle() {
+    if (!this.ctx || this.isMuted) return;
+    this.init();
+    const t = this.ctx.currentTime;
+    try {
+      const playBurst = (startTime: number, duration: number) => {
+        if (!this.ctx) return;
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const lfo = this.ctx.createOscillator();
+        const lfoGain = this.ctx.createGain();
+        const gain = this.ctx.createGain();
+
+        // Dual detuned acoustic frequencies
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(2640, startTime);
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(2880, startTime);
+
+        // Pea rattle tremolo (25 Hz flutter)
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(25, startTime);
+        lfoGain.gain.setValueAtTime(175, startTime);
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc1.frequency);
+        lfoGain.connect(osc2.frequency);
+
+        // Envelope
+        gain.gain.setValueAtTime(0.001, startTime);
+        gain.gain.linearRampToValueAtTime(0.26, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc1.start(startTime);
+        osc2.start(startTime);
+        lfo.start(startTime);
+
+        osc1.stop(startTime + duration + 0.02);
+        osc2.stop(startTime + duration + 0.02);
+        lfo.stop(startTime + duration + 0.02);
+      };
+
+      // Two sharp authoritative blasts: short chirp then long blast (Tweet! TWEEEEET!)
+      playBurst(t, 0.22);
+      playBurst(t + 0.28, 0.58);
+    } catch {
+      // Audio fallback
+    }
+  }
+
   public playBunnaBoost() {
     if (!this.ctx || this.isMuted) return;
     this.init();
@@ -732,7 +786,7 @@ class SoundManager {
   }
 
   // Ethiopian Weyala Street Callouts
-  public speakWeyala(phrase: 'CALL_MEGENAGNA' | 'CALL_BOLE' | 'CALL_PIAZZA' | 'CALL_MERKATO' | 'BOARDING' | 'SLOW_DOWN' | 'PRAISE' | 'POTHOLE_SCARE') {
+  public speakWeyala(phrase: 'CALL_MEGENAGNA' | 'CALL_BOLE' | 'CALL_PIAZZA' | 'CALL_MERKATO' | 'BOARDING' | 'SLOW_DOWN' | 'PRAISE' | 'POTHOLE_SCARE' | 'POLICE_RED' | 'LAWFUL') {
     this.playWeyalaThump();
 
     const phrases: Record<string, string> = {
@@ -743,7 +797,9 @@ class SoundManager {
       BOARDING: 'ግባ ግባ! መልስ አለኝ!',
       SLOW_DOWN: 'ቀስ በል እንጂ!',
       PRAISE: 'አቦ ይመችህ!',
-      POTHOLE_SCARE: 'ወይኔ ጉድጓዱ!'
+      POTHOLE_SCARE: 'ወይኔ ጉድጓዱ!',
+      POLICE_RED: 'ፖሊስ! ቀዩን አለፍከው!',
+      LAWFUL: 'ጎበዝ ሹፌር! ሕግ አክባሪ!'
     };
 
     const text = phrases[phrase] || 'መገናኛ!';
