@@ -116,6 +116,9 @@ export class GameEngine {
       turnSpeed: 2.9,
       boostRemaining: 0,
       boostMax: 5.0,
+      nitro: 60,
+      maxNitro: 100,
+      isNitroActive: false,
       fuel: 100,
       maxFuel: 100,
       fareCollected: 0,
@@ -584,12 +587,33 @@ export class GameEngine {
       }
     }
 
-    // 2. Bunna Turbo Boost
-    const isBoosting = this.player.boostRemaining > 0;
-    if (isBoosting) {
+    // Racing Limits: Nitrous Oxide (N2O) Boost System ([N] or [Shift])
+    const wantsNitro = !!(this.keys['n'] || this.keys['shift'] || this.keys['shiftleft'] || this.keys['shiftright']);
+    const canNitro = this.player.nitro > 0 && this.player.gearMode === 'D' && this.player.speed > 600;
+    const wasNitroActive = !!this.player.isNitroActive;
+
+    if (wantsNitro && canNitro) {
+      this.player.isNitroActive = true;
+      this.player.nitro = Math.max(0, this.player.nitro - dt * 26);
+      if (!wasNitroActive) {
+        sound.playNitroSpool();
+      }
+    } else {
+      this.player.isNitroActive = false;
+      if (wasNitroActive) {
+        sound.playWastegateFlutter();
+      }
+    }
+
+    // 2. Bunna Turbo Boost & Nitrous Jet
+    const isBoosting = (this.player.boostRemaining > 0) || !!this.player.isNitroActive;
+    if (this.player.boostRemaining > 0) {
       this.player.boostRemaining -= dt;
       if (this.player.boostRemaining < 0) this.player.boostRemaining = 0;
-      this.spawnBoostFlames();
+    }
+
+    if (isBoosting) {
+      this.spawnBoostFlames(!!this.player.isNitroActive);
     }
 
     // Racing Limits: Two-Way Oncoming Lane Continuous Score & Risk Multiplier
@@ -601,6 +625,8 @@ export class GameEngine {
         this.oncomingLaneTimer += dt;
         const reward = Math.round(dt * 24);
         this.player.fareCollected += reward;
+        // Oncoming lane continuous driving recharges nitro
+        this.player.nitro = Math.min(this.player.maxNitro, this.player.nitro + dt * 14);
 
         // Periodic floating toast notification
         if (Math.floor(this.oncomingLaneTimer * 3.5) !== Math.floor((this.oncomingLaneTimer - dt) * 3.5)) {
@@ -611,7 +637,7 @@ export class GameEngine {
       }
     }
 
-    const maxSpeed = isBoosting ? this.player.maxSpeed * 1.48 : this.player.maxSpeed;
+    const maxSpeed = this.player.isNitroActive ? this.player.maxSpeed * 1.55 : isBoosting ? this.player.maxSpeed * 1.48 : this.player.maxSpeed;
 
     // 3. User Controls & Analog Pedal Input
     const up = !!(this.keys['arrowup'] || this.keys['w'] || this.controls?.isGasHeld);
@@ -656,7 +682,8 @@ export class GameEngine {
     } else {
       // 'D' (Drive Forward)
       if (this.player.gasPedal > 0.05) {
-        this.player.speed = Math.min(maxSpeed, this.player.speed + (this.player.accel * this.player.gasPedal) * dt);
+        const accelMultiplier = this.player.isNitroActive ? 2.2 : isBoosting ? 1.6 : 1.0;
+        this.player.speed = Math.min(maxSpeed, this.player.speed + (this.player.accel * accelMultiplier * this.player.gasPedal) * dt);
         this.player.pitch = Math.max(-0.06, this.player.pitch - dt * 0.4 * this.player.gasPedal);
       } else if (this.player.brakePedal > 0.05) {
         this.player.speed = Math.max(0, this.player.speed - (this.player.decel * this.player.brakePedal) * dt);
@@ -736,10 +763,11 @@ export class GameEngine {
     // Chassis body roll (leaning into / against centrifugal g-force)
     const targetRoll = this.player.steerAngle * speedRatio * 0.14;
     this.player.roll += (targetRoll - this.player.roll) * dt * 8;
+    this.player.roll = Math.max(-0.6, Math.min(0.6, this.player.roll));
 
-    // Suspension spring oscillation (Hooke's law with damping)
-    this.player.bounceVelocity += (-38 * this.player.bounce - 7 * this.player.bounceVelocity) * dt;
-    this.player.bounce += this.player.bounceVelocity * dt;
+    // Suspension spring oscillation (Hooke's law with damping & safety bounds)
+    this.player.bounceVelocity = Math.max(-25, Math.min(25, this.player.bounceVelocity + (-38 * this.player.bounce - 7 * this.player.bounceVelocity) * dt));
+    this.player.bounce = Math.max(-3.5, Math.min(3.5, this.player.bounce + this.player.bounceVelocity * dt));
 
     // Centrifugal curve drift
     const currentSegment = this.road.findSegment(this.player.z);
@@ -899,9 +927,10 @@ export class GameEngine {
           if (dx < 1.4 && this.player.speed > 4600) {
             this.player.comboCount += 2;
             this.player.comboTimer = 5.0;
+            this.player.nitro = Math.min(this.player.maxNitro, this.player.nitro + 25);
             const oncomingBonus = Math.round(50 * (this.player.vehicleId === 'BAJAJ' ? 1.5 : 1.0));
             this.player.fareCollected += oncomingBonus;
-            ui.showToast('⚡ አስደናቂ ተቃራኒ ማለፍ! (+50 ETB ONCOMING DAREDEVIL!)', '⚡', '#ef4444');
+            ui.showToast('⚡ ተቃራኒ ማለፍ! (+50 ETB & +25% NITRO!)', '⚡', '#ef4444');
             ui.addFloatingText('⚡ ONCOMING DAREDEVIL! +50 ETB', this.width / 2 - 80, this.height / 2 - 40, '#ef4444');
           }
         }
@@ -913,6 +942,7 @@ export class GameEngine {
             this.nearMissCooldown = 0.6;
             this.player.comboCount++;
             this.player.comboTimer = 4.2;
+            this.player.nitro = Math.min(this.player.maxNitro, this.player.nitro + 18);
 
             const multiplier = this.player.vehicleId === 'BAJAJ' ? 1.5 : 1.0;
             const comboBonus = Math.round(15 * this.player.comboCount * multiplier);
@@ -1034,6 +1064,7 @@ export class GameEngine {
             if (dx < 0.4) {
               sprite.collected = true;
               this.player.boostRemaining = this.player.boostMax;
+              this.player.nitro = this.player.maxNitro;
               sound.playBunnaBoost();
               ui.addFloatingText('☕ ቡና ቱርቦ! (BUNNA NITRO BOOST!)', this.width / 2, this.height / 2 - 60, '#f97316');
             }
@@ -1231,24 +1262,28 @@ export class GameEngine {
     });
   }
 
-  private spawnBoostFlames() {
+  private spawnBoostFlames(isNitro: boolean = false) {
     const w = this.width;
     const h = this.height;
     const carW = (w / 900) * 0.85 * 240;
     const carX = w / 2;
     const carY = h - 25 + this.player.bounce;
 
+    const colors = isNitro
+      ? ['#06b6d4', '#38bdf8', '#00f0ff', '#ffffff']
+      : ['#ff3b00', '#ffea00', '#f97316', '#ff8800'];
+
     [-carW * 0.18, carW * 0.18].forEach(offsetX => {
       this.particles.push({
         x: carX + offsetX,
         y: carY,
-        vx: (Math.random() - 0.5) * 20,
-        vy: 30 + Math.random() * 40,
-        size: 6 + Math.random() * 6,
-        color: Math.random() > 0.4 ? '#ff3b00' : '#ffea00',
-        alpha: 0.9,
+        vx: (Math.random() - 0.5) * (isNitro ? 26 : 20),
+        vy: (isNitro ? 45 : 30) + Math.random() * (isNitro ? 55 : 40),
+        size: (isNitro ? 7 : 6) + Math.random() * (isNitro ? 8 : 6),
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 0.95,
         life: 0,
-        maxLife: 0.2,
+        maxLife: isNitro ? 0.3 : 0.2,
         type: 'flame'
       });
     });

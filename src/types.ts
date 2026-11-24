@@ -181,6 +181,9 @@ export interface Player {
   turnSpeed: number;
   boostRemaining: number;
   boostMax: number;
+  nitro: number; // 0..100%
+  maxNitro: number;
+  isNitroActive?: boolean;
   fuel: number;
   maxFuel: number;
   fareCollected: number;

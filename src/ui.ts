@@ -405,7 +405,7 @@ export class UIManager {
 
     const speedKmh = Math.floor((player.speed / player.maxSpeed) * 165);
     const rpmRatio = Math.min(1, Math.max(0.12, player.rpm / 7500));
-    const isBoosting = player.boostRemaining > 0;
+    const isBoosting = (player.boostRemaining > 0) || !!player.isNitroActive;
 
     // Dimensions for corner pods: float above Dr. Driving pedals & steering wheel
     const podW = 224;
@@ -465,16 +465,22 @@ export class UIManager {
     ctx.roundRect(barX, barY, barW * fuelRatio, 6, 3);
     ctx.fill();
 
-    // Bunna Nitro Boost Meter
-    const boostRatio = Math.max(0, Math.min(1, player.boostRemaining / player.boostMax));
-    ctx.fillStyle = isBoosting ? '#f97316' : '#94a3b8';
+    // Racing Limits: Nitrous Oxide (N2O) & Bunna Boost Meter
+    const nitroVal = player.nitro !== undefined ? player.nitro : 0;
+    const nitroMax = player.maxNitro || 100;
+    const nitroRatio = Math.max(0, Math.min(1, nitroVal / nitroMax));
+    const isNitroActive = !!player.isNitroActive;
+    const isBunnaActive = player.boostRemaining > 0;
+
+    const nitroTitle = isNitroActive ? '⚡ N2O ACTIVE!' : isBunnaActive ? '☕ BUNNA TURBO!' : '⚡ NITRO [N / SHIFT]';
+    ctx.fillStyle = isNitroActive ? '#38bdf8' : isBunnaActive ? '#f97316' : '#94a3b8';
     ctx.font = 'bold 9.5px "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(isBoosting ? '☕ NITRO ACTIVE!' : '☕ BUNNA NITRO', leftPodX + 12, podY + 44);
+    ctx.fillText(nitroTitle, leftPodX + 12, podY + 44);
 
-    ctx.fillStyle = isBoosting ? '#ff3b00' : boostRatio > 0 ? '#facc15' : '#64748b';
+    ctx.fillStyle = isNitroActive ? '#00f0ff' : isBunnaActive ? '#ff3b00' : nitroRatio > 0.15 ? '#38bdf8' : '#64748b';
     ctx.textAlign = 'right';
-    ctx.fillText(isBoosting ? `${player.boostRemaining.toFixed(1)}s` : boostRatio > 0 ? 'READY' : 'EMPTY', leftPodX + podW - 12, podY + 44);
+    ctx.fillText(isBoosting ? `${Math.round(nitroVal)}%` : nitroRatio > 0 ? `${Math.round(nitroVal)}%` : 'EMPTY', leftPodX + podW - 12, podY + 44);
 
     // Boost Bar
     const boostBarY = podY + 48;
@@ -484,11 +490,17 @@ export class UIManager {
     ctx.fill();
 
     const boostGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-    boostGrad.addColorStop(0, '#f97316');
-    boostGrad.addColorStop(1, '#ff3b00');
+    if (isNitroActive || nitroRatio > 0) {
+      boostGrad.addColorStop(0, '#0284c7');
+      boostGrad.addColorStop(0.5, '#06b6d4');
+      boostGrad.addColorStop(1, '#38bdf8');
+    } else {
+      boostGrad.addColorStop(0, '#f97316');
+      boostGrad.addColorStop(1, '#ff3b00');
+    }
     ctx.fillStyle = boostGrad;
     ctx.beginPath();
-    ctx.roundRect(barX, boostBarY, barW * (isBoosting ? boostRatio : player.boostRemaining > 0 ? 1 : 0), 6, 3);
+    ctx.roundRect(barX, boostBarY, barW * (isBoosting ? Math.max(0.08, nitroRatio) : nitroRatio), 6, 3);
     ctx.fill();
 
     // Thermal Engine Temp & Suspension Status Row
@@ -644,7 +656,7 @@ export class UIManager {
     ctx.fillStyle = '#94a3b8';
     ctx.font = '8px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('W/↑ GAS  •  S/↓ BRAKE  •  A/D STEER  •  SPACE HORN  •  R RADIO  •  F HAZARDS', width / 2, legendY + 2);
+    ctx.fillText('W/↑ GAS  •  S/↓ BRAKE  •  A/D STEER  •  N/SHIFT NITRO  •  SPACE HORN  •  R RADIO  •  F HAZARDS', width / 2, legendY + 2);
 
     ctx.restore();
   }

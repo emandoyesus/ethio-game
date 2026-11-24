@@ -588,6 +588,59 @@ class SoundManager {
     }
   }
 
+  // Racing Limits: High-Boost Nitrous Turbo Spool
+  public playNitroSpool() {
+    if (!this.ctx || this.isMuted) return;
+    this.init();
+    const t = this.ctx.currentTime;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1400, t);
+      osc.frequency.exponentialRampToValueAtTime(3800, t + 0.65);
+
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.18, t + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.72);
+    } catch {
+      // Audio fallback
+    }
+  }
+
+  // Racing Limits: Mechanical Wastegate Blow-Off Valve (BOV) Flutter
+  public playWastegateFlutter() {
+    if (!this.ctx || this.isMuted) return;
+    this.init();
+    const t = this.ctx.currentTime;
+    try {
+      [0, 0.07, 0.14].forEach((delay, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        const startFreq = 2200 - idx * 300;
+        osc.frequency.setValueAtTime(startFreq, t + delay);
+        osc.frequency.exponentialRampToValueAtTime(startFreq * 0.45, t + delay + 0.06);
+
+        gain.gain.setValueAtTime(0.14 - idx * 0.03, t + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.06);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t + delay);
+        osc.stop(t + delay + 0.07);
+      });
+    } catch {
+      // Audio fallback
+    }
+  }
+
   public playBunnaBoost() {
     if (!this.ctx || this.isMuted) return;
     this.init();

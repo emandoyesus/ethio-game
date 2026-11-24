@@ -136,12 +136,15 @@ export class Track3D {
 
     const segLength3D = 6.0;
     const progressZ = (trackZ / ROAD.SEGMENT_LENGTH) * segLength3D;
-    const segIdx = Math.floor(progressZ / segLength3D) % totalSegments;
+    let segIdx = Math.floor(progressZ / segLength3D) % totalSegments;
+    if (segIdx < 0) segIdx += totalSegments;
     const nextIdx = (segIdx + 1) % totalSegments;
 
     const p0 = this.spinePoints[segIdx];
     const p1 = this.spinePoints[nextIdx];
-    const t = Math.max(0, Math.min(1, (progressZ % segLength3D) / segLength3D));
+    let fractZ = progressZ % segLength3D;
+    if (fractZ < 0) fractZ += segLength3D;
+    const t = Math.max(0, Math.min(1, fractZ / segLength3D));
 
     const pos = new THREE.Vector3().lerpVectors(p0, p1, t);
     const tangent = this.spineTangents[segIdx] || new THREE.Vector3(0, 0, 1);
