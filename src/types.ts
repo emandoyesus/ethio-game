@@ -38,6 +38,38 @@ export interface ProjectedPoint {
   w: number;
 }
 
+export type TrafficLightState = 'GREEN' | 'YELLOW' | 'RED';
+
+export interface CrossTrafficVehicle {
+  id: number;
+  type: 'LADA' | 'BAJAJ' | 'ISUZU' | 'MINIBUS';
+  crossX: number; // offset across intersection (-30m to +30m)
+  laneZ: number; // which lane in cross-street
+  speed: number;
+  direction: 1 | -1;
+  mesh3d?: any;
+}
+
+export interface IntersectionZone {
+  id: number;
+  name: string;
+  nameAmharic: string;
+  segmentIndex: number;
+  zStart: number;
+  zStopLine: number;
+  zEnd: number;
+  lightState: TrafficLightState;
+  stateTimer: number;
+  greenDuration: number;
+  yellowDuration: number;
+  redDuration: number;
+  playerStoppedAtRed: boolean;
+  playerPassedGreen: boolean;
+  playerViolatedRed: boolean;
+  gantryModel?: any;
+  crossTrafficVehicles: CrossTrafficVehicle[];
+}
+
 export interface RoadSegmentColor {
   road: string;
   grass: string;
@@ -55,6 +87,9 @@ export interface RoadSegment {
   sprites: SpriteInstance[];
   clip: number;
   hasZebraCrossing?: boolean;
+  hasStopLine?: boolean;
+  hasLaneArrows?: boolean;
+  intersectionId?: number;
 }
 
 export interface SpriteInstance {
@@ -91,7 +126,11 @@ export type SpriteType =
   | 'SCENERY_POLICE_CONE'
   | 'SCENERY_RADAR_SIGN'
   | 'SCENERY_ZEBRA_PEDESTRIAN'
-  | 'CHECKPOINT_GATE';
+  | 'CHECKPOINT_GATE'
+  | 'TRAFFIC_LIGHT_GANTRY'
+  | 'INTERSECTION_ARROW_STRAIGHT'
+  | 'INTERSECTION_ARROW_LEFT'
+  | 'INTERSECTION_ARROW_RIGHT';
 
 export interface Particle {
   x: number;

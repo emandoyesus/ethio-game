@@ -461,6 +461,7 @@ export class GameEngine {
 
     if (this.state !== 'PLAYING') {
       sound.stopEngine();
+      this.road.updateIntersections(dt);
       this.track3d.updateEntities(this.road, dt, 0);
       const initPt = this.track3d.getPointAtZ(0);
       this.renderer3d.update(initPt.pos, initPt.tangent, initPt.normal, 0, 0, 0, dt);
@@ -666,6 +667,7 @@ export class GameEngine {
 
     // Update traffic
     this.road.updateTraffic(dt);
+    this.road.updateIntersections(dt);
     this.track3d.updateEntities(this.road, dt, this.player.z);
 
     // Sync 3D player mesh, wheels, headlights, and camera

@@ -1,4 +1,4 @@
-import type { RoadSegment, RouteStage, SpriteType } from './types';
+import type { IntersectionZone, RoadSegment, RouteStage, SpriteType } from './types';
 
 export const ROAD = {
   SEGMENT_LENGTH: 200,
@@ -56,9 +56,11 @@ export class RoadManager {
   public segments: RoadSegment[] = [];
   public trackLength: number = 0;
   public totalSegments: number = 0;
+  public intersections: IntersectionZone[] = [];
 
   public buildTrack(stage: RouteStage) {
     this.segments = [];
+    this.intersections = [];
 
     const addSegment = (curve: number, y: number) => {
       const n = this.segments.length;
@@ -170,6 +172,7 @@ export class RoadManager {
     this.trackLength = this.totalSegments * ROAD.SEGMENT_LENGTH;
 
     this.populateTrack(stage);
+    this.setupIntersections(stage);
   }
 
   private easeInOut(a: number, b: number, percent: number): number {
@@ -445,6 +448,131 @@ export class RoadManager {
           } else {
             sprite.zOffset = (sprite.zOffset || 0) + moveDist;
           }
+        }
+      }
+    }
+  }
+
+  private setupIntersections(stage: RouteStage) {
+    this.intersections = [];
+    const total = this.totalSegments;
+
+    const intersectionDefs = stage.id === 1 ? [
+      { name: 'Kazanchis Junction', nameAmharic: 'የካዛንቺስ መስቀለኛ መንገድ', segFrac: 0.28 },
+      { name: 'Piazza Entry Crossing', nameAmharic: 'ፒያሳ መግቢያ መብራት', segFrac: 0.68 }
+    ] : stage.id === 2 ? [
+      { name: 'Bole Printing Junction', nameAmharic: 'ቦሌ ማተሚያ መስቀለኛ', segFrac: 0.24 },
+      { name: 'Olympia Junction', nameAmharic: 'ኦሊምፒያ አደባባይ መብራት', segFrac: 0.55 },
+      { name: 'Meskel Square Crossing', nameAmharic: 'መስቀል አደባባይ መግቢያ', segFrac: 0.82 }
+    ] : [
+      { name: 'Abanefso Crossing', nameAmharic: 'አባነፍሶ መገናኛ መብራት', segFrac: 0.28 },
+      { name: 'Shiro Meda Junction', nameAmharic: 'ሽሮሜዳ ኬላ መስቀለኛ', segFrac: 0.65 }
+    ];
+
+    intersectionDefs.forEach((def, idx) => {
+      const centerSeg = Math.floor(total * def.segFrac);
+      const stopLineSeg = centerSeg - 1;
+      const gantrySeg = centerSeg;
+
+      // 1. Mark Stop Line on asphalt
+      const sSeg = this.segments[stopLineSeg];
+      if (sSeg) {
+        sSeg.hasStopLine = true;
+        sSeg.intersectionId = idx;
+      }
+
+      // 2. Add Directional Lane Arrows across preceding segments
+      for (let a = 3; a <= 5; a++) {
+        const aSeg = this.segments[centerSeg - a];
+        if (aSeg) {
+          aSeg.hasLaneArrows = true;
+          aSeg.intersectionId = idx;
+        }
+      }
+
+      // 3. Mark Zebra Pedestrian crossing at intersection mouth
+      for (let z = 0; z <= 2; z++) {
+        const zSeg = this.segments[centerSeg + z];
+        if (zSeg) {
+          zSeg.hasZebraCrossing = true;
+          zSeg.intersectionId = idx;
+        }
+      }
+
+      // 4. Place 3D Traffic Light Gantry sprite
+      const gSeg = this.segments[gantrySeg];
+      if (gSeg) {
+        gSeg.sprites.push({
+          type: 'TRAFFIC_LIGHT_GANTRY',
+          offset: 0,
+          tag: `intersection_${idx}`
+        });
+      }
+
+      // 5. Register Intersection Zone
+      const zStart = (centerSeg - 6) * ROAD.SEGMENT_LENGTH;
+      const zStopLine = stopLineSeg * ROAD.SEGMENT_LENGTH;
+      const zEnd = (centerSeg + 6) * ROAD.SEGMENT_LENGTH;
+
+      // Initial state: staggered green/red
+      const initialLight = idx % 2 === 0 ? 'GREEN' : 'RED';
+      const initialTimer = idx % 2 === 0 ? 8.0 : 6.0;
+
+      this.intersections.push({
+        id: idx,
+        name: def.name,
+        nameAmharic: def.nameAmharic,
+        segmentIndex: centerSeg,
+        zStart,
+        zStopLine,
+        zEnd,
+        lightState: initialLight,
+        stateTimer: initialTimer,
+        greenDuration: 13.0,
+        yellowDuration: 3.0,
+        redDuration: 10.0,
+        playerStoppedAtRed: false,
+        playerPassedGreen: false,
+        playerViolatedRed: false,
+        crossTrafficVehicles: [
+          { id: idx * 10 + 1, type: 'LADA', crossX: -28, laneZ: -1.5, speed: 20, direction: 1 },
+          { id: idx * 10 + 2, type: 'BAJAJ', crossX: 28, laneZ: 2.0, speed: 15, direction: -1 },
+          { id: idx * 10 + 3, type: 'MINIBUS', crossX: -36, laneZ: 0, speed: 22, direction: 1 }
+        ]
+      });
+    });
+  }
+
+  public updateIntersections(dt: number) {
+    for (const inter of this.intersections) {
+      inter.stateTimer -= dt;
+      if (inter.stateTimer <= 0) {
+        if (inter.lightState === 'GREEN') {
+          inter.lightState = 'YELLOW';
+          inter.stateTimer = inter.yellowDuration;
+        } else if (inter.lightState === 'YELLOW') {
+          inter.lightState = 'RED';
+          inter.stateTimer = inter.redDuration;
+          inter.playerStoppedAtRed = false;
+          inter.playerViolatedRed = false;
+        } else {
+          inter.lightState = 'GREEN';
+          inter.stateTimer = inter.greenDuration;
+          inter.playerPassedGreen = false;
+        }
+
+        if (inter.gantryModel && inter.gantryModel.setState) {
+          inter.gantryModel.setState(inter.lightState);
+        }
+      }
+
+      // Update cross-traffic vehicles when cross-street is moving (i.e. when player light is RED)
+      const crossMoving = inter.lightState === 'RED' || inter.lightState === 'YELLOW';
+      for (const cv of inter.crossTrafficVehicles) {
+        if (crossMoving) {
+          cv.crossX += cv.direction * cv.speed * dt;
+          if (cv.direction === 1 && cv.crossX > 32) cv.crossX = -32;
+          if (cv.direction === -1 && cv.crossX < -32) cv.crossX = 32;
         }
       }
     }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {
+  createMinibus3D,
   createLada3D,
   createBajaj3D,
   createIsuzu3D,
@@ -19,7 +20,9 @@ import {
   createTaxiSign3D,
   createCheckpointGate3D,
   createCBETower3D,
-  createLightRailViaduct3D
+  createLightRailViaduct3D,
+  createTrafficLightGantry3D,
+  createLaneArrowMesh3D
 } from './models3d';
 import { ROAD, type RoadManager } from './road';
 import type { RouteStage, SpriteInstance } from './types';
@@ -105,8 +108,14 @@ export class Track3D {
     // 4. Build Landmarks (CBE 209m Tower & Light Rail Viaduct)
     this.buildLandmarks(stage);
 
-    // 5. Instantiate 3D Meshes for all track sprites
+    // 5. Build Intersection Crossroads
+    this.buildIntersectionCrossroads(road);
+
+    // 6. Instantiate 3D Meshes for all track sprites
     this.buildTrackEntities(road);
+
+    // 7. Build Cross-Traffic Vehicles
+    this.buildCrossTraffic(road);
   }
 
   private clearGroup(g: THREE.Group) {
@@ -214,9 +223,24 @@ export class Track3D {
         shoulderIndices.push(sr1, sr3, sr2);
       }
 
-      // Markings (Dashed highway lines & Zebra crossings)
+      // Markings (Dashed highway lines, Stop Lines & Zebra crossings)
       const seg = segments[i];
-      if (seg && seg.hasZebraCrossing) {
+      if (seg && seg.hasStopLine) {
+        // Solid White Stop Line Bar across entire road
+        const barL = p.clone().addScaledVector(normal, -roadHalfWidth * 0.96);
+        const barR = p.clone().addScaledVector(normal, roadHalfWidth * 0.96);
+        const barNextL = barL.clone().addScaledVector(tangent, 1.4);
+        const barNextR = barR.clone().addScaledVector(tangent, 1.4);
+
+        const idx = markVerts.length / 3;
+        markVerts.push(barL.x, barL.y + 0.12, barL.z);
+        markVerts.push(barR.x, barR.y + 0.12, barR.z);
+        markVerts.push(barNextL.x, barNextL.y + 0.12, barNextL.z);
+        markVerts.push(barNextR.x, barNextR.y + 0.12, barNextR.z);
+
+        markIndices.push(idx, idx + 1, idx + 2);
+        markIndices.push(idx + 1, idx + 3, idx + 2);
+      } else if (seg && seg.hasZebraCrossing) {
         // Pedestrian Zebra Crosswalk bars
         const numBars = 10;
         for (let b = 0; b < numBars; b++) {
@@ -334,11 +358,55 @@ export class Track3D {
     }
   }
 
+  private buildIntersectionCrossroads(road: RoadManager) {
+    for (const inter of road.intersections) {
+      const pt = this.getPointAtZ(inter.zStopLine + ROAD.SEGMENT_LENGTH * 2);
+      const crossRoadGeo = new THREE.PlaneGeometry(16.0, 78.0);
+      crossRoadGeo.rotateX(-Math.PI / 2);
+      const crossRoadMat = new THREE.MeshStandardMaterial({
+        color: 0x181e28,
+        roughness: 0.8,
+        side: THREE.DoubleSide
+      });
+      const crossRoadMesh = new THREE.Mesh(crossRoadGeo, crossRoadMat);
+      crossRoadMesh.position.copy(pt.pos);
+      crossRoadMesh.position.y += 0.05;
+      crossRoadMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), pt.normal);
+      this.roadGroup.add(crossRoadMesh);
+    }
+  }
+
+  private buildCrossTraffic(road: RoadManager) {
+    for (const inter of road.intersections) {
+      for (const cv of inter.crossTrafficVehicles) {
+        const model = cv.type === 'LADA' ? createLada3D() : cv.type === 'BAJAJ' ? createBajaj3D() : cv.type === 'MINIBUS' ? createMinibus3D() : createIsuzu3D();
+        cv.mesh3d = model.group;
+        this.entitiesGroup.add(model.group);
+      }
+    }
+  }
+
   private buildTrackEntities(road: RoadManager) {
     for (let i = 0; i < road.segments.length; i++) {
       const seg = road.segments[i];
+
+      // Spawn directional lane arrows preceding intersections
+      if (seg.hasLaneArrows) {
+        [-0.65, 0, 0.65].forEach((laneOffset, idx) => {
+          const dir = idx === 0 ? 'LEFT' : idx === 1 ? 'STRAIGHT' : 'RIGHT';
+          const arrowMesh = createLaneArrowMesh3D(dir);
+          const z = seg.p1.z + 100;
+          const { pos, tangent, normal } = this.getPointAtZ(z);
+          const arrowPos = pos.clone().addScaledVector(normal, laneOffset * 9.0);
+          arrowPos.y += 0.08;
+          arrowMesh.position.copy(arrowPos);
+          arrowMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+          this.roadGroup.add(arrowMesh);
+        });
+      }
+
       for (const sprite of seg.sprites) {
-        const meshData = this.instantiateSpriteMesh(sprite);
+        const meshData = this.instantiateSpriteMesh(sprite, road);
         if (meshData) {
           sprite.mesh3d = meshData;
           this.entitiesGroup.add(meshData);
@@ -347,7 +415,7 @@ export class Track3D {
     }
   }
 
-  private instantiateSpriteMesh(sprite: SpriteInstance): THREE.Object3D | null {
+  private instantiateSpriteMesh(sprite: SpriteInstance, road: RoadManager): THREE.Object3D | null {
     switch (sprite.type) {
       case 'TRAFFIC_LADA': {
         const v = createLada3D();
@@ -368,6 +436,25 @@ export class Track3D {
         }
         return v.group;
       }
+      case 'TRAFFIC_LIGHT_GANTRY': {
+        const gantry = createTrafficLightGantry3D();
+        const tag = sprite.tag;
+        if (tag && tag.startsWith('intersection_')) {
+          const idx = parseInt(tag.split('_')[1], 10);
+          const inter = road.intersections[idx];
+          if (inter) {
+            inter.gantryModel = gantry;
+            gantry.setState(inter.lightState);
+          }
+        }
+        return gantry.group;
+      }
+      case 'INTERSECTION_ARROW_STRAIGHT':
+        return createLaneArrowMesh3D('STRAIGHT');
+      case 'INTERSECTION_ARROW_LEFT':
+        return createLaneArrowMesh3D('LEFT');
+      case 'INTERSECTION_ARROW_RIGHT':
+        return createLaneArrowMesh3D('RIGHT');
       case 'OBSTACLE_POTHOLE':
         return createPothole3D();
       case 'OBSTACLE_GOAT':
@@ -396,8 +483,6 @@ export class Track3D {
         return createStreetLamp3D();
       case 'SCENERY_BILLBOARD':
         return createBillboard3D();
-      case 'SCENERY_TAXI_SIGN':
-        return createTaxiSign3D();
       case 'CHECKPOINT_GATE':
         return createCheckpointGate3D();
       default:
@@ -420,6 +505,36 @@ export class Track3D {
     if (this.lrtTrainMesh) {
       this.lrtProgress = (this.lrtProgress + dt * 12.0) % 80;
       this.lrtTrainMesh.position.z = -40 + this.lrtProgress;
+    }
+
+    // Update Intersections & Cross-Traffic Vehicles
+    for (const inter of road.intersections) {
+      if (inter.gantryModel && inter.gantryModel.setState) {
+        inter.gantryModel.setState(inter.lightState);
+      }
+
+      const pt = this.getPointAtZ(inter.zStopLine + ROAD.SEGMENT_LENGTH * 2);
+      const isNearPlayer = Math.abs(inter.zStopLine - playerZ) < 32000;
+
+      for (const cv of inter.crossTrafficVehicles) {
+        if (!cv.mesh3d) continue;
+
+        if (!isNearPlayer) {
+          cv.mesh3d.visible = false;
+          continue;
+        }
+
+        cv.mesh3d.visible = true;
+
+        const crossPos = pt.pos.clone()
+          .addScaledVector(pt.normal, cv.crossX)
+          .addScaledVector(pt.tangent, cv.laneZ);
+        crossPos.y += 0.05;
+        cv.mesh3d.position.copy(crossPos);
+
+        const crossDir = pt.normal.clone().multiplyScalar(cv.direction);
+        cv.mesh3d.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), crossDir);
+      }
     }
 
     const segments = road.segments;

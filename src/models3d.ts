@@ -44,7 +44,18 @@ export const materials = {
   cbeTowerGlass: new THREE.MeshStandardMaterial({ color: 0x1e3a5f, metalness: 0.9, roughness: 0.1 }),
   cbeTrim: new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5, roughness: 0.2 }),
   lrtGreen: new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.35 }),
-  concretePillar: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9 })
+  concretePillar: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9 }),
+
+  signalHousing: new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.6 }),
+  signalVisor: new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.8 }),
+  signalRedOff: new THREE.MeshStandardMaterial({ color: 0x450a0a, roughness: 0.9 }),
+  signalRedOn: new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xff0000, emissiveIntensity: 5.5 }),
+  signalYellowOff: new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 }),
+  signalYellowOn: new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xfbbf24, emissiveIntensity: 5.0 }),
+  signalGreenOff: new THREE.MeshStandardMaterial({ color: 0x052e16, roughness: 0.9 }),
+  signalGreenOn: new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x22c55e, emissiveIntensity: 5.0 }),
+  asphaltPaintWhite: new THREE.MeshBasicMaterial({ color: 0xf8fafc, side: THREE.DoubleSide }),
+  asphaltPaintYellow: new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide })
 };
 
 export interface Vehicle3DModel {
@@ -54,6 +65,17 @@ export interface Vehicle3DModel {
   taillights?: THREE.Mesh[];
   policeStrobeRed?: THREE.PointLight;
   policeStrobeBlue?: THREE.PointLight;
+}
+
+export interface TrafficLight3DModel {
+  group: THREE.Group;
+  signalHeads: {
+    red: THREE.Mesh;
+    yellow: THREE.Mesh;
+    green: THREE.Mesh;
+  }[];
+  lightSource: THREE.PointLight;
+  setState: (state: 'GREEN' | 'YELLOW' | 'RED') => void;
 }
 
 // 1. Toyota HiAce Blue Minibus Taxi (The iconic Addis workhorse)
@@ -832,6 +854,150 @@ export function createLightRailViaduct3D(): THREE.Group {
   const trainRoof = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.4, 27.5), materials.minibusWhite);
   trainRoof.position.set(0, 9.3, 0);
   group.add(trainRoof);
+
+  return group;
+}
+
+// 22. Overhead Highway Traffic Light Gantry (የትራፊክ መብራት ፖርታል)
+export function createTrafficLightGantry3D(): TrafficLight3DModel {
+  const group = new THREE.Group();
+
+  // 1. Support Pillars (Left & Right Shoulders)
+  const pillarGeo = new THREE.BoxGeometry(0.5, 7.8, 0.5);
+  const leftPillar = new THREE.Mesh(pillarGeo, materials.concretePillar);
+  leftPillar.position.set(-11.0, 3.9, 0);
+  leftPillar.castShadow = true;
+  group.add(leftPillar);
+
+  const rightPillar = new THREE.Mesh(pillarGeo, materials.concretePillar);
+  rightPillar.position.set(11.0, 3.9, 0);
+  rightPillar.castShadow = true;
+  group.add(rightPillar);
+
+  // 2. Overhead Truss Gantry Beam
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(22.8, 0.65, 0.65), materials.concretePillar);
+  beam.position.set(0, 7.5, 0);
+  beam.castShadow = true;
+  group.add(beam);
+
+  // 3. Three Traffic Signal Heads (Above Left Lane, Center Lane, Right Lane)
+  const laneOffsets = [-5.5, 0, 5.5];
+  const signalHeads: { red: THREE.Mesh; yellow: THREE.Mesh; green: THREE.Mesh }[] = [];
+
+  const housingGeo = new THREE.BoxGeometry(0.95, 2.5, 0.55);
+  const lensGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.12, 16);
+  lensGeo.rotateX(Math.PI / 2);
+  const visorGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.22, 12, 1, false, -Math.PI * 0.75, Math.PI * 0.75);
+  visorGeo.rotateX(Math.PI / 2);
+
+  laneOffsets.forEach(xOffset => {
+    const headGroup = new THREE.Group();
+    headGroup.position.set(xOffset, 5.8, 0.35);
+
+    // Dark housing box
+    const housing = new THREE.Mesh(housingGeo, materials.signalHousing);
+    housing.castShadow = true;
+    headGroup.add(housing);
+
+    // Red Lens (Top)
+    const redLens = new THREE.Mesh(lensGeo, materials.signalRedOn);
+    redLens.position.set(0, 0.75, 0.28);
+    headGroup.add(redLens);
+
+    const redVisor = new THREE.Mesh(visorGeo, materials.signalVisor);
+    redVisor.position.set(0, 0.75, 0.35);
+    headGroup.add(redVisor);
+
+    // Yellow Lens (Middle)
+    const yellowLens = new THREE.Mesh(lensGeo, materials.signalYellowOff);
+    yellowLens.position.set(0, 0, 0.28);
+    headGroup.add(yellowLens);
+
+    const yellowVisor = new THREE.Mesh(visorGeo, materials.signalVisor);
+    yellowVisor.position.set(0, 0, 0.35);
+    headGroup.add(yellowVisor);
+
+    // Green Lens (Bottom)
+    const greenLens = new THREE.Mesh(lensGeo, materials.signalGreenOff);
+    greenLens.position.set(0, -0.75, 0.28);
+    headGroup.add(greenLens);
+
+    const greenVisor = new THREE.Mesh(visorGeo, materials.signalVisor);
+    greenVisor.position.set(0, -0.75, 0.35);
+    headGroup.add(greenVisor);
+
+    group.add(headGroup);
+    signalHeads.push({ red: redLens, yellow: yellowLens, green: greenLens });
+  });
+
+  // 4. Dynamic Point Light casting active light onto the road
+  const lightSource = new THREE.PointLight(0xff0000, 4.0, 32);
+  lightSource.position.set(0, 5.8, 1.2);
+  group.add(lightSource);
+
+  const setState = (state: 'GREEN' | 'YELLOW' | 'RED') => {
+    signalHeads.forEach(head => {
+      head.red.material = state === 'RED' ? materials.signalRedOn : materials.signalRedOff;
+      head.yellow.material = state === 'YELLOW' ? materials.signalYellowOn : materials.signalYellowOff;
+      head.green.material = state === 'GREEN' ? materials.signalGreenOn : materials.signalGreenOff;
+    });
+
+    if (state === 'RED') {
+      lightSource.color.setHex(0xff0000);
+      lightSource.intensity = 4.5;
+    } else if (state === 'YELLOW') {
+      lightSource.color.setHex(0xfbbf24);
+      lightSource.intensity = 4.0;
+    } else {
+      lightSource.color.setHex(0x22c55e);
+      lightSource.intensity = 3.5;
+    }
+  };
+
+  return { group, signalHeads, lightSource, setState };
+}
+
+// 23. Asphalt Painted Directional Lane Arrows
+export function createLaneArrowMesh3D(direction: 'STRAIGHT' | 'LEFT' | 'RIGHT'): THREE.Group {
+  const group = new THREE.Group();
+
+  // Shaft
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.02, 2.4), materials.asphaltPaintWhite);
+  shaft.position.set(0, 0.09, 0);
+  group.add(shaft);
+
+  // Arrow Head
+  if (direction === 'STRAIGHT') {
+    const headL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.8), materials.asphaltPaintWhite);
+    headL.position.set(-0.25, 0.09, 0.85);
+    headL.rotation.y = Math.PI / 4;
+    group.add(headL);
+
+    const headR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.8), materials.asphaltPaintWhite);
+    headR.position.set(0.25, 0.09, 0.85);
+    headR.rotation.y = -Math.PI / 4;
+    group.add(headR);
+  } else if (direction === 'LEFT') {
+    const headCurve = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.02, 1.2), materials.asphaltPaintWhite);
+    headCurve.position.set(-0.45, 0.09, 0.6);
+    headCurve.rotation.y = Math.PI / 3;
+    group.add(headCurve);
+
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.7), materials.asphaltPaintWhite);
+    tip.position.set(-0.85, 0.09, 0.85);
+    tip.rotation.y = Math.PI / 6;
+    group.add(tip);
+  } else {
+    const headCurve = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.02, 1.2), materials.asphaltPaintWhite);
+    headCurve.position.set(0.45, 0.09, 0.6);
+    headCurve.rotation.y = -Math.PI / 3;
+    group.add(headCurve);
+
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.7), materials.asphaltPaintWhite);
+    tip.position.set(0.85, 0.09, 0.85);
+    tip.rotation.y = -Math.PI / 6;
+    group.add(tip);
+  }
 
   return group;
 }
