@@ -48,6 +48,7 @@ export interface CrossTrafficVehicle {
   speed: number;
   direction: 1 | -1;
   mesh3d?: any;
+  lastCollisionTime?: number;
 }
 
 export interface IntersectionZone {

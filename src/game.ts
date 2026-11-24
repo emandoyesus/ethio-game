@@ -991,6 +991,47 @@ export class GameEngine {
           ui.addFloatingText('✅ ሕጋዊ አሽከርካሪ! +75 ETB', this.width / 2, this.height / 2 - 50, '#22c55e');
         }
       }
+
+      // 3. Autonomous Cross-Traffic Collision Detection in the Junction Box
+      if (pz >= inter.zStart && pz <= inter.zEnd) {
+        const now = Date.now();
+        const playerX_Meters = this.player.x * 9.0;
+
+        for (const cv of inter.crossTrafficVehicles) {
+          const cvTrackZ = (inter.zStopLine + ROAD.SEGMENT_LENGTH * 2) + cv.laneZ * (ROAD.SEGMENT_LENGTH / 6.0);
+          const dz = Math.abs(pz - cvTrackZ);
+          const dx = Math.abs(playerX_Meters - cv.crossX);
+
+          // Check AABB collision inside intersection grid
+          if (dz < 190 && dx < 2.5) {
+            if (!cv.lastCollisionTime || now - cv.lastCollisionTime > 1500) {
+              cv.lastCollisionTime = now;
+
+              // T-Bone Collision Physics & Acoustic Response
+              sound.playCrash();
+              this.screenShake = 9.5;
+              this.player.bounceVelocity += 26;
+              this.player.roll = cv.direction * 0.42; // Side-impact rollover tilt
+              this.player.speed = Math.max(0, this.player.speed * 0.12 - 400);
+              this.player.comboCount = 0;
+
+              // Displace cross vehicle to prevent multi-hit sticking
+              cv.crossX += cv.direction * 6.5;
+
+              // Visual FX: sparks & tire smoke
+              this.spawnSparks(this.width / 2 + this.player.x * 120, this.height - 70);
+              this.spawnTireSmoke();
+              sound.speakWeyala('POTHOLE_SCARE');
+
+              const penalty = Math.min(60, this.player.fareCollected);
+              this.player.fareCollected = Math.max(0, this.player.fareCollected - 60);
+
+              ui.showToast(`💥 የመስቀለኛ መንገድ ግጭት! (-${penalty} ETB T-BONE IMPACT!)`, '💥', '#ef4444');
+              ui.addFloatingText(`💥 T-BONE IMPACT! -${penalty} ETB`, this.width / 2, this.height / 2 - 40, '#ef4444');
+            }
+          }
+        }
+      }
     }
   }
 
