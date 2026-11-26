@@ -209,7 +209,7 @@ export class RoadManager {
     for (let i = 10; i < total - 30; i += 4) {
       if (isNearSpecialZone(i, 6)) continue;
       const seg = this.segments[i];
-      const isLeft = (i / 4) % 2 === 0;
+      const isLeft = ((i - 10) / 4) % 2 === 0;
       const side = isLeft ? -1.55 - Math.random() * 0.45 : 1.55 + Math.random() * 0.45;
 
       let sceneryType: SpriteType;
@@ -531,12 +531,22 @@ export class RoadManager {
   }
 
   public updateTraffic(dt: number) {
+    const transfers: { segment: RoadSegment; sprite: RoadSegment['sprites'][number] }[] = [];
     for (let i = 0; i < this.segments.length; i++) {
       const seg = this.segments[i];
       for (let j = seg.sprites.length - 1; j >= 0; j--) {
         const sprite = seg.sprites[j];
 
         const isTrafficCar = sprite.type === 'TRAFFIC_LADA' || sprite.type === 'TRAFFIC_BAJAJ' || sprite.type === 'TRAFFIC_ISUZU';
+
+        if (isTrafficCar) {
+          sprite.previousOffset = sprite.offset;
+          if (sprite.cruiseSpeed !== undefined) {
+            const diff = sprite.cruiseSpeed - (sprite.speed ?? 0);
+            sprite.speed = (sprite.speed ?? 0) + Math.sign(diff) * Math.min(Math.abs(diff), 360 * dt);
+          }
+          sprite.previousSpeed = sprite.speed;
+        }
 
         // 1. Autonomous Lane Changing for traffic cars
         if (isTrafficCar && !sprite.isOncoming) {
@@ -603,13 +613,14 @@ export class RoadManager {
           if (newSeg.index !== seg.index) {
             seg.sprites.splice(j, 1);
             sprite.zOffset = newZ - newSeg.p1.z;
-            newSeg.sprites.push(sprite);
+            transfers.push({ segment: newSeg, sprite });
           } else {
             sprite.zOffset = (sprite.zOffset || 0) + moveDist;
           }
         }
       }
     }
+    for (const { segment, sprite } of transfers) segment.sprites.push(sprite);
   }
 
   private setupIntersections(stage: RouteStage) {
@@ -728,10 +739,12 @@ export class RoadManager {
       // Update cross-traffic vehicles when cross-street is moving (i.e. when player light is RED)
       const crossMoving = inter.lightState === 'RED' || inter.lightState === 'YELLOW';
       for (const cv of inter.crossTrafficVehicles) {
+        cv.previousX = cv.crossX;
         if (crossMoving) {
           cv.crossX += cv.direction * cv.speed * dt;
           if (cv.direction === 1 && cv.crossX > 32) cv.crossX = -32;
           if (cv.direction === -1 && cv.crossX < -32) cv.crossX = 32;
+          if (Math.abs(cv.crossX - cv.previousX) > 32) cv.previousX = cv.crossX;
         }
       }
     }
