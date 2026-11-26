@@ -11,6 +11,10 @@ export class Renderer3D {
   public ambientLight: THREE.AmbientLight;
   public sunLight: THREE.DirectionalLight;
   public terrainMesh: THREE.Mesh;
+  public skyDome: THREE.Mesh;
+
+  private smoothSpeedRatio: number = 0;
+  private smoothCamSteerOffset: number = 0;
 
   public cameraMode: CameraMode = 'CHASE';
 
@@ -60,18 +64,30 @@ export class Renderer3D {
     this.sunLight.shadow.camera.bottom = -60;
     this.scene.add(this.sunLight);
 
-    // Massive Highland Ground Terrain (Optimized mesh density)
-    const terrainGeo = new THREE.PlaneGeometry(2400, 2400, 12, 12);
+    // Massive Highland Ground Terrain (Fallback backdrop below road elevation)
+    const terrainGeo = new THREE.PlaneGeometry(3600, 3600, 12, 12);
     terrainGeo.rotateX(-Math.PI / 2);
     const terrainMat = new THREE.MeshStandardMaterial({
-      color: 0x22543d, // Rich Ethiopian highland green / acacia savanna
+      color: 0x265c3a, // Rich Ethiopian highland green / acacia savanna
       roughness: 0.95,
       metalness: 0.05
     });
     this.terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
-    this.terrainMesh.position.y = -0.05;
+    this.terrainMesh.position.y = -1.2;
     this.terrainMesh.receiveShadow = true;
     this.scene.add(this.terrainMesh);
+
+    // Gradient Sky Dome for natural horizon blending
+    const skyGeo = new THREE.SphereGeometry(1500, 24, 16);
+    const skyMat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      side: THREE.BackSide,
+      fog: false,
+      depthWrite: false
+    });
+    this.skyDome = new THREE.Mesh(skyGeo, skyMat);
+    this.scene.add(this.skyDome);
+    this.updateSkyDomeColors(0x1d4ed8, 0x93c5fd, 0xdbeafe);
 
     this.initRain();
   }
@@ -108,31 +124,57 @@ export class Renderer3D {
     return this.cameraMode;
   }
 
+  private updateSkyDomeColors(zenithHex: number, midHex: number, horizonHex: number) {
+    const geo = this.skyDome.geometry as THREE.BufferGeometry;
+    const pos = geo.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+    const zenith = new THREE.Color(zenithHex);
+    const mid = new THREE.Color(midHex);
+    const horizon = new THREE.Color(horizonHex);
+    const c = new THREE.Color();
+
+    for (let i = 0; i < pos.count; i++) {
+      const ny = Math.max(0, pos.getY(i) / 1500);
+      if (ny < 0.28) {
+        c.lerpColors(horizon, mid, ny / 0.28);
+      } else {
+        c.lerpColors(mid, zenith, (ny - 0.28) / 0.72);
+      }
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  }
+
   public setupStageEnvironment(stage: RouteStage) {
     if (stage.skyTheme === 'day') {
-      this.scene.background = new THREE.Color(0x38bdf8); // Sky blue
-      this.scene.fog = new THREE.FogExp2(0x93c5fd, 0.0015);
+      this.scene.background = new THREE.Color(0xbfe3ff);
+      this.scene.fog = new THREE.FogExp2(0xc7e6ff, 0.0024);
+      this.updateSkyDomeColors(0x0284c7, 0x60a5fa, 0xc7e6ff);
       this.ambientLight.color.setHex(0xe0f2fe);
-      this.ambientLight.intensity = 0.9;
+      this.ambientLight.intensity = 0.95;
       this.sunLight.color.setHex(0xfffbeb);
       this.sunLight.intensity = 2.1;
-      (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x2d6a4f);
+      (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x265c3a);
     } else if (stage.skyTheme === 'sunset') {
-      this.scene.background = new THREE.Color(0xc2410c); // Sunset amber
-      this.scene.fog = new THREE.FogExp2(0xf97316, 0.0018);
+      this.scene.background = new THREE.Color(0xf97316);
+      this.scene.fog = new THREE.FogExp2(0xfb923c, 0.0026);
+      this.updateSkyDomeColors(0x3b0764, 0xc2410c, 0xfdba74);
       this.ambientLight.color.setHex(0xfed7aa);
-      this.ambientLight.intensity = 0.7;
+      this.ambientLight.intensity = 0.75;
       this.sunLight.color.setHex(0xfb923c);
       this.sunLight.intensity = 1.7;
-      (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x431407);
+      (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x3b2f1e);
     } else {
       // Entoto Mountain Night
-      this.scene.background = new THREE.Color(0x020617);
-      this.scene.fog = new THREE.FogExp2(0x090d16, 0.003);
+      this.scene.background = new THREE.Color(0x090d16);
+      this.scene.fog = new THREE.FogExp2(0x090d16, 0.0036);
+      this.updateSkyDomeColors(0x020617, 0x0f172a, 0x1e293b);
       this.ambientLight.color.setHex(0x1e293b);
-      this.ambientLight.intensity = 0.35;
+      this.ambientLight.intensity = 0.4;
       this.sunLight.color.setHex(0x38bdf8);
-      this.sunLight.intensity = 0.5;
+      this.sunLight.intensity = 0.55;
       (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x061e14);
     }
 
@@ -176,38 +218,43 @@ export class Renderer3D {
     dt: number,
     isBoosting: boolean = false
   ) {
-    // 1. Keep Terrain & Sun Centered and Elevation-Synced Around Player
-    this.terrainMesh.position.set(playerPos.x, playerPos.y - 0.2, playerPos.z);
+    // 1. Keep Terrain, Sky Dome & Sun Centered Around Player
+    this.terrainMesh.position.set(playerPos.x, playerPos.y - 1.2, playerPos.z);
+    this.skyDome.position.copy(playerPos);
 
     this.sunLight.position.set(playerPos.x + 40, playerPos.y + 90, playerPos.z + 50);
     this.sunLight.target.position.copy(playerPos);
 
-    // 2. Racing Limits Dynamic FOV & Speed Warping (Tunnel Vision from 60° up to 78°, 84° on boost)
-    const targetFov = 60 + (playerSpeedRatio * 16.0) + (isBoosting ? 8.0 : 0.0);
+    // Smooth camera state parameters (never lag behind the car in world space!)
+    this.smoothSpeedRatio += (playerSpeedRatio - this.smoothSpeedRatio) * Math.min(1.0, dt * 6.0);
+    this.smoothCamSteerOffset += (steerAngle - this.smoothCamSteerOffset) * Math.min(1.0, dt * 8.0);
+
+    // 2. Racing Limits Dynamic FOV & Speed Warping (60° up to 74°, 80° on boost)
+    const targetFov = 60 + (this.smoothSpeedRatio * 14.0) + (isBoosting ? 6.0 : 0.0);
     this.camera.fov += (targetFov - this.camera.fov) * Math.min(1.0, dt * 6.5);
     this.camera.updateProjectionMatrix();
 
     // 3. Camera Dynamic Following Aligned with Highway Tangent
-    const lookAheadDist = 18.0;
+    const lookAheadDist = 16.0;
     const lookTarget = playerPos.clone().addScaledVector(tangent, lookAheadDist);
-    lookTarget.y += 1.4 + bounce * 0.04;
+    lookTarget.y += 1.3 + bounce * 0.03;
 
     // Stable horizontal forward vector for camera positioning behind vehicle
     const horizTangent = new THREE.Vector3(tangent.x, 0, tangent.z).normalize();
     if (horizTangent.lengthSq() === 0) horizTangent.set(0, 0, 1);
 
     if (this.cameraMode === 'CHASE') {
-      const followDist = 8.5 + playerSpeedRatio * 2.8;
-      const followHeight = 3.6 + bounce * 0.03;
-      const camTargetPos = playerPos
+      const followDist = 7.4 + this.smoothSpeedRatio * 1.6 + (isBoosting ? 0.6 : 0);
+      const followHeight = 3.2 + bounce * 0.025;
+      const camPos = playerPos
         .clone()
         .addScaledVector(horizTangent, -followDist)
-        .addScaledVector(normal, -steerAngle * 1.5);
-      camTargetPos.y = playerPos.y + followHeight;
+        .addScaledVector(normal, -this.smoothCamSteerOffset * 1.1);
+      camPos.y = playerPos.y + followHeight;
 
-      this.camera.position.lerp(camTargetPos, Math.min(1.0, dt * 10));
+      this.camera.position.copy(camPos);
       this.camera.lookAt(lookTarget);
-      this.camera.rotateZ(-steerAngle * 0.035);
+      this.camera.rotateZ(-this.smoothCamSteerOffset * 0.03);
     } else if (this.cameraMode === 'HOOD') {
       const hoodPos = playerPos.clone().addScaledVector(tangent, 0.9);
       hoodPos.y = playerPos.y + 1.45 + bounce * 0.05;
@@ -219,9 +266,9 @@ export class Renderer3D {
       this.camera.rotateZ(-steerAngle * 0.04);
     } else {
       // Top-down / Bird's Eye helicopter view
-      const topPos = playerPos.clone().addScaledVector(horizTangent, -16.0);
-      topPos.y = playerPos.y + 22.0;
-      this.camera.position.lerp(topPos, Math.min(1.0, dt * 8));
+      const topPos = playerPos.clone().addScaledVector(horizTangent, -14.0);
+      topPos.y = playerPos.y + 20.0;
+      this.camera.position.copy(topPos);
       this.camera.lookAt(playerPos.clone().addScaledVector(tangent, 10.0));
     }
 
