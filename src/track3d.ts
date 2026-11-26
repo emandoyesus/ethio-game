@@ -28,6 +28,7 @@ import {
   type Vehicle3DModel
 } from './models3d';
 import { ROAD, type RoadManager } from './road';
+import { addStreetShops, districtSign } from './streetscape';
 import type { RouteStage, SpriteInstance } from './types';
 
 export class Track3D {
@@ -109,7 +110,7 @@ export class Track3D {
     this.buildRoadRibbon(segments, stage);
 
     // 4. Build Landmarks (CBE 209m Tower & Light Rail Viaduct)
-    this.buildLandmarks(stage);
+    this.buildLandmarks(stage, road);
 
     // 5. Build Intersection Crossroads
     this.buildIntersectionCrossroads(road);
@@ -171,9 +172,11 @@ export class Track3D {
     const roadUVs: number[] = [];
 
     const shoulderVerts: number[] = [];
+    const shoulderUVs: number[] = [];
     const shoulderIndices: number[] = [];
 
     const grassVerts: number[] = [];
+    const grassUVs: number[] = [];
     const grassIndices: number[] = [];
 
     const markVerts: number[] = [];
@@ -209,6 +212,7 @@ export class Track3D {
       shoulderVerts.push(leftRoad.x, leftRoad.y - 0.01, leftRoad.z);
       shoulderVerts.push(rightRoad.x, rightRoad.y - 0.01, rightRoad.z);
       shoulderVerts.push(rightShoulderOut.x, rightShoulderOut.y, rightShoulderOut.z);
+      shoulderUVs.push(0, i * 0.5, 1, i * 0.5, 0, i * 0.5, 1, i * 0.5);
 
       // Elevation-matched roadside grass apron extending 130m outward on both sides
       const grassWidth = 130;
@@ -221,6 +225,7 @@ export class Track3D {
       grassVerts.push(leftShoulderOut.x, leftShoulderOut.y - 0.02, leftShoulderOut.z);
       grassVerts.push(rightShoulderOut.x, rightShoulderOut.y - 0.02, rightShoulderOut.z);
       grassVerts.push(rightGrassOut.x, rightGrassOut.y, rightGrassOut.z);
+      grassUVs.push(0, i * 0.25, 4, i * 0.25, 0, i * 0.25, 4, i * 0.25);
 
       if (i < count - 1) {
         // Counter-Clockwise Road Quad facing UPWARDS: (r0, r2, r1) and (r1, r2, r3)
@@ -318,11 +323,108 @@ export class Track3D {
     roadGeo.setIndex(roadIndices);
     roadGeo.computeVertexNormals();
 
-    const asphaltColor = stage.skyTheme === 'night' ? 0x1e293b : 0x272e38;
+    // Procedural Asphalt, Shoulder & Grass Canvas Textures
+    const makeGrainTex = (baseHex: string, speckA: string, speckB: string, isRoad: boolean = false) => {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = baseHex;
+      ctx.fillRect(0, 0, 256, 256);
+
+      if (isRoad) {
+        // Subtle dark tire-wear tracks in the 3 lanes
+        for (const center of [42, 128, 214]) {
+          for (const wheel of [center - 11, center + 11]) {
+            const wear = ctx.createLinearGradient(wheel - 7, 0, wheel + 7, 0);
+            wear.addColorStop(0, 'transparent');
+            wear.addColorStop(0.5, 'rgba(20,18,16,0.24)');
+            wear.addColorStop(1, 'transparent');
+            ctx.fillStyle = wear;
+            ctx.fillRect(wheel - 7, 0, 14, 256);
+          }
+        }
+        // Crisp white outer road edge lines
+        ctx.fillStyle = 'rgba(248, 250, 252, 0.85)';
+        ctx.fillRect(4, 0, 2, 256);
+        ctx.fillRect(250, 0, 2, 256);
+      }
+
+      for (let k = 0; k < 1800; k++) {
+        ctx.fillStyle = k % 2 === 0 ? speckA : speckB;
+        ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.anisotropy = 4;
+      return tex;
+    };
+
+    const roadTex = makeGrainTex(
+      stage.isWetRoad ? '#494a49' : '#60605c',
+      'rgba(255,255,255,0.05)',
+      'rgba(0,0,0,0.14)',
+      true
+    );
+    // Addis Ababa Cobblestone Sidewalk + Black/White Painted Concrete Curb Texture
+    const makeSidewalkTex = () => {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = stage.skyTheme === 'night' ? '#334155' : '#78716c';
+      ctx.fillRect(0, 0, 256, 256);
+
+      // Interlocking cobblestone paver grid
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
+      ctx.lineWidth = 1.5;
+      for (let y = 0; y < 256; y += 24) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(256, y);
+        ctx.stroke();
+        const offset = (y / 24) % 2 === 0 ? 0 : 16;
+        for (let x = offset; x < 256; x += 32) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + 24);
+          ctx.stroke();
+        }
+      }
+
+      // Iconic Addis Ababa alternating black & white painted curb along road edge (x = 228..256)
+      for (let y = 0; y < 256; y += 64) {
+        ctx.fillStyle = (y / 64) % 2 === 0 ? '#f8fafc' : '#18181b';
+        ctx.fillRect(228, y, 28, 64);
+        ctx.fillRect(0, y, 24, 64);
+      }
+
+      // Red volcanic soil strip on outer edge of sidewalk
+      ctx.fillStyle = stage.skyTheme === 'night' ? '#450a0a' : '#8c2d19';
+      ctx.fillRect(0, 0, 12, 256);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.anisotropy = 4;
+      return tex;
+    };
+
+    const shoulderTex = makeSidewalkTex();
+    const grassTex = makeGrainTex(
+      stage.skyTheme === 'night' ? '#072217' : stage.skyTheme === 'sunset' ? '#3d311f' : '#28603c',
+      'rgba(134,239,172,0.07)',
+      'rgba(0,0,0,0.14)',
+      false
+    );
+
     const roadMat = new THREE.MeshStandardMaterial({
-      color: asphaltColor,
-      roughness: stage.isWetRoad ? 0.25 : 0.7,
-      metalness: stage.isWetRoad ? 0.3 : 0.05,
+      map: roadTex,
+      roughness: stage.isWetRoad ? 0.22 : 0.78,
+      metalness: 0,
       side: THREE.DoubleSide
     });
     this.roadMesh = new THREE.Mesh(roadGeo, roadMat);
@@ -332,13 +434,13 @@ export class Track3D {
     // Volcanic Red Soil Shoulder Mesh
     const shoulderGeo = new THREE.BufferGeometry();
     shoulderGeo.setAttribute('position', new THREE.Float32BufferAttribute(shoulderVerts, 3));
+    shoulderGeo.setAttribute('uv', new THREE.Float32BufferAttribute(shoulderUVs, 2));
     shoulderGeo.setIndex(shoulderIndices);
     shoulderGeo.computeVertexNormals();
 
-    const shoulderColor = stage.skyTheme === 'night' ? 0x450a0a : 0x991b1b;
     const shoulderMat = new THREE.MeshStandardMaterial({
-      color: shoulderColor,
-      roughness: 0.9,
+      map: shoulderTex,
+      roughness: 0.92,
       side: THREE.DoubleSide
     });
     this.shoulderMesh = new THREE.Mesh(shoulderGeo, shoulderMat);
@@ -348,12 +450,12 @@ export class Track3D {
     // Elevation-Matched Roadside Grass Apron Mesh
     const grassGeo = new THREE.BufferGeometry();
     grassGeo.setAttribute('position', new THREE.Float32BufferAttribute(grassVerts, 3));
+    grassGeo.setAttribute('uv', new THREE.Float32BufferAttribute(grassUVs, 2));
     grassGeo.setIndex(grassIndices);
     grassGeo.computeVertexNormals();
 
-    const grassColor = stage.skyTheme === 'night' ? 0x061e14 : stage.skyTheme === 'sunset' ? 0x3b2f1e : 0x265c3a;
     const grassMat = new THREE.MeshStandardMaterial({
-      color: grassColor,
+      map: grassTex,
       roughness: 0.95,
       side: THREE.DoubleSide
     });
@@ -368,16 +470,49 @@ export class Track3D {
       markGeo.setIndex(markIndices);
       markGeo.computeVertexNormals();
 
-      const markMat = new THREE.MeshBasicMaterial({
-        color: 0xf8fafc,
+      const markMat = new THREE.MeshStandardMaterial({
+        roughness: stage.isWetRoad ? 0.32 : 0.83,
+        color: 0xd7d4c7,
         side: THREE.DoubleSide
       });
       this.markingsMesh = new THREE.Mesh(markGeo, markMat);
+      this.markingsMesh.receiveShadow = true;
       this.roadGroup.add(this.markingsMesh);
     }
   }
 
-  private buildLandmarks(stage: RouteStage) {
+  private buildLandmarks(stage: RouteStage, road: RoadManager) {
+    addStreetShops(this.sceneryGroup, this.spinePoints, this.spineNormals, stage.id, road.segments);
+    const districts = stage.id === 1 ? [['መገናኛ', 'Megenagna'], ['ካዛንቺስ', 'Kazanchis'], ['ፒያሳ', 'Piazza']] :
+      stage.id === 2 ? [['ቦሌ', 'Bole'], ['ኦሊምፒያ', 'Olympia'], ['መስቀል አደባባይ', 'Meskel Square']] :
+      [['መርካቶ', 'Merkato'], ['ሽሮ ሜዳ', 'Shiro Meda'], ['እንጦጦ', 'Entoto']];
+    districts.forEach(([amharic, english], i) => {
+      const index = i === 0 ? 4 : Math.floor(this.spinePoints.length * (i === 1 ? 0.34 : 0.77));
+      const sign = districtSign(amharic, english);
+      sign.position.copy(this.spinePoints[index]).addScaledVector(this.spineNormals[index], 12.2);
+      const tangent = this.spineTangents[index];
+      sign.rotation.y = Math.atan2(-tangent.x, -tangent.z);
+      this.sceneryGroup.add(sign);
+    });
+    if (stage.id === 2) {
+      // Stepped public seating opens onto the Meskel Square crossing.
+      const index = Math.floor(this.spinePoints.length * 0.82);
+      const plaza = new THREE.Group();
+      const paving = new THREE.MeshStandardMaterial({ color: 0xb6a997, roughness: 0.95 });
+      const steps = new THREE.InstancedMesh(new THREE.BoxGeometry(66, 0.48, 1.8), paving, 12);
+      const transform = new THREE.Matrix4();
+      for (let row = 0; row < 12; row++) {
+        steps.setMatrixAt(row, transform.makeTranslation(0, 0.24 + row * 0.45, row * 1.7));
+      }
+      plaza.add(steps);
+      const apron = new THREE.Mesh(new THREE.BoxGeometry(70, 0.16, 15), paving);
+      apron.position.z = -8;
+      plaza.add(apron);
+      plaza.position.copy(this.spinePoints[index]).addScaledVector(this.spineNormals[index], 32);
+      const outward = this.spineNormals[index];
+      plaza.rotation.y = Math.atan2(outward.x, outward.z);
+      this.sceneryGroup.add(plaza);
+    }
     if (stage.id === 1 || stage.id === 2) {
       // 1. Commercial Bank of Ethiopia (CBE) 209m Skyscraper
       const cbeIdx = Math.floor(this.spinePoints.length * 0.42);
@@ -454,6 +589,13 @@ export class Track3D {
       for (const sprite of seg.sprites) {
         const meshData = this.instantiateSpriteMesh(sprite, road);
         if (meshData) {
+          if (sprite.type !== 'OBSTACLE_POTHOLE' && !sprite.type.startsWith('INTERSECTION_ARROW_')) {
+            meshData.traverse(obj => {
+              if ((obj as THREE.Mesh).isMesh) {
+                obj.castShadow = true;
+              }
+            });
+          }
           sprite.mesh3d = meshData;
           this.entitiesGroup.add(meshData);
         }
@@ -643,7 +785,7 @@ export class Track3D {
         const meshDir = sprite.isOncoming ? tangent.clone().negate() : tangent;
         mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), meshDir);
         if (mesh.userData.isBuilding) {
-          mesh.rotateY(sprite.offset < 0 ? Math.PI / 2 : -Math.PI / 2);
+          mesh.rotation.set(0, Math.atan2(-normal.x * sprite.offset, -normal.z * sprite.offset), 0);
         }
 
         // Racing Limits: Traffic Turn Signal Blinker & Hazard Animation
