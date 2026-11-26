@@ -1,6 +1,8 @@
 import type { GameEngine } from './game';
 import type { TransmissionGear } from './types';
 
+export const WHEEL_LOCK = Math.PI / 2;
+
 export interface DrDrivingLayout {
   wheel: { cx: number; cy: number; r: number; hornR: number };
   gas: { x: number; y: number; w: number; h: number };
@@ -19,7 +21,7 @@ export class DrDrivingControls {
   private canvas: HTMLCanvasElement;
 
   private wheelPointerId: number | null = null;
-  private lastWheelPointerAngle: number = 0;
+  private lastWheelPointerAngle: number | null = null;
   public isWheelDragging: boolean = false;
 
   private gasPointerId: number | null = null;
@@ -92,7 +94,15 @@ export class DrDrivingControls {
     this.canvas.addEventListener('pointerdown', (e: PointerEvent) => this.onPointerDown(e));
     window.addEventListener('pointermove', (e: PointerEvent) => this.onPointerMove(e));
     window.addEventListener('pointerup', (e: PointerEvent) => this.onPointerUp(e));
+    this.canvas.addEventListener('lostpointercapture', (e) => this.onPointerUp(e));
+    window.addEventListener('blur', () => this.releaseInputs());
     window.addEventListener('pointercancel', (e: PointerEvent) => this.onPointerUp(e));
+  }
+
+  public releaseInputs() {
+    this.wheelPointerId = this.gasPointerId = this.brakePointerId = null;
+    this.isWheelDragging = this.isGasHeld = this.isBrakeHeld = false;
+    this.lastWheelPointerAngle = null;
   }
 
   private getCanvasCoords(e: PointerEvent): { x: number; y: number } {
@@ -120,12 +130,14 @@ export class DrDrivingControls {
     const dy = y - wheel.cy;
     const distSq = dx * dx + dy * dy;
 
-    if (distSq <= wheel.r * wheel.r) {
+    if (distSq <= (wheel.r + 8) ** 2) {
+      if (this.wheelPointerId !== null) return;
       if (distSq <= wheel.hornR * wheel.hornR) {
         // Tapped Center Horn Boss!
         this.game.triggerHorn();
         return;
       }
+      this.canvas.setPointerCapture(e.pointerId);
       this.wheelPointerId = e.pointerId;
       this.isWheelDragging = true;
       this.lastWheelPointerAngle = Math.atan2(dy, dx);
@@ -163,14 +175,18 @@ export class DrDrivingControls {
     if (this.isWheelDragging && e.pointerId === this.wheelPointerId) {
       const { x, y } = this.getCanvasCoords(e);
       const { wheel } = this.layout;
+      if (Math.hypot(x - wheel.cx, y - wheel.cy) < wheel.hornR) {
+        this.lastWheelPointerAngle = null;
+        return;
+      }
       const curAngle = Math.atan2(y - wheel.cy, x - wheel.cx);
 
-      let delta = curAngle - this.lastWheelPointerAngle;
+      let delta = curAngle - (this.lastWheelPointerAngle ?? curAngle);
       if (delta > Math.PI) delta -= 2 * Math.PI;
       if (delta < -Math.PI) delta += 2 * Math.PI;
 
       const player = this.game.player;
-      player.steeringWheelAngle = Math.max(-Math.PI * 2.2, Math.min(Math.PI * 2.2, player.steeringWheelAngle + delta));
+      player.steeringWheelAngle = Math.max(-WHEEL_LOCK, Math.min(WHEEL_LOCK, player.steeringWheelAngle + delta));
       this.lastWheelPointerAngle = curAngle;
     }
   }
