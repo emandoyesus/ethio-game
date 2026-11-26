@@ -152,6 +152,7 @@ body, html {
 }
 
 #gameCanvasHud {
+  touch-action: none;
   z-index: 2;
   cursor: pointer;
 }

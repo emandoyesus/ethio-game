@@ -163,6 +163,7 @@ syncWheelBtn();
 btnTouchControls.addEventListener('click', (e) => {
   e.stopPropagation();
   game.showOnScreenControls = !game.showOnScreenControls;
+  if (!game.showOnScreenControls) game.controls.releaseInputs();
   syncWheelBtn();
   ui.showToast(
     game.showOnScreenControls ? '🎡 On-screen Wheel & Pedals ON' : '⌨️ Clean Keyboard HUD Mode',
