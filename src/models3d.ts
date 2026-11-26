@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { VehicleId } from './types';
 
 // Materials cache to maximize performance and batching
@@ -105,7 +106,7 @@ export function createMinibus3D(isPlayer: boolean = false): Vehicle3DModel {
   const wheels: THREE.Mesh[] = [];
 
   // Lower Body (Blue)
-  const lowerGeo = new THREE.BoxGeometry(2.1, 0.95, 4.8);
+  const lowerGeo = new RoundedBoxGeometry(2.1, 0.95, 4.8, 1, 0.16);
   const lowerMesh = new THREE.Mesh(lowerGeo, materials.minibusBlue);
   lowerMesh.position.y = 0.82;
   lowerMesh.castShadow = true;
@@ -113,7 +114,7 @@ export function createMinibus3D(isPlayer: boolean = false): Vehicle3DModel {
   group.add(lowerMesh);
 
   // Upper Cabin / Roof (White)
-  const upperGeo = new THREE.BoxGeometry(2.0, 0.88, 4.4);
+  const upperGeo = new RoundedBoxGeometry(2.0, 0.88, 4.4, 1, 0.19);
   const upperMesh = new THREE.Mesh(upperGeo, materials.minibusWhite);
   upperMesh.position.set(0, 1.7, -0.15);
   upperMesh.castShadow = true;
@@ -139,25 +140,56 @@ export function createMinibus3D(isPlayer: boolean = false): Vehicle3DModel {
   rightSideWin.position.set(1.01, 1.68, -0.2);
   group.add(rightSideWin);
 
+  if (isPlayer) {
+    const pillar = new THREE.BoxGeometry(0.04, 0.64, 0.064);
+    for (const side of [-1, 1]) {
+      for (const z of [-1.12, 0.08, 1.06]) {
+        const frame = new THREE.Mesh(pillar, materials.minibusWhite);
+        frame.position.set(side * 1.055, 1.68, z);
+        group.add(frame);
+      }
+      const mirror = new THREE.Mesh(new RoundedBoxGeometry(0.23, 0.31, 0.16, 1, 0.05), materials.rubber);
+      mirror.position.set(side * 1.14, 1.52, 1.66);
+      group.add(mirror);
+    }
+    const plate = document.createElement('canvas');
+    plate.width = 256;
+    plate.height = 80;
+    const ink = plate.getContext('2d')!;
+    ink.fillStyle = '#dfdfc9';
+    ink.fillRect(0, 0, 256, 80);
+    ink.fillStyle = '#243936';
+    ink.font = 'bold 48px sans-serif';
+    ink.textAlign = 'center';
+    ink.fillText('AA  47216', 128, 58);
+    const plateMap = new THREE.CanvasTexture(plate);
+    plateMap.colorSpace = THREE.SRGBColorSpace;
+    const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.17),
+      new THREE.MeshStandardMaterial({ map: plateMap, roughness: 0.55 }));
+    badge.rotation.y = Math.PI;
+    badge.position.set(0, 0.85, -2.405);
+    group.add(badge);
+  }
+
   // Roof Luggage Rack with wrapped baggage
   const rack = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.14, 2.8), materials.chrome);
   rack.position.set(0, 2.22, -0.5);
   group.add(rack);
 
-  const parcel1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.38, 0.9), materials.luggageYellow);
+  const parcel1 = new THREE.Mesh(new RoundedBoxGeometry(0.7, 0.38, 0.9, 1, 0.09), materials.luggageYellow);
   parcel1.position.set(-0.4, 2.46, -0.7);
   group.add(parcel1);
 
-  const parcel2 = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.42, 1.0), materials.clay);
+  const parcel2 = new THREE.Mesh(new RoundedBoxGeometry(0.75, 0.42, 1.0, 1, 0.1), materials.clay);
   parcel2.position.set(0.35, 2.48, -0.4);
   group.add(parcel2);
 
   // Bumpers
-  const frontBumper = new THREE.Mesh(new THREE.BoxGeometry(2.18, 0.3, 0.25), materials.chrome);
+  const frontBumper = new THREE.Mesh(new RoundedBoxGeometry(2.18, 0.3, 0.25, 1, 0.07), materials.chrome);
   frontBumper.position.set(0, 0.45, 2.42);
   group.add(frontBumper);
 
-  const rearBumper = new THREE.Mesh(new THREE.BoxGeometry(2.18, 0.3, 0.25), materials.chrome);
+  const rearBumper = new THREE.Mesh(new RoundedBoxGeometry(2.18, 0.3, 0.25, 1, 0.07), materials.chrome);
   rearBumper.position.set(0, 0.45, -2.42);
   group.add(rearBumper);
 
@@ -272,14 +304,14 @@ export function createLada3D(isPlayer: boolean = false): Vehicle3DModel {
   const wheels: THREE.Mesh[] = [];
 
   // Lower Body (Blue)
-  const lowerGeo = new THREE.BoxGeometry(1.82, 0.68, 4.4);
+  const lowerGeo = new RoundedBoxGeometry(1.82, 0.68, 4.4, 1, 0.13);
   const lowerMesh = new THREE.Mesh(lowerGeo, materials.ladaBlue);
   lowerMesh.position.y = 0.65;
   lowerMesh.castShadow = true;
   group.add(lowerMesh);
 
   // Cabin / Roof (White)
-  const cabinGeo = new THREE.BoxGeometry(1.65, 0.72, 2.4);
+  const cabinGeo = new RoundedBoxGeometry(1.65, 0.72, 2.4, 1, 0.18);
   const cabinMesh = new THREE.Mesh(cabinGeo, materials.minibusWhite);
   cabinMesh.position.set(0, 1.32, -0.2);
   cabinMesh.castShadow = true;
@@ -406,16 +438,16 @@ export function createBajaj3D(isPlayer: boolean = false): Vehicle3DModel {
   const group = new THREE.Group();
   const wheels: THREE.Mesh[] = [];
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.75, 2.6), materials.bajajBlue);
+  const body = new THREE.Mesh(new RoundedBoxGeometry(1.4, 0.75, 2.6, 1, 0.14), materials.bajajBlue);
   body.position.set(0, 0.6, 0);
   body.castShadow = true;
   group.add(body);
 
-  const hood = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.65, 0.9), materials.bajajBlue);
+  const hood = new THREE.Mesh(new RoundedBoxGeometry(0.9, 0.65, 0.9, 1, 0.16), materials.bajajBlue);
   hood.position.set(0, 0.6, 1.55);
   group.add(hood);
 
-  const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.9, 2.4), materials.rubber);
+  const canopy = new THREE.Mesh(new RoundedBoxGeometry(1.42, 0.9, 2.4, 1, 0.19), materials.rubber);
   canopy.position.set(0, 1.4, -0.1);
   group.add(canopy);
 
@@ -474,7 +506,7 @@ export function createIsuzu3D(isPlayer: boolean = false): Vehicle3DModel {
   const group = new THREE.Group();
   const wheels: THREE.Mesh[] = [];
 
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.7, 1.8), materials.isuzuOrange);
+  const cab = new THREE.Mesh(new RoundedBoxGeometry(2.3, 1.7, 1.8, 1, 0.17), materials.isuzuOrange);
   cab.position.set(0, 1.45, 1.9);
   cab.castShadow = true;
   group.add(cab);
@@ -908,10 +940,25 @@ export function createStreetLamp3D(): THREE.Group {
   arm.position.set(0.9, 6.75, 0);
   group.add(arm);
 
-  // Overhead luminaire head
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.25), materials.headlightOn);
+  // Overhead luminaire head with warm glow
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.14, 0.3), materials.headlightOn);
   head.position.set(1.8, 6.7, 0);
   group.add(head);
+
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.34), materials.signalHousing);
+  housing.position.set(1.8, 6.79, 0);
+  group.add(housing);
+
+  // Addis Ababa Boulevard Tricolor Banner (Green / Yellow / Red)
+  const bannerG = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.04), materials.bldgAwningGreen);
+  bannerG.position.set(-0.32, 4.9, 0);
+  group.add(bannerG);
+  const bannerY = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.04), materials.gold);
+  bannerY.position.set(-0.32, 4.45, 0);
+  group.add(bannerY);
+  const bannerR = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.04), materials.fuelRed);
+  bannerR.position.set(-0.32, 4.0, 0);
+  group.add(bannerR);
 
   return group;
 }
@@ -1208,11 +1255,21 @@ export function createBuilding3D(variant: 'APARTMENT' | 'SHOP' | 'TOWER' | 'HOUS
     shopWindow.position.set(0, 1.4, 4.02);
     group.add(shopWindow);
 
+    // Upper floor windows with frames
     for (const wx of [-3.2, 0, 3.2]) {
-      const win = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 0.15), materials.bldgWindowDark);
-      win.position.set(wx, 5.2, 4.02);
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(2.05, 1.65, 0.12), materials.bldgDarkTrim);
+      frame.position.set(wx, 5.2, 4.0);
+      group.add(frame);
+
+      const win = new THREE.Mesh(new THREE.BoxGeometry(1.75, 1.35, 0.16), materials.bldgWindowDark);
+      win.position.set(wx, 5.2, 4.03);
       group.add(win);
     }
+
+    // Illuminated storefront fascia sign
+    const signBoard = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.65, 0.22), materials.bldgWindowLit);
+    signBoard.position.set(0, 3.65, 4.08);
+    group.add(signBoard);
   } else if (variant === 'APARTMENT') {
     const floors = 4 + Math.floor(Math.random() * 2);
     const h = floors * 3.4;
