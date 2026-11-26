@@ -691,7 +691,7 @@ export class UIManager {
       ctx.fillStyle = '#94a3b8';
       ctx.font = '8.5px "Chakra Petch", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('W/↑ GAS • S/↓ BRAKE • A/D STEER • SHIFT NITRO • SPACE HORN • R RADIO', width / 2, legendY + 2);
+      ctx.fillText('W DRIVE • S BRAKE/REVERSE • ↑/↓ PEDALS • A/D STEER • SHIFT NITRO • SPACE HORN • R RADIO', width / 2, legendY + 2);
     }
 
     ctx.restore();
@@ -747,17 +747,25 @@ export class UIManager {
     ctx.arc(0, 0, wheel.r, -Math.PI / 2 - 0.12, -Math.PI / 2 + 0.12);
     ctx.stroke();
 
-    // 3 Metallic spokes (Left, Right, Bottom)
-    ctx.fillStyle = '#334155';
-    ctx.fillRect(-wheel.r + 6, -5, wheel.r - wheel.hornR - 2, 10);
-    ctx.fillRect(wheel.hornR - 4, -5, wheel.r - wheel.hornR - 2, 10);
-    ctx.fillRect(-5, wheel.hornR - 4, 10, wheel.r - wheel.hornR - 2);
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(-wheel.r + 6, -5, wheel.r - wheel.hornR - 2, 10);
-    ctx.strokeRect(wheel.hornR - 4, -5, wheel.r - wheel.hornR - 2, 10);
-    ctx.strokeRect(-5, wheel.hornR - 4, 10, wheel.r - wheel.hornR - 2);
+    // Taper the three spokes into the hub, with a brushed-metal highlight.
+    for (const angle of [-1.35, 1.35, Math.PI]) {
+      ctx.save();
+      ctx.rotate(angle);
+      const metal = ctx.createLinearGradient(-9, 0, 9, 0);
+      metal.addColorStop(0, '#31383d');
+      metal.addColorStop(0.35, '#a8afb0');
+      metal.addColorStop(0.65, '#727c80');
+      metal.addColorStop(1, '#363e43');
+      ctx.fillStyle = metal;
+      ctx.beginPath();
+      ctx.moveTo(-wheel.hornR * 0.5, -wheel.hornR * 0.6);
+      ctx.lineTo(-5, -wheel.r + 5);
+      ctx.lineTo(5, -wheel.r + 5);
+      ctx.lineTo(wheel.hornR * 0.5, -wheel.hornR * 0.6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
 
     // Center Horn Boss (Hub)
     const bossGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, wheel.hornR);
@@ -788,7 +796,7 @@ export class UIManager {
     ctx.restore();
 
     // Steering Angle HUD Indicator Arc (Stationary above the wheel)
-    const normSteer = player.steeringWheelAngle / (Math.PI * 2.2);
+    const normSteer = player.steerAngle;
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -1771,7 +1779,7 @@ export class UIManager {
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '13px "Chakra Petch", sans-serif';
-    ctx.fillText('Press P or ESC to Resume  •  W/↑ Gas  •  S/↓ Brake  •  A/D Steer  •  Shift Nitro  •  Space Horn', midX, midY - 22);
+    ctx.fillText('Press P or ESC to Resume  •  W Drive  •  S Brake/Reverse  •  ↑/↓ Pedals  •  A/D Steer  •  Shift Nitro  •  Space Horn', midX, midY - 22);
 
     this.drawOverlayButtons(ctx, midX, midY + 12, [
       { id: 'btn_resume', label: '▶ RESUME', bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' },
