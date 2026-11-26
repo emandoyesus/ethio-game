@@ -107,6 +107,10 @@ export class DrDrivingControls {
 
   private onPointerDown(e: PointerEvent) {
     if (this.game.state !== 'PLAYING') return;
+    if (e.pointerType === 'touch' && !this.game.showOnScreenControls) {
+      this.game.showOnScreenControls = true;
+    }
+    if (!this.game.showOnScreenControls) return;
 
     const { x, y } = this.getCanvasCoords(e);
     const { wheel, gas, brake, shifter } = this.layout;

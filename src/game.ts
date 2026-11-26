@@ -21,6 +21,8 @@ export class GameEngine {
   public playerModel: Vehicle3DModel;
   private currentVehicleId: VehicleId;
   public controls: DrDrivingControls;
+  public showOnScreenControls: boolean =
+    typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
 
   public state: GameState = 'TITLE';
   public gameMode: RacingLimitsGameMode = 'CAREER';
@@ -51,6 +53,7 @@ export class GameEngine {
   // Near miss tracker
   private nearMissCooldown: number = 0;
   private oncomingLaneTimer: number = 0;
+  private lateralVelocity: number = 0;
 
   constructor(canvas3d: HTMLCanvasElement, canvasHud: HTMLCanvasElement) {
     this.canvas3d = canvas3d;
@@ -276,6 +279,14 @@ export class GameEngine {
       this.keys[e.code] = false;
     });
 
+    this.canvas.addEventListener('mousemove', (e: MouseEvent) => {
+      const rect = this.canvas.getBoundingClientRect();
+      ui.setHover(e.clientX - rect.left, e.clientY - rect.top);
+    });
+    this.canvas.addEventListener('mouseleave', () => {
+      ui.setHover(-1, -1);
+    });
+
     this.canvas.addEventListener('click', (e: MouseEvent) => {
       const rect = this.canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
@@ -284,10 +295,8 @@ export class GameEngine {
       if (this.state === 'GARAGE') {
         this.handleGarageClick(clickX, clickY);
       } else if (this.state === 'TITLE') {
-        let clicked = false;
         for (const hb of ui.titleHitboxes) {
           if (clickX >= hb.x && clickX <= hb.x + hb.w && clickY >= hb.y && clickY <= hb.y + hb.h) {
-            clicked = true;
             if (hb.id.startsWith('mode_')) {
               this.gameMode = hb.id.replace('mode_', '') as RacingLimitsGameMode;
               sound.playClick();
@@ -302,15 +311,25 @@ export class GameEngine {
             break;
           }
         }
-        if (!clicked) {
-          this.startGame();
+      } else if (this.state === 'GAMEOVER' || this.state === 'STAGE_CLEAR' || this.state === 'PAUSED') {
+        for (const hb of ui.overlayHitboxes) {
+          if (clickX >= hb.x && clickX <= hb.x + hb.w && clickY >= hb.y && clickY <= hb.y + hb.h) {
+            sound.playClick();
+            if (hb.id === 'btn_resume') {
+              this.state = 'PLAYING';
+            } else if (hb.id === 'btn_restart') {
+              this.restartGame();
+            } else if (hb.id === 'btn_next') {
+              this.nextStage();
+            } else if (hb.id === 'btn_garage') {
+              this.openGarage();
+            } else if (hb.id === 'btn_menu') {
+              sound.stopEngine();
+              this.state = 'TITLE';
+            }
+            return;
+          }
         }
-      } else if (this.state === 'GAMEOVER') {
-        this.restartGame();
-      } else if (this.state === 'STAGE_CLEAR') {
-        this.nextStage();
-      } else if (this.state === 'PAUSED') {
-        this.state = 'PLAYING';
       }
     });
   }
@@ -464,6 +483,7 @@ export class GameEngine {
 
     this.player.z = 0;
     this.player.speed = 0;
+    this.lateralVelocity = 0;
     this.player.fuel = this.player.maxFuel;
     this.player.passengersOnBoard = 0;
     this.road.buildTrack(this.stage, this.trafficFlow);
@@ -485,6 +505,7 @@ export class GameEngine {
     this.track3d.build(this.road, this.stage);
     this.timeLeft = this.stage.timeLimit;
     this.particles = [];
+    this.lateralVelocity = 0;
     this.state = 'PLAYING';
     sound.startMusic();
   }
@@ -498,6 +519,7 @@ export class GameEngine {
       this.stage = STAGES[this.currentStageIndex];
       this.player.z = 0;
       this.player.speed = 0;
+      this.lateralVelocity = 0;
       this.player.passengersOnBoard = 0;
       this.player.passengersTarget = this.stage.targetPassengers;
       this.player.fuel = this.player.maxFuel;
@@ -649,59 +671,82 @@ export class GameEngine {
     const right = !!(this.keys['arrowright'] || this.keys['d']);
 
     if (up) {
-      this.player.gasPedal = Math.min(1.0, this.player.gasPedal + dt * 5.5);
+      this.player.gasPedal = Math.min(1.0, this.player.gasPedal + dt * 4.2);
     } else {
-      this.player.gasPedal = Math.max(0.0, this.player.gasPedal - dt * 6.5);
+      this.player.gasPedal = Math.max(0.0, this.player.gasPedal - dt * 5.8);
     }
 
     if (down) {
-      this.player.brakePedal = Math.min(1.0, this.player.brakePedal + dt * 6.5);
+      this.player.brakePedal = Math.min(1.0, this.player.brakePedal + dt * 5.2);
     } else {
-      this.player.brakePedal = Math.max(0.0, this.player.brakePedal - dt * 7.5);
+      this.player.brakePedal = Math.max(0.0, this.player.brakePedal - dt * 6.8);
     }
 
-    // Dr. Driving PRND Transmission Physics
+    const currentSegment = this.road.findSegment(this.player.z);
+    const prevSpeed = this.player.speed;
+    const speedRatioPre = Math.min(1.5, Math.abs(this.player.speed) / this.player.maxSpeed);
+
+    // Road slope resistance / gravity assist
+    const segSlope = Math.max(-0.15, Math.min(0.15, (currentSegment.p2.y - currentSegment.p1.y) / ROAD.SEGMENT_LENGTH));
+    const slopeForce = segSlope * this.player.accel * 0.55;
+
+    // Dr. Driving PRND Transmission & Realistic Longitudinal Physics
     if (this.player.gearMode === 'P') {
       this.player.speed = 0;
       this.player.pitch *= 0.85;
       sound.stopTireScreech();
     } else if (this.player.gearMode === 'N') {
-      this.player.speed = Math.max(0, this.player.speed - (this.player.accel * 0.45 + this.player.decel * this.player.brakePedal) * dt);
+      const coastDrag = this.player.accel * (0.12 + 0.25 * speedRatioPre * speedRatioPre);
+      const brakeForce = this.player.decel * this.player.brakePedal;
+      this.player.speed = Math.max(0, this.player.speed - (coastDrag + brakeForce + slopeForce * 0.5) * dt);
       this.player.pitch *= 0.85;
       sound.stopTireScreech();
     } else if (this.player.gearMode === 'R') {
       const maxReverse = -3600;
-      if (this.player.gasPedal > 0.05) {
-        this.player.speed = Math.max(maxReverse, this.player.speed - (this.player.accel * 0.72 * this.player.gasPedal) * dt);
-        this.player.pitch = Math.max(-0.05, this.player.pitch - dt * 0.3 * this.player.gasPedal);
-      } else if (this.player.brakePedal > 0.05) {
+      if (this.player.brakePedal > 0.05) {
         this.player.speed = Math.min(0, this.player.speed + (this.player.decel * this.player.brakePedal) * dt);
-        this.player.pitch = Math.min(0.07, this.player.pitch + dt * 0.45 * this.player.brakePedal);
+      } else if (this.player.gasPedal > 0.05) {
+        this.player.speed = Math.max(maxReverse, this.player.speed - (this.player.accel * 0.65 * this.player.gasPedal) * dt);
       } else {
-        this.player.speed = Math.min(0, this.player.speed + (this.player.accel * 0.45) * dt);
-        this.player.pitch *= 0.85;
+        this.player.speed = Math.min(0, this.player.speed + (this.player.accel * 0.35) * dt);
       }
+      const revAccel = (this.player.speed - prevSpeed) / Math.max(0.001, dt);
+      const targetPitch = Math.max(-0.06, Math.min(0.08, revAccel / 120000));
+      this.player.pitch += (targetPitch - this.player.pitch) * Math.min(1, dt * 8);
       sound.stopTireScreech();
     } else {
-      // 'D' (Drive Forward)
-      if (this.player.gasPedal > 0.05) {
-        const accelMultiplier = this.player.isNitroActive ? 2.2 : isBoosting ? 1.6 : 1.0;
-        this.player.speed = Math.min(maxSpeed, this.player.speed + (this.player.accel * accelMultiplier * this.player.gasPedal) * dt);
-        this.player.pitch = Math.max(-0.06, this.player.pitch - dt * 0.4 * this.player.gasPedal);
-      } else if (this.player.brakePedal > 0.05) {
-        this.player.speed = Math.max(0, this.player.speed - (this.player.decel * this.player.brakePedal) * dt);
-        this.player.pitch = Math.min(0.09, this.player.pitch + dt * 0.6 * this.player.brakePedal);
-        if (this.player.speed > 2500) {
+      // 'D' (Drive Forward) — Torque curve + aerodynamic drag + progressive braking
+      const aeroDrag = this.player.accel * (0.07 + 0.28 * speedRatioPre * speedRatioPre);
+
+      if (this.player.brakePedal > 0.05) {
+        // Braking overrides throttle; progressive hydraulic bite
+        const brakeGrip = this.stage.isWetRoad ? 0.84 : 1.0;
+        const brakeForce = this.player.decel * (0.75 + 0.35 * this.player.brakePedal) * this.player.brakePedal * brakeGrip;
+        this.player.speed = Math.max(0, this.player.speed - (brakeForce + aeroDrag + slopeForce) * dt);
+        if (this.player.brakePedal > 0.65 && speedRatioPre > 0.45) {
           this.spawnTireSmoke();
           sound.startTireScreech();
         } else {
           sound.stopTireScreech();
         }
+      } else if (this.player.gasPedal > 0.05) {
+        const accelMultiplier = this.player.isNitroActive ? 2.1 : isBoosting ? 1.55 : 1.0;
+        // Stronger low-end torque in lower gears, tapering smoothly at top speed
+        const torqueCurve = Math.max(0.45, 1.18 - 0.52 * Math.min(1.0, speedRatioPre));
+        const driveForce = this.player.accel * accelMultiplier * torqueCurve * this.player.gasPedal;
+        this.player.speed = Math.max(0, Math.min(maxSpeed, this.player.speed + (driveForce - aeroDrag - slopeForce) * dt));
+        sound.stopTireScreech();
       } else {
-        this.player.speed = Math.max(0, this.player.speed - (this.player.accel * 0.42) * dt);
-        this.player.pitch *= 0.85;
+        // Engine braking + aerodynamic coast-down
+        const engineBrake = this.player.speed > 200 ? this.player.accel * 0.16 : this.player.accel * 0.25;
+        this.player.speed = Math.max(0, this.player.speed - (engineBrake + aeroDrag + slopeForce) * dt);
         sound.stopTireScreech();
       }
+
+      // Weight transfer pitch (squat under acceleration, nose-dive under braking)
+      const longAccel = (this.player.speed - prevSpeed) / Math.max(0.001, dt);
+      const targetPitch = Math.max(-0.07, Math.min(0.09, -longAccel / 110000));
+      this.player.pitch += (targetPitch - this.player.pitch) * Math.min(1, dt * 8.5);
     }
 
     // Off-road penalty & Gravel vibration
@@ -709,23 +754,25 @@ export class GameEngine {
     if (isOffRoad && this.player.gearMode === 'D') {
       const offRoadMax = this.player.maxSpeed * 0.45;
       if (this.player.speed > offRoadMax) {
-        this.player.speed -= this.player.decel * 1.3 * dt;
+        this.player.speed -= this.player.decel * 1.1 * dt;
       }
-      this.screenShake = 1.2;
-      this.player.bounceVelocity += (Math.random() - 0.5) * 8;
+      this.screenShake = 1.1;
+      this.player.bounceVelocity += (Math.random() - 0.5) * 7;
       this.spawnDust();
     }
 
     // Dr. Driving Continuous Steering Wheel Dynamics
+    const speedRatio = Math.abs(this.player.speed) / this.player.maxSpeed;
     if (left) {
-      this.player.steeringWheelAngle = Math.max(-Math.PI * 2.2, this.player.steeringWheelAngle - dt * 8.5);
+      this.player.steeringWheelAngle = Math.max(-Math.PI * 2.2, this.player.steeringWheelAngle - dt * 7.2);
       this.player.turnSignal = 'left';
     } else if (right) {
-      this.player.steeringWheelAngle = Math.min(Math.PI * 2.2, this.player.steeringWheelAngle + dt * 8.5);
+      this.player.steeringWheelAngle = Math.min(Math.PI * 2.2, this.player.steeringWheelAngle + dt * 7.2);
       this.player.turnSignal = 'right';
     } else if (!this.controls?.isWheelDragging) {
-      // Natural caster auto-centering when not actively being dragged or steered
-      this.player.steeringWheelAngle *= Math.pow(0.04, dt);
+      // Natural speed-dependent caster self-centering
+      const casterRate = 0.45 + speedRatio * 1.35;
+      this.player.steeringWheelAngle *= Math.pow(0.06, dt * casterRate);
       if (Math.abs(this.player.steeringWheelAngle) < 0.01) this.player.steeringWheelAngle = 0;
       this.player.turnSignal = 'none';
     }
@@ -733,10 +780,16 @@ export class GameEngine {
     // Steer angle normalized (-1.0 to 1.0)
     this.player.steerAngle = Math.max(-1.0, Math.min(1.0, this.player.steeringWheelAngle / (Math.PI * 2.0)));
 
-    // Lateral displacement along road
-    const speedRatio = Math.abs(this.player.speed) / this.player.maxSpeed;
+    // Speed-sensitive steering authority + lateral tire grip (realistic lane-change momentum)
     const dirSign = this.player.gearMode === 'R' ? -1 : 1;
-    this.player.x += (dirSign * this.player.turnSpeed * this.player.steerAngle * speedRatio) * dt;
+    const lowSpeedAuthority = Math.min(1.0, speedRatio * 2.8);
+    const highSpeedStability = 1.0 - 0.36 * Math.min(1.0, speedRatio);
+    const targetLatVel = dirSign * this.player.turnSpeed * this.player.steerAngle * lowSpeedAuthority * highSpeedStability;
+    const tireGrip = isOffRoad ? 4.2 : this.stage.isWetRoad ? 6.8 : 10.5;
+    this.lateralVelocity += (targetLatVel - this.lateralVelocity) * Math.min(1.0, dt * tireGrip);
+
+    this.player.x += this.lateralVelocity * dt;
+    this.player.x = Math.max(-1.55, Math.min(1.55, this.player.x));
 
     // Pothole alignment bias drift (damaged suspension pulls to side)
     if (Math.abs(this.player.alignmentBias) > 0.01) {
@@ -771,9 +824,11 @@ export class GameEngine {
     this.player.bounceVelocity = Math.max(-25, Math.min(25, this.player.bounceVelocity + (-38 * this.player.bounce - 7 * this.player.bounceVelocity) * dt));
     this.player.bounce = Math.max(-3.5, Math.min(3.5, this.player.bounce + this.player.bounceVelocity * dt));
 
-    // Centrifugal curve drift
-    const currentSegment = this.road.findSegment(this.player.z);
-    this.player.x -= (currentSegment.curve * speedRatio * speedRatio * 1.75) * dt;
+    // Minimal centrifugal push only at extreme overspeed (> 92% max speed) on sharp curves
+    if (speedRatio > 0.92) {
+      const excess = speedRatio - 0.92;
+      this.player.x -= (currentSegment.curve * excess * 0.6) * dt;
+    }
 
     // High speed hard drift
     if ((left || right) && speedRatio > 0.72) {
@@ -814,16 +869,22 @@ export class GameEngine {
     this.playerModel.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
     const clampedRoll = Math.max(-0.35, Math.min(0.35, this.player.roll));
     const clampedPitch = Math.max(-0.25, Math.min(0.25, this.player.pitch));
-    this.playerModel.group.rotateZ(-clampedRoll - this.player.steerAngle * 0.08);
+    // Subtle yaw into the turn/drift so the chassis points along its path
+    const bodyYaw = -this.player.steerAngle * 0.1 * Math.min(1, speedRatio * 1.5);
+    this.playerModel.group.rotateY(bodyYaw);
+    this.playerModel.group.rotateZ(-clampedRoll - this.player.steerAngle * 0.06);
     this.playerModel.group.rotateX(clampedPitch);
 
-    for (const w of this.playerModel.wheels) {
+    for (let wi = 0; wi < this.playerModel.wheels.length; wi++) {
+      const w = this.playerModel.wheels[wi];
+      w.rotation.order = 'YXZ';
       w.rotation.x += dt * (this.player.speed * 0.005);
-    }
-
-    if (this.playerModel.wheels.length >= 2) {
-      this.playerModel.wheels[0].rotation.y = this.player.steerAngle * 0.45;
-      this.playerModel.wheels[1].rotation.y = this.player.steerAngle * 0.45;
+      // Front wheels steer in the actual turn direction (-steerAngle in Three.js +Y-up)
+      if (wi < 2 && (this.player.vehicleId !== 'BAJAJ' || wi === 0)) {
+        w.rotation.y = -this.player.steerAngle * 0.45;
+      } else {
+        w.rotation.y = 0;
+      }
     }
 
     if (this.playerModel.taillights) {
@@ -1461,7 +1522,22 @@ export class GameEngine {
         }
       }
 
-      ui.renderHUD(this.ctx, w, h, this.player, this.stage, this.timeLeft, progress, sound.isMuted, garage.highScore, garage.walletBalance, this.controls?.layout, trailingCars, this.gameMode, this.trafficFlow);
+      ui.renderHUD(
+        this.ctx,
+        w,
+        h,
+        this.player,
+        this.stage,
+        this.timeLeft,
+        progress,
+        sound.isMuted,
+        garage.highScore,
+        garage.walletBalance,
+        this.showOnScreenControls ? this.controls?.layout : undefined,
+        trailingCars,
+        this.gameMode,
+        this.trafficFlow
+      );
     } else if (this.state === 'TITLE') {
       ui.renderTitleScreen(this.ctx, w, h, garage.highScore, garage.walletBalance, this.gameMode, this.trafficFlow);
     } else if (this.state === 'PAUSED') {
