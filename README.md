@@ -84,7 +84,7 @@ An authentic 3D Ethiopian highway arcade racer built with Three.js WebGL, vanill
 | :--- | :--- | :--- |
 | **Steering Wheel** | <kbd>◀</kbd> / <kbd>▶</kbd> or <kbd>A</kbd> / <kbd>D</kbd> | Arc-drag rotational on-screen steering wheel |
 | **Gas Pedal** | <kbd>▲</kbd> or <kbd>W</kbd> | Press & hold on-screen analog Gas pedal |
-| **Brake Pedal** | <kbd>▼</kbd> or <kbd>S</kbd> | Press & hold on-screen analog Brake pedal |
+| **Brake / Reverse** | Hold <kbd>S</kbd> to brake, then reverse. Hold <kbd>W</kbd> to return to drive. <kbd>▼</kbd> operates the brake pedal. | Press & hold on-screen analog Brake pedal |
 | **PRND Shifter** | <kbd>Q</kbd> / <kbd>E</kbd> or <kbd>1</kbd>-<kbd>4</kbd> | Tap/drag on-screen PRND shifter lever slots |
 | **Nitrous Oxide Boost** | <kbd>N</kbd> or <kbd>Shift</kbd> | Auto-boost during high-speed forward acceleration |
 | **Toggle 3D Camera** | <kbd>C</kbd> | Click `🎥 CAM` button (*Chase ➔ Hood ➔ Top-Down*) |
