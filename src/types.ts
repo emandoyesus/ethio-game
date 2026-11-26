@@ -51,7 +51,7 @@ export interface CrossTrafficVehicle {
   speed: number;
   direction: 1 | -1;
   mesh3d?: any;
-  lastCollisionTime?: number;
+  previousX?: number;
 }
 
 export interface IntersectionZone {
@@ -91,6 +91,7 @@ export interface RoadSegment {
   sprites: SpriteInstance[];
   clip: number;
   hasZebraCrossing?: boolean;
+  kioskX?: number;
   hasStopLine?: boolean;
   hasLaneArrows?: boolean;
   intersectionId?: number;
@@ -104,10 +105,14 @@ export interface SpriteInstance {
   width?: number;
   height?: number;
   collected?: boolean;
+  radarChecked?: boolean;
   tag?: string; // e.g. passenger destination
   alertTimer?: number; // reaction when horn is sounded
   targetOffset?: number; // lane change target when yielding
   mesh3d?: any;
+  previousOffset?: number;
+  cruiseSpeed?: number;
+  previousSpeed?: number;
   isOncoming?: boolean;
   oncomingWhooshed?: boolean;
   blinkerState?: 'none' | 'left' | 'right';
