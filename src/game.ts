@@ -1,14 +1,18 @@
 import * as THREE from 'three';
+import { spriteFootprints, sweepContact, vehicleCentreZ, vehicleFootprints } from './collisions';
 import { sound } from './audio';
-import { DrDrivingControls } from './controls';
+import { DrDrivingControls, WHEEL_LOCK } from './controls';
 import { garage } from './garage';
 import { createVehicleMeshById, materials, type Vehicle3DModel } from './models3d';
 import { Renderer3D, type CameraMode } from './renderer3d';
 import { ROAD, RoadManager, STAGES } from './road';
 import { sprites } from './sprites';
 import { Track3D } from './track3d';
-import type { GameState, Particle, Player, RacingLimitsGameMode, RoadSegment, RouteStage, TrafficFlow, TransmissionGear, VehicleId } from './types';
+import type { GameState, Particle, Player, RacingLimitsGameMode, RoadSegment, SpriteInstance, RouteStage, TrafficFlow, TransmissionGear, VehicleId } from './types';
 import { ui } from './ui';
+
+// Leave two road segments behind the starting position for reversing.
+const START_Z = 2 * ROAD.SEGMENT_LENGTH;
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -53,6 +57,8 @@ export class GameEngine {
   // Near miss tracker
   private nearMissCooldown: number = 0;
   private oncomingLaneTimer: number = 0;
+  private lastImpact = new WeakMap<object, number>();
+  private keyboardReverse = false;
   private lateralVelocity: number = 0;
 
   constructor(canvas3d: HTMLCanvasElement, canvasHud: HTMLCanvasElement) {
@@ -105,7 +111,7 @@ export class GameEngine {
     return {
       vehicleId: garage.selectedVehicleId,
       x: 0,
-      z: 0,
+      z: START_Z,
       speed: 0,
       maxSpeed: 12500,
       accel: 5400,
@@ -177,6 +183,7 @@ export class GameEngine {
   private initEventListeners() {
     window.addEventListener('resize', () => this.resize());
 
+    window.addEventListener('blur', () => { this.keys = {}; });
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       this.keys[e.key.toLowerCase()] = true;
       this.keys[e.code] = true;
@@ -386,6 +393,7 @@ export class GameEngine {
   }
 
   public shiftGear(target: TransmissionGear) {
+    this.keyboardReverse = false;
     if (this.player.gearMode === target) return;
     this.player.gearMode = target;
     sound.playTurnSignalClick();
@@ -481,7 +489,7 @@ export class GameEngine {
       this.timeLeft = this.stage.timeLimit;
     }
 
-    this.player.z = 0;
+    this.player.z = START_Z;
     this.player.speed = 0;
     this.lateralVelocity = 0;
     this.player.fuel = this.player.maxFuel;
@@ -517,7 +525,7 @@ export class GameEngine {
     if (this.currentStageIndex < STAGES.length - 1) {
       this.currentStageIndex++;
       this.stage = STAGES[this.currentStageIndex];
-      this.player.z = 0;
+      this.player.z = START_Z;
       this.player.speed = 0;
       this.lateralVelocity = 0;
       this.player.passengersOnBoard = 0;
@@ -665,8 +673,22 @@ export class GameEngine {
     const maxSpeed = this.player.isNitroActive ? this.player.maxSpeed * 1.55 : isBoosting ? this.player.maxSpeed * 1.48 : this.player.maxSpeed;
 
     // 3. User Controls & Analog Pedal Input
-    const up = !!(this.keys['arrowup'] || this.keys['w'] || this.controls?.isGasHeld);
-    const down = !!(this.keys['arrowdown'] || this.keys['s'] || this.controls?.isBrakeHeld);
+    const forward = !!this.keys['w'];
+    const backward = !!this.keys['s'];
+    const pedalBrake = !!(this.keys['arrowdown'] || this.controls?.isBrakeHeld);
+    if (this.player.speed === 0 && !pedalBrake) {
+      if (backward && !forward && this.player.gearMode === 'D') {
+        this.shiftGear('R');
+        this.keyboardReverse = true;
+      } else if (forward && !backward && this.keyboardReverse && this.player.gearMode === 'R') {
+        this.shiftGear('D');
+      }
+    }
+    const reversing = this.player.gearMode === 'R';
+    const forwardBrakes = reversing && this.keyboardReverse;
+    const up = !!(this.keys['arrowup'] || this.controls?.isGasHeld ||
+      (forward && !forwardBrakes) || (backward && reversing));
+    const down = pedalBrake || (backward && !reversing) || (forward && forwardBrakes) || (forward && backward);
     const left = !!(this.keys['arrowleft'] || this.keys['a']);
     const right = !!(this.keys['arrowright'] || this.keys['d']);
 
@@ -683,6 +705,8 @@ export class GameEngine {
     }
 
     const currentSegment = this.road.findSegment(this.player.z);
+    const startX = this.player.x * 9;
+    const startZ = this.player.z;
     const prevSpeed = this.player.speed;
     const speedRatioPre = Math.min(1.5, Math.abs(this.player.speed) / this.player.maxSpeed);
 
@@ -763,22 +787,16 @@ export class GameEngine {
 
     // Dr. Driving Continuous Steering Wheel Dynamics
     const speedRatio = Math.abs(this.player.speed) / this.player.maxSpeed;
-    if (left) {
-      this.player.steeringWheelAngle = Math.max(-Math.PI * 2.2, this.player.steeringWheelAngle - dt * 7.2);
-      this.player.turnSignal = 'left';
-    } else if (right) {
-      this.player.steeringWheelAngle = Math.min(Math.PI * 2.2, this.player.steeringWheelAngle + dt * 7.2);
-      this.player.turnSignal = 'right';
-    } else if (!this.controls?.isWheelDragging) {
-      // Natural speed-dependent caster self-centering
-      const casterRate = 0.45 + speedRatio * 1.35;
-      this.player.steeringWheelAngle *= Math.pow(0.06, dt * casterRate);
-      if (Math.abs(this.player.steeringWheelAngle) < 0.01) this.player.steeringWheelAngle = 0;
-      this.player.turnSignal = 'none';
+    if (!this.controls.isWheelDragging) {
+      const direction = Number(right) - Number(left);
+      const target = direction * WHEEL_LOCK;
+      const angle = this.player.steeringWheelAngle;
+      const rate = direction === 0 ? 4.5 + speedRatio * 2 : angle * direction < 0 ? 6 : 3.2;
+      const travel = WHEEL_LOCK * rate * dt;
+      this.player.steeringWheelAngle += Math.sign(target - angle) * Math.min(travel, Math.abs(target - angle));
     }
-
-    // Steer angle normalized (-1.0 to 1.0)
-    this.player.steerAngle = Math.max(-1.0, Math.min(1.0, this.player.steeringWheelAngle / (Math.PI * 2.0)));
+    this.player.steerAngle = this.player.steeringWheelAngle / WHEEL_LOCK;
+    this.player.turnSignal = this.player.steerAngle < -0.12 ? 'left' : this.player.steerAngle > 0.12 ? 'right' : 'none';
 
     // Speed-sensitive steering authority + lateral tire grip (realistic lane-change momentum)
     const dirSign = this.player.gearMode === 'R' ? -1 : 1;
@@ -789,7 +807,7 @@ export class GameEngine {
     this.lateralVelocity += (targetLatVel - this.lateralVelocity) * Math.min(1.0, dt * tireGrip);
 
     this.player.x += this.lateralVelocity * dt;
-    this.player.x = Math.max(-1.55, Math.min(1.55, this.player.x));
+    this.player.x = Math.max(-3.4, Math.min(3.4, this.player.x));
 
     // Pothole alignment bias drift (damaged suspension pulls to side)
     if (Math.abs(this.player.alignmentBias) > 0.01) {
@@ -831,7 +849,7 @@ export class GameEngine {
     }
 
     // High speed hard drift
-    if ((left || right) && speedRatio > 0.72) {
+    if (Math.abs(this.player.steerAngle) > 0.55 && speedRatio > 0.72) {
       this.player.isDrifting = true;
       this.spawnTireSmoke();
       sound.startTireScreech();
@@ -841,7 +859,8 @@ export class GameEngine {
     }
 
     // Advance distance
-    this.player.z += this.player.speed * dt;
+    this.player.z = Math.max(0, this.player.z + this.player.speed * dt);
+    if (this.player.z === 0 && this.player.speed < 0) this.player.speed = 0;
 
     // Realistic multi-gear calculation
     this.updateRealisticGears(dt);
@@ -858,6 +877,7 @@ export class GameEngine {
     // Update traffic
     this.road.updateTraffic(dt);
     this.road.updateIntersections(dt);
+    this.resolveSolidContacts(startX, startZ, dt);
     this.track3d.updateEntities(this.road, dt, this.player.z);
 
     // Sync 3D player mesh, wheels, headlights, and camera
@@ -912,7 +932,7 @@ export class GameEngine {
     this.renderer3d.update(player3DPos, tangent, normal, speedRatio, this.player.steerAngle, this.player.bounce, dt, isBoosting);
 
     // 4. Collisions, Pickups & Combos
-    this.checkCollisions(currentSegment);
+    this.checkCollisions(this.road.findSegment(this.player.z));
     this.checkIntersectionRules();
 
     // 5. Stage Finish Check (CAREER mode only)
@@ -977,6 +997,105 @@ export class GameEngine {
     sound.updateEngineRealistic(this.player.rpm, this.player.gear, isBoosting);
   }
 
+  private resolveSolidContacts(startX: number, startZ: number, dt: number) {
+    if (dt <= 0) return;
+    const [halfWidth, halfLength] = vehicleFootprints[this.player.vehicleId];
+    const segment = this.road.findSegment(startZ);
+    const metresPerUnit = 6 / (ROAD.SEGMENT_LENGTH * Math.max(0.01, Math.abs(this.track3d.spineTangents[segment.index].z)));
+    type Body = { key: object; x: number; z: number; dx: number; dz: number; w: number; l: number; car?: SpriteInstance; crossing?: boolean };
+    const bodies: Body[] = [];
+    // Include vehicles that moved past the taxi within this frame.
+    const margin = 500 + 4000 * dt;
+    const first = Math.floor((Math.min(startZ, this.player.z) - margin) / ROAD.SEGMENT_LENGTH);
+    const last = Math.ceil((Math.max(startZ, this.player.z) + margin) / ROAD.SEGMENT_LENGTH);
+    for (let i = first; i <= last; i++) {
+      const count = this.road.totalSegments;
+      const seg = this.road.segments[((i % count) + count) % count];
+      const z = i * ROAD.SEGMENT_LENGTH;
+      if (seg.kioskX !== undefined) bodies.push({ key: seg, x: seg.kioskX, z, dx: 0, dz: 0, w: 1.7, l: 3.9 });
+      for (const sprite of seg.sprites) {
+        const size = spriteFootprints[sprite.type];
+        if (!size || sprite.collected) continue;
+        const dx = (sprite.offset - (sprite.previousOffset ?? sprite.offset)) * 9;
+        const dz = (sprite.previousSpeed ?? 0) * dt;
+        const centre = sprite.type === 'TRAFFIC_BAJAJ' ? vehicleCentreZ.BAJAJ :
+          sprite.type === 'TRAFFIC_ISUZU' ? vehicleCentreZ.ISUZU : 0;
+        const centreOffset = (sprite.isOncoming ? -centre : centre) / metresPerUnit;
+        if (sprite.type === 'SCENERY_BUILDING_HOUSE') {
+          bodies.push({ key: sprite, x: sprite.offset * 9 - Math.sign(sprite.offset) * 5, z,
+            dx: 0, dz: 0, w: 0.225, l: 5.5 });
+        }
+        bodies.push({ key: sprite, x: sprite.offset * 9 - dx, z: z + (sprite.zOffset ?? 0) - dz + centreOffset,
+          dx, dz, w: size[0], l: size[1], car: sprite.previousSpeed !== undefined ? sprite : undefined });
+      }
+    }
+    for (const inter of this.road.intersections) {
+      const centre = inter.zStopLine + 2 * ROAD.SEGMENT_LENGTH;
+      if (Math.abs(centre - startZ) > margin + Math.abs(this.player.z - startZ)) continue;
+      for (const car of inter.crossTrafficVehicles) {
+        const [w, l] = vehicleFootprints[car.type];
+        const x = car.previousX ?? car.crossX;
+        bodies.push({ key: car, x: x + car.direction * vehicleCentreZ[car.type], z: centre + car.laneZ / metresPerUnit, dx: car.crossX - x, dz: 0,
+          w: l, l: w, crossing: true });
+      }
+    }
+
+    const playerCentre = vehicleCentreZ[this.player.vehicleId] / metresPerUnit;
+    let x = startX, z = startZ + playerCentre, elapsed = 0;
+    let endX = this.player.x * 9, endZ = this.player.z + playerCentre;
+    for (let pass = 0; pass < 4; pass++) {
+      let firstHit: ReturnType<typeof sweepContact>;
+      let obstacle: Body | undefined;
+      for (const body of bodies) {
+        const hit = sweepContact(x - body.x - elapsed * body.dx, z - body.z - elapsed * body.dz,
+          endX - x - (1 - elapsed) * body.dx, endZ - z - (1 - elapsed) * body.dz,
+          halfWidth + body.w, (halfLength + body.l) / metresPerUnit);
+        if (hit && (!firstHit || hit.time < firstHit.time)) { firstHit = hit; obstacle = body; }
+      }
+      if (!firstHit || !obstacle) break;
+      const { time, lateral, sign } = firstHit;
+      x += (endX - x) * time;
+      z += (endZ - z) * time;
+      elapsed += (1 - elapsed) * time;
+      const closing = lateral ? Math.abs(this.lateralVelocity * 9 - obstacle.dx / dt) :
+        Math.abs(this.player.speed - obstacle.dz / dt) * metresPerUnit;
+      if (lateral) {
+        x = obstacle.x + elapsed * obstacle.dx + sign * (halfWidth + obstacle.w + 0.005);
+        endX = x + (1 - elapsed) * obstacle.dx;
+        this.lateralVelocity = obstacle.dx / (dt * 9);
+      } else {
+        z = obstacle.z + elapsed * obstacle.dz + sign * (halfLength + obstacle.l + 0.005) / metresPerUnit;
+        endZ = z + (1 - elapsed) * obstacle.dz;
+        const car = obstacle.car;
+        if (car) {
+          const trafficSpeed = car.speed ?? 0;
+          car.cruiseSpeed ??= trafficSpeed;
+          const share = this.player.vehicleId === 'ISUZU' ? 0.72 : car.type === 'TRAFFIC_ISUZU' ? 0.2 : 0.45;
+          const common = trafficSpeed + (this.player.speed - trafficSpeed) * share;
+          car.speed = this.player.speed = car.isOncoming ? 0 : common;
+        } else this.player.speed = 0;
+      }
+      const now = performance.now();
+      const previous = this.lastImpact.get(obstacle.key) ?? -Infinity;
+      this.lastImpact.set(obstacle.key, now);
+      if (closing > 1.2 && now - previous > 550) {
+        const force = Math.min(1, closing / 32);
+        this.screenShake = Math.max(this.screenShake, 1 + 5 * force);
+        this.player.bounceVelocity += 2 + 10 * force;
+        if (lateral) this.player.roll += sign * force * 0.18;
+        else this.player.pitch += sign * force * 0.08;
+        this.player.comboCount = 0;
+        if (closing > 5) {
+          sound.playCrash();
+          this.spawnSparks(this.width / 2, this.height - 60);
+          if (obstacle.crossing) this.player.fareCollected = Math.max(0, this.player.fareCollected - 60);
+        } else sound.playSuspensionThud();
+      }
+    }
+    this.player.x = endX / 9;
+    this.player.z = Math.max(0, endZ - playerCentre);
+  }
+
   private checkCollisions(playerSegment: RoadSegment) {
     const isPlow = !!garage.selectedVehicle.isPlow;
     const hitboxW = garage.selectedVehicle.hitboxWidth;
@@ -994,13 +1113,15 @@ export class GameEngine {
         const spriteZ = seg.p1.z + (sprite.zOffset || 0);
         const zDist = Math.abs(spriteZ - this.player.z);
 
+        if (performance.now() - (this.lastImpact.get(sprite) ?? -Infinity) < 550 && sprite.type !== 'TRAFFIC_POLICE') continue;
+
         // Racing Limits: Oncoming Vehicle Doppler Pass & High-Risk Near-Miss
         if (sprite.isOncoming && zDist < 420 && !sprite.oncomingWhooshed) {
           sprite.oncomingWhooshed = true;
           sound.playOncomingWhoosh();
 
           const dx = Math.abs(this.player.x - sprite.offset);
-          if (dx < 1.4 && this.player.speed > 4600) {
+          if (dx < 1.4 && dx * 9 > vehicleFootprints[this.player.vehicleId][0] + (spriteFootprints[sprite.type]?.[0] ?? 0) && this.player.speed > 4600) {
             this.player.comboCount += 2;
             this.player.comboTimer = 5.0;
             this.player.nitro = Math.min(this.player.maxNitro, this.player.nitro + 25);
@@ -1038,31 +1159,7 @@ export class GameEngine {
         if (zDist < ROAD.SEGMENT_LENGTH * 0.72) {
           const dx = Math.abs(this.player.x - sprite.offset);
 
-          // Traffic Collisions
-          if (sprite.type === 'TRAFFIC_LADA' || sprite.type === 'TRAFFIC_BAJAJ' || sprite.type === 'TRAFFIC_ISUZU') {
-            if (dx < hitboxW) {
-              if (isPlow && sprite.type !== 'TRAFFIC_ISUZU') {
-                this.screenShake = 4.0;
-                sound.playCrash();
-                this.player.bounceVelocity += 14;
-                ui.addFloatingText('🚛 ገፍቶ አለፈ! (PLOWED THROUGH!)', this.width / 2, this.height / 2 - 40, '#facc15');
-                sprite.offset += sprite.offset < 0 ? -0.8 : 0.8;
-                sprite.zOffset = (sprite.zOffset || 0) + 300;
-              } else {
-                this.player.speed = Math.min(this.player.speed * 0.22, 2200);
-                this.player.comboCount = 0;
-                this.screenShake = 6.5;
-                this.player.bounceVelocity += 22;
-                this.spawnSparks(this.width / 2, this.height - 60);
-                sound.playCrash();
-                ui.addFloatingText('💥 ግጭት! (CRASH!)', this.width / 2, this.height / 2 - 40, '#ef4444');
-                sprite.zOffset = (sprite.zOffset || 0) + 450;
-              }
-            }
-          }
-
-          // Pothole Impact (Suspension jolt!)
-          else if (sprite.type === 'OBSTACLE_POTHOLE') {
+          if (sprite.type === 'OBSTACLE_POTHOLE') {
             if (dx < hitboxW * 0.8) {
               sound.playSuspensionThud();
               this.player.bounceVelocity += 18; // Suspension jolt!
@@ -1158,8 +1255,8 @@ export class GameEngine {
 
           // Federal Traffic Police Checkpoint Radar Check
           else if (sprite.type === 'TRAFFIC_POLICE') {
-            if (!sprite.collected) {
-              sprite.collected = true;
+            if (!sprite.radarChecked) {
+              sprite.radarChecked = true;
               const kmh = (this.player.speed / this.player.maxSpeed) * 165;
               if (kmh > 58) {
                 sound.playPoliceSiren();
@@ -1220,46 +1317,7 @@ export class GameEngine {
         }
       }
 
-      // 3. Autonomous Cross-Traffic Collision Detection in the Junction Box
-      if (pz >= inter.zStart && pz <= inter.zEnd) {
-        const now = Date.now();
-        const playerX_Meters = this.player.x * 9.0;
 
-        for (const cv of inter.crossTrafficVehicles) {
-          const cvTrackZ = (inter.zStopLine + ROAD.SEGMENT_LENGTH * 2) + cv.laneZ * (ROAD.SEGMENT_LENGTH / 6.0);
-          const dz = Math.abs(pz - cvTrackZ);
-          const dx = Math.abs(playerX_Meters - cv.crossX);
-
-          // Check AABB collision inside intersection grid
-          if (dz < 190 && dx < 2.5) {
-            if (!cv.lastCollisionTime || now - cv.lastCollisionTime > 1500) {
-              cv.lastCollisionTime = now;
-
-              // T-Bone Collision Physics & Acoustic Response
-              sound.playCrash();
-              this.screenShake = 9.5;
-              this.player.bounceVelocity += 26;
-              this.player.roll = cv.direction * 0.42; // Side-impact rollover tilt
-              this.player.speed = Math.max(0, this.player.speed * 0.12 - 400);
-              this.player.comboCount = 0;
-
-              // Displace cross vehicle to prevent multi-hit sticking
-              cv.crossX += cv.direction * 6.5;
-
-              // Visual FX: sparks & tire smoke
-              this.spawnSparks(this.width / 2 + this.player.x * 120, this.height - 70);
-              this.spawnTireSmoke();
-              sound.speakWeyala('POTHOLE_SCARE');
-
-              const penalty = Math.min(60, this.player.fareCollected);
-              this.player.fareCollected = Math.max(0, this.player.fareCollected - 60);
-
-              ui.showToast(`💥 የመስቀለኛ መንገድ ግጭት! (-${penalty} ETB T-BONE IMPACT!)`, '💥', '#ef4444');
-              ui.addFloatingText(`💥 T-BONE IMPACT! -${penalty} ETB`, this.width / 2, this.height / 2 - 40, '#ef4444');
-            }
-          }
-        }
-      }
     }
   }
 
