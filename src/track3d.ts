@@ -17,6 +17,7 @@ import {
   createEucalyptusTree3D,
   createStreetLamp3D,
   createBillboard3D,
+  createBuilding3D,
   createTaxiSign3D,
   createCheckpointGate3D,
   createCBETower3D,
@@ -149,8 +150,13 @@ export class Track3D {
     const t = Math.max(0, Math.min(1, fractZ / segLength3D));
 
     const pos = new THREE.Vector3().lerpVectors(p0, p1, t);
-    const tangent = this.spineTangents[segIdx] || new THREE.Vector3(0, 0, 1);
-    const normal = this.spineNormals[segIdx] || new THREE.Vector3(1, 0, 0);
+    const t0 = this.spineTangents[segIdx] || new THREE.Vector3(0, 0, 1);
+    const t1 = this.spineTangents[nextIdx] || t0;
+    const tangent = new THREE.Vector3().lerpVectors(t0, t1, t).normalize();
+
+    const n0 = this.spineNormals[segIdx] || new THREE.Vector3(1, 0, 0);
+    const n1 = this.spineNormals[nextIdx] || n0;
+    const normal = new THREE.Vector3().lerpVectors(n0, n1, t).normalize();
 
     return { pos, tangent, normal };
   }
@@ -166,6 +172,9 @@ export class Track3D {
 
     const shoulderVerts: number[] = [];
     const shoulderIndices: number[] = [];
+
+    const grassVerts: number[] = [];
+    const grassIndices: number[] = [];
 
     const markVerts: number[] = [];
     const markIndices: number[] = [];
@@ -201,6 +210,18 @@ export class Track3D {
       shoulderVerts.push(rightRoad.x, rightRoad.y - 0.01, rightRoad.z);
       shoulderVerts.push(rightShoulderOut.x, rightShoulderOut.y, rightShoulderOut.z);
 
+      // Elevation-matched roadside grass apron extending 130m outward on both sides
+      const grassWidth = 130;
+      const leftGrassOut = p.clone().addScaledVector(normal, -(roadHalfWidth + shoulderWidth + grassWidth));
+      const rightGrassOut = p.clone().addScaledVector(normal, roadHalfWidth + shoulderWidth + grassWidth);
+      leftGrassOut.y -= 0.04;
+      rightGrassOut.y -= 0.04;
+
+      grassVerts.push(leftGrassOut.x, leftGrassOut.y, leftGrassOut.z);
+      grassVerts.push(leftShoulderOut.x, leftShoulderOut.y - 0.02, leftShoulderOut.z);
+      grassVerts.push(rightShoulderOut.x, rightShoulderOut.y - 0.02, rightShoulderOut.z);
+      grassVerts.push(rightGrassOut.x, rightGrassOut.y, rightGrassOut.z);
+
       if (i < count - 1) {
         // Counter-Clockwise Road Quad facing UPWARDS: (r0, r2, r1) and (r1, r2, r3)
         const r0 = i * 2;
@@ -226,6 +247,10 @@ export class Track3D {
         const sr3 = (i + 1) * 4 + 3;
         shoulderIndices.push(sr0, sr2, sr1);
         shoulderIndices.push(sr1, sr2, sr3);
+
+        // Left & Right Grass Apron Quads
+        grassIndices.push(sl0, sl2, sl1, sl1, sl2, sl3);
+        grassIndices.push(sr0, sr2, sr1, sr1, sr2, sr3);
       }
 
       // Markings (Dashed highway lines, Stop Lines & Zebra crossings)
@@ -319,6 +344,22 @@ export class Track3D {
     this.shoulderMesh = new THREE.Mesh(shoulderGeo, shoulderMat);
     this.shoulderMesh.receiveShadow = true;
     this.roadGroup.add(this.shoulderMesh);
+
+    // Elevation-Matched Roadside Grass Apron Mesh
+    const grassGeo = new THREE.BufferGeometry();
+    grassGeo.setAttribute('position', new THREE.Float32BufferAttribute(grassVerts, 3));
+    grassGeo.setIndex(grassIndices);
+    grassGeo.computeVertexNormals();
+
+    const grassColor = stage.skyTheme === 'night' ? 0x061e14 : stage.skyTheme === 'sunset' ? 0x3b2f1e : 0x265c3a;
+    const grassMat = new THREE.MeshStandardMaterial({
+      color: grassColor,
+      roughness: 0.95,
+      side: THREE.DoubleSide
+    });
+    const grassMesh = new THREE.Mesh(grassGeo, grassMat);
+    grassMesh.receiveShadow = true;
+    this.roadGroup.add(grassMesh);
 
     // Reflective Road Markings Mesh
     if (markVerts.length > 0) {
@@ -492,6 +533,26 @@ export class Track3D {
         return createStreetLamp3D();
       case 'SCENERY_BILLBOARD':
         return createBillboard3D();
+      case 'SCENERY_BUILDING_APARTMENT': {
+        const b = createBuilding3D('APARTMENT');
+        b.userData.isBuilding = true;
+        return b;
+      }
+      case 'SCENERY_BUILDING_SHOP': {
+        const b = createBuilding3D('SHOP');
+        b.userData.isBuilding = true;
+        return b;
+      }
+      case 'SCENERY_BUILDING_TOWER': {
+        const b = createBuilding3D('TOWER');
+        b.userData.isBuilding = true;
+        return b;
+      }
+      case 'SCENERY_BUILDING_HOUSE': {
+        const b = createBuilding3D('HOUSE');
+        b.userData.isBuilding = true;
+        return b;
+      }
       case 'CHECKPOINT_GATE':
         return createCheckpointGate3D();
       default:
@@ -566,8 +627,9 @@ export class Track3D {
         if (dist < -totalTrackZ / 2) dist += totalTrackZ;
         if (dist > totalTrackZ / 2) dist -= totalTrackZ;
 
-        // View frustum draw distance (~270m ahead, 20m behind for smooth 60 FPS)
-        if (dist < -1200 || dist > 18000) {
+        // View frustum draw distance (~330m ahead for buildings, 270m for entities)
+        const maxDrawDist = mesh.userData.isBuilding ? 22000 : 18000;
+        if (dist < -1500 || dist > maxDrawDist) {
           mesh.visible = false;
           continue;
         }
@@ -580,6 +642,9 @@ export class Track3D {
         // Align mesh orientation with track tangent (face oncoming vehicles 180° towards player)
         const meshDir = sprite.isOncoming ? tangent.clone().negate() : tangent;
         mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), meshDir);
+        if (mesh.userData.isBuilding) {
+          mesh.rotateY(sprite.offset < 0 ? Math.PI / 2 : -Math.PI / 2);
+        }
 
         // Racing Limits: Traffic Turn Signal Blinker & Hazard Animation
         const vModel = mesh.userData?.vehicleModel as Vehicle3DModel | undefined;
@@ -613,6 +678,9 @@ export class Track3D {
           mesh.position.copy(worldPos);
         } else if (sprite.type === 'OBSTACLE_POTHOLE') {
           worldPos.y += 0.04;
+          mesh.position.copy(worldPos);
+        } else if (sprite.type === 'PASSENGER' || sprite.type.startsWith('PASSENGER_')) {
+          worldPos.y += 0.02 + Math.abs(Math.sin(now * 0.005 + spriteZ * 0.01)) * 0.14;
           mesh.position.copy(worldPos);
         } else {
           worldPos.y += 0.02;

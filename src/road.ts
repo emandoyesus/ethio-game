@@ -192,15 +192,29 @@ export class RoadManager {
       });
     }
 
+    const intersectionFracs = stage.id === 1
+      ? [0.28, 0.68]
+      : stage.id === 2
+      ? [0.24, 0.55, 0.82]
+      : [0.28, 0.65];
+    const intersectionSegs = intersectionFracs.map(f => Math.floor(total * f));
+    const policeSegIdx = Math.floor(total * 0.52);
+
+    const isNearSpecialZone = (segIdx: number, margin: number): boolean => {
+      if (Math.abs(segIdx - policeSegIdx) <= margin) return true;
+      return intersectionSegs.some(iseg => Math.abs(segIdx - iseg) <= margin);
+    };
+
     // Roadside Scenery (Trees, Lights, Billboards)
     for (let i = 10; i < total - 30; i += 4) {
+      if (isNearSpecialZone(i, 6)) continue;
       const seg = this.segments[i];
       const isLeft = (i / 4) % 2 === 0;
-      const side = isLeft ? -1.8 - Math.random() * 1.2 : 1.8 + Math.random() * 1.2;
+      const side = isLeft ? -1.55 - Math.random() * 0.45 : 1.55 + Math.random() * 0.45;
 
       let sceneryType: SpriteType;
       const roll = Math.random();
-      if (stage.id === 3) {
+      if (stage.id === 3 && i > total * 0.55) {
         sceneryType = roll > 0.4 ? 'SCENERY_EUCALYPTUS' : 'SCENERY_ACACIA';
       } else {
         if (roll < 0.4) sceneryType = 'SCENERY_LAMP';
@@ -213,6 +227,51 @@ export class RoadManager {
         type: sceneryType,
         offset: side
       });
+    }
+
+    // Roadside Buildings lining both sides of the road
+    const buildingStep = stage.id === 3 ? 8 : 5;
+    for (let i = 12; i < total - 32; i += buildingStep) {
+      if (isNearSpecialZone(i, 8)) continue;
+      // Upper Entoto mountain climb transitions from urban Merkato to mountain forest
+      if (stage.id === 3 && i > total * 0.6 && Math.random() < 0.7) continue;
+
+      const seg = this.segments[i];
+      if (!seg) continue;
+
+      const sides = [-1, 1];
+      for (const dir of sides) {
+        // Leave occasional gaps for natural skyline variety
+        if (Math.random() < 0.14) continue;
+        const offset = dir * (2.55 + Math.random() * 0.75);
+        const roll = Math.random();
+        let bType: SpriteType;
+        if (stage.id === 2) {
+          // Bole boulevard: modern towers, apartments, shops
+          bType = roll < 0.35
+            ? 'SCENERY_BUILDING_TOWER'
+            : roll < 0.68
+            ? 'SCENERY_BUILDING_APARTMENT'
+            : 'SCENERY_BUILDING_SHOP';
+        } else if (stage.id === 1) {
+          // Megenagna to Piazza: mix of shops, apartments, houses, towers
+          bType = roll < 0.35
+            ? 'SCENERY_BUILDING_SHOP'
+            : roll < 0.65
+            ? 'SCENERY_BUILDING_APARTMENT'
+            : roll < 0.85
+            ? 'SCENERY_BUILDING_HOUSE'
+            : 'SCENERY_BUILDING_TOWER';
+        } else {
+          // Merkato to Entoto: shops and neighborhood houses
+          bType = roll < 0.55 ? 'SCENERY_BUILDING_SHOP' : 'SCENERY_BUILDING_HOUSE';
+        }
+
+        seg.sprites.push({
+          type: bType,
+          offset
+        });
+      }
     }
 
     // Passengers waiting at Taxi Stops on right shoulder
@@ -283,7 +342,6 @@ export class RoadManager {
     }
 
     // Federal Traffic Police Checkpoint ("ትራፊክ ፖሊስ ኬላ")
-    const policeSegIdx = Math.floor(total * 0.52);
     if (this.segments[policeSegIdx - 18]) {
       this.segments[policeSegIdx - 18].sprites.push({
         type: 'SCENERY_RADAR_SIGN',
@@ -326,27 +384,54 @@ export class RoadManager {
       }
     }
 
-    // Traffic Vehicles
-    const trafficCount = stage.id === 1 ? 40 : stage.id === 2 ? 65 : 55;
+    // Traffic Vehicles (well-spaced so lanes remain navigable)
+    const trafficCount = stage.id === 1 ? 18 : stage.id === 2 ? 26 : 20;
+    const laneOccupied: Record<number, number[]> = { [-0.65]: [], 0: [], [0.65]: [] };
+    const allTrafficSegs: number[] = [];
+
     for (let t = 0; t < trafficCount; t++) {
-      const segIndex = 50 + Math.floor(Math.random() * (total - 120));
+      let segIndex = -1;
+      let lane = 0;
+      let isOncoming = false;
+
+      // Try up to 25 candidate positions to find a well-spaced slot
+      for (let attempt = 0; attempt < 25; attempt++) {
+        const candSeg = 55 + Math.floor(Math.random() * (total - 125));
+        if (isNearSpecialZone(candSeg, 12)) continue;
+
+        let candLane = [-0.65, 0, 0.65][Math.floor(Math.random() * 3)];
+        let candOncoming = false;
+        if (trafficFlow === 'TWO_WAY') {
+          if (Math.random() < 0.4) {
+            candLane = -0.65;
+            candOncoming = true;
+          } else {
+            candLane = Math.random() < 0.5 ? 0 : 0.65;
+          }
+        }
+
+        // Enforce minimum 14 segments between cars in the same lane
+        const sameLaneClear = laneOccupied[candLane].every(s => Math.abs(s - candSeg) >= 14);
+        if (!sameLaneClear) continue;
+
+        // Prevent all 3 lanes from being blocked in the same 6-segment window
+        const nearbyCount = allTrafficSegs.filter(s => Math.abs(s - candSeg) <= 6).length;
+        if (nearbyCount >= 2) continue;
+
+        segIndex = candSeg;
+        lane = candLane;
+        isOncoming = candOncoming;
+        break;
+      }
+
+      if (segIndex === -1) continue;
       const seg = this.segments[segIndex];
       if (!seg) continue;
 
-      let lane = [-0.65, 0, 0.65][Math.floor(Math.random() * 3)];
+      laneOccupied[lane].push(segIndex);
+      allTrafficSegs.push(segIndex);
+
       const roll = Math.random();
-
-      // In Two-Way traffic mode: left lane (offset -0.65) is dedicated oncoming traffic!
-      let isOncoming = false;
-      if (trafficFlow === 'TWO_WAY') {
-        if (Math.random() < 0.44) {
-          lane = -0.65;
-          isOncoming = true;
-        } else {
-          lane = Math.random() < 0.5 ? 0 : 0.65;
-        }
-      }
-
       let vType: SpriteType;
       let speed: number;
 

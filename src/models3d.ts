@@ -59,7 +59,21 @@ export const materials = {
   flameBlue: new THREE.MeshBasicMaterial({ color: 0x00f0ff }),
   flameOrange: new THREE.MeshBasicMaterial({ color: 0xff5500 }),
   asphaltPaintWhite: new THREE.MeshBasicMaterial({ color: 0xf8fafc, side: THREE.DoubleSide }),
-  asphaltPaintYellow: new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide })
+  asphaltPaintYellow: new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide }),
+
+  // Roadside Building Materials
+  bldgStuccoCream: new THREE.MeshStandardMaterial({ color: 0xe7dcc8, roughness: 0.85 }),
+  bldgStuccoTerracotta: new THREE.MeshStandardMaterial({ color: 0xc26d4a, roughness: 0.85 }),
+  bldgConcrete: new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.9 }),
+  bldgDarkTrim: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 }),
+  bldgWindowLit: new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfde047, emissiveIntensity: 0.55, roughness: 0.2 }),
+  bldgWindowDark: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.6 }),
+  bldgGlassBlue: new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.15, metalness: 0.85 }),
+  bldgRoofRed: new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.75 }),
+  bldgRoofMetal: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.5, metalness: 0.5 }),
+  bldgAwningGreen: new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.7 }),
+  bldgAwningGold: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 }),
+  bldgWaterTank: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 })
 };
 
 export interface Vehicle3DModel {
@@ -1164,6 +1178,115 @@ export function createLaneArrowMesh3D(direction: 'STRAIGHT' | 'LEFT' | 'RIGHT'):
     tip.position.set(0.85, 0.09, 0.85);
     tip.rotation.y = -Math.PI / 6;
     group.add(tip);
+  }
+
+  return group;
+}
+
+// 24. Ethiopian Roadside Buildings (Apartments, Shops, Commercial Towers, Neighborhood Houses)
+export function createBuilding3D(variant: 'APARTMENT' | 'SHOP' | 'TOWER' | 'HOUSE'): THREE.Group {
+  const group = new THREE.Group();
+
+  if (variant === 'SHOP') {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(10.5, 7.2, 8.0), materials.bldgStuccoCream);
+    body.position.y = 3.6;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    const roofTrim = new THREE.Mesh(new THREE.BoxGeometry(11.0, 0.5, 8.4), materials.bldgStuccoTerracotta);
+    roofTrim.position.y = 7.45;
+    group.add(roofTrim);
+
+    const awningMat = Math.random() > 0.5 ? materials.bldgAwningGreen : materials.bldgAwningGold;
+    const awning = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.35, 1.8), awningMat);
+    awning.position.set(0, 3.1, 4.6);
+    awning.rotation.x = 0.22;
+    group.add(awning);
+
+    const shopWindow = new THREE.Mesh(new THREE.BoxGeometry(7.2, 2.2, 0.15), materials.bldgWindowLit);
+    shopWindow.position.set(0, 1.4, 4.02);
+    group.add(shopWindow);
+
+    for (const wx of [-3.2, 0, 3.2]) {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 0.15), materials.bldgWindowDark);
+      win.position.set(wx, 5.2, 4.02);
+      group.add(win);
+    }
+  } else if (variant === 'APARTMENT') {
+    const floors = 4 + Math.floor(Math.random() * 2);
+    const h = floors * 3.4;
+    const wallMat = Math.random() > 0.45 ? materials.bldgStuccoCream : materials.bldgStuccoTerracotta;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(12.0, h, 9.5), wallMat);
+    body.position.y = h / 2;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(12.4, 0.45, 9.9), materials.bldgDarkTrim);
+    roof.position.y = h + 0.22;
+    group.add(roof);
+
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 1.8, 10), materials.bldgWaterTank);
+    tank.position.set(-3.2, h + 1.35, -1.5);
+    group.add(tank);
+
+    for (let f = 0; f < floors; f++) {
+      const wy = 2.0 + f * 3.4;
+      for (const wx of [-3.8, -1.3, 1.3, 3.8]) {
+        const isLit = (f + Math.abs(wx)) % 2 === 0;
+        const win = new THREE.Mesh(
+          new THREE.BoxGeometry(1.6, 1.5, 0.15),
+          isLit ? materials.bldgWindowLit : materials.bldgWindowDark
+        );
+        win.position.set(wx, wy, 4.78);
+        group.add(win);
+      }
+    }
+  } else if (variant === 'TOWER') {
+    const floors = 7 + Math.floor(Math.random() * 3);
+    const h = floors * 3.6;
+    const core = new THREE.Mesh(new THREE.BoxGeometry(13.0, h, 11.0), materials.bldgConcrete);
+    core.position.y = h / 2;
+    core.castShadow = true;
+    core.receiveShadow = true;
+    group.add(core);
+
+    const facade = new THREE.Mesh(new THREE.BoxGeometry(11.6, h - 1.6, 11.2), materials.bldgGlassBlue);
+    facade.position.y = h / 2 + 0.4;
+    group.add(facade);
+
+    for (let f = 1; f < floors; f++) {
+      const band = new THREE.Mesh(new THREE.BoxGeometry(13.2, 0.45, 11.3), materials.bldgDarkTrim);
+      band.position.y = f * 3.6;
+      group.add(band);
+    }
+
+    const crown = new THREE.Mesh(new THREE.BoxGeometry(8.5, 1.6, 0.6), materials.bldgWindowLit);
+    crown.position.set(0, h + 0.8, 4.8);
+    group.add(crown);
+  } else {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(9.0, 4.0, 7.5), materials.bldgStuccoCream);
+    body.position.y = 2.0;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(6.8, 2.4, 4), materials.bldgRoofRed);
+    roof.position.y = 5.2;
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    group.add(roof);
+
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(11.0, 1.8, 0.45), materials.bldgConcrete);
+    wall.position.set(0, 0.9, 5.0);
+    group.add(wall);
+
+    for (const wx of [-2.4, 2.4]) {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.3, 0.15), materials.bldgWindowLit);
+      win.position.set(wx, 2.3, 3.78);
+      group.add(win);
+    }
   }
 
   return group;
