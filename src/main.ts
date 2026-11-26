@@ -15,28 +15,31 @@ app.innerHTML = `
         <span class="brand-sub">ADDIS TAXI RUSH</span>
       </div>
       <div class="header-actions">
-        <button id="btnCamera" class="arcade-btn" title="Toggle 3D Camera View (C)">
+        <button id="btnCamera" class="arcade-btn" title="Switch Camera View: Chase, Hood, or Top-Down (C)">
           🎥 <span>CAM</span>
         </button>
-        <button id="btnRadio" class="arcade-btn" title="Toggle Addis Taxi FM Radio (R)">
+        <button id="btnRadio" class="arcade-btn" title="Next Addis Taxi FM Radio Station (R)">
           📻 <span>RADIO</span>
         </button>
-        <button id="btnGarage" class="arcade-btn" title="Vehicle Garage & Upgrades (G)">
+        <button id="btnGarage" class="arcade-btn" title="Open Vehicle Garage & Upgrades (G)">
           🚗 <span>GARAGE</span>
         </button>
-        <button id="btnAudio" class="arcade-btn" title="Toggle Sound (M)">
+        <button id="btnAudio" class="arcade-btn" title="Mute or Unmute Sound (M)">
           🔊 <span>AUDIO</span>
         </button>
-        <button id="btnPause" class="arcade-btn" title="Pause Game (P)">
+        <button id="btnPause" class="arcade-btn" title="Pause or Resume Game (P)">
           ⏸️ <span>PAUSE</span>
         </button>
-        <button id="btnPerf" class="arcade-btn" title="Toggle 60 FPS Performance Mode (O)">
-          ⚡ <span>PERF</span>
+        <button id="btnTouchControls" class="arcade-btn" title="Show or Hide On-Screen Steering Wheel & Pedals">
+          🎡 <span>WHEEL</span>
         </button>
-        <button id="btnCrt" class="arcade-btn" title="Toggle CRT Scanlines">
-          📺 <span>CRT</span>
+        <button id="btnPerf" class="arcade-btn" title="Toggle 60 FPS Performance Mode (Shadows Off) (O)">
+          ⚡ <span>FPS</span>
         </button>
-        <button id="btnFullscreen" class="arcade-btn" title="Fullscreen">
+        <button id="btnCrt" class="arcade-btn" title="Toggle Retro Scanline Filter">
+          📺 <span>RETRO</span>
+        </button>
+        <button id="btnFullscreen" class="arcade-btn" title="Toggle Fullscreen">
           ⛶ <span>FULL</span>
         </button>
       </div>
@@ -45,7 +48,7 @@ app.innerHTML = `
     <div class="canvas-viewport" id="canvasViewport">
       <canvas id="gameCanvas3d"></canvas>
       <canvas id="gameCanvasHud"></canvas>
-      <div class="scanlines" id="scanlines"></div>
+      <div class="scanlines off" id="scanlines"></div>
 
       <!-- On-screen touch buttons for mobile / tablet devices -->
       <div class="touch-controls">
@@ -148,6 +151,24 @@ const btnCrt = document.getElementById('btnCrt')!;
 btnCrt.addEventListener('click', (e) => {
   e.stopPropagation();
   scanlines.classList.toggle('off');
+});
+
+const btnTouchControls = document.getElementById('btnTouchControls')!;
+const syncWheelBtn = () => {
+  btnTouchControls.innerHTML = game.showOnScreenControls
+    ? `🎡 <span style="color:#38bdf8">WHEEL ON</span>`
+    : `🎡 <span>WHEEL</span>`;
+};
+syncWheelBtn();
+btnTouchControls.addEventListener('click', (e) => {
+  e.stopPropagation();
+  game.showOnScreenControls = !game.showOnScreenControls;
+  syncWheelBtn();
+  ui.showToast(
+    game.showOnScreenControls ? '🎡 On-screen Wheel & Pedals ON' : '⌨️ Clean Keyboard HUD Mode',
+    game.showOnScreenControls ? '🎡' : '⌨️',
+    '#38bdf8'
+  );
 });
 
 const btnFullscreen = document.getElementById('btnFullscreen')!;

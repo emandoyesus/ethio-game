@@ -55,6 +55,20 @@ export class UIManager {
   private toastCounter: number = 0;
   public garageHitboxes: GarageButtonHitbox[] = [];
   public titleHitboxes: TitleHitbox[] = [];
+  public overlayHitboxes: TitleHitbox[] = [];
+  private hoverX: number = -1;
+  private hoverY: number = -1;
+  private smoothSpeedKmh: number = 0;
+  private smoothRpmRatio: number = 0.12;
+
+  public setHover(x: number, y: number) {
+    this.hoverX = x;
+    this.hoverY = y;
+  }
+
+  private isHovered(x: number, y: number, w: number, h: number): boolean {
+    return this.hoverX >= x && this.hoverX <= x + w && this.hoverY >= y && this.hoverY <= y + h;
+  }
 
   public showToast(text: string, icon: string = '📢', color: string = '#facc15') {
     this.toasts.unshift({
@@ -162,17 +176,18 @@ export class UIManager {
     // Dr. Driving Windshield Active Rearview Mirror & Reverse Cam
     this.renderRearviewMirror(ctx, width, player, trailingCars);
 
-    // Left: Route Title & Economy Badge
+    // Left: Route Title & Economy Badge (Responsive width)
+    const leftW = Math.min(250, Math.max(175, width * 0.25));
     ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
     ctx.beginPath();
-    ctx.roundRect(14, 8, 270, 38, 6);
+    ctx.roundRect(14, 8, leftW, 38, 6);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
     ctx.fillStyle = '#facc15';
-    ctx.font = 'bold 13px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+    ctx.font = 'bold 12px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'left';
     const modeAmh = gameMode === 'INFINITE'
       ? '♾️ ማለቂያ የሌለው (INFINITE)'
@@ -181,17 +196,30 @@ export class UIManager {
       : gameMode === 'FREE_RIDE'
       ? '🕊️ ነፃ ጉዞ (FREE RIDE)'
       : `${stage.nameAmharic}`;
-    ctx.fillText(modeAmh, 24, 24);
+    ctx.fillText(modeAmh, 22, 24, leftW - 16);
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '10px "Chakra Petch", sans-serif';
-    const flowText = trafficFlow === 'TWO_WAY' ? '⚡ TWO-WAY' : '➡️ ONE-WAY';
-    ctx.fillText(`${stage.name}  •  ${flowText}  •  💼 ${walletBalance} ETB  •  👑 ${highScore}`, 24, 38);
+    const flowText = trafficFlow === 'TWO_WAY' ? '⚡ 2-WAY' : '➡️ 1-WAY';
+    ctx.fillText(`${flowText}  •  WALLET: ${walletBalance}  •  BEST: ${highScore} ETB`, 22, 38, leftW - 16);
 
-    // Center: Modern Route Progress Bar with Kilometers Remaining
-    const progW = Math.min(280, width * 0.3);
-    const progX = (width - progW) / 2;
-    const progY = 16;
+    // Right: Essential Objectives (Shift Time, Passengers, Fare)
+    const timeColor = timeLeft < 15 ? '#ef4444' : '#facc15';
+    const passTargetMet = player.passengersOnBoard >= stage.targetPassengers;
+    const fareW = 78;
+    const passW = 86;
+    const timeW = 68;
+    const badgeGap = 6;
+    const fareX = width - 14 - fareW;
+    const passX = fareX - badgeGap - passW;
+    const timeX = passX - badgeGap - timeW;
+
+    // Center: Modern Route Progress Bar (bounded between left and right badges)
+    const centerLeft = 14 + leftW + 12;
+    const centerRight = timeX - 12;
+    const progW = Math.max(90, Math.min(260, centerRight - centerLeft));
+    const progX = centerLeft + (centerRight - centerLeft - progW) / 2;
+    const progY = 14;
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.beginPath();
@@ -227,24 +255,21 @@ export class UIManager {
     ctx.fillStyle = '#94a3b8';
     ctx.font = 'bold 9px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
+    const progCenterX = progX + progW / 2;
     if (gameMode === 'INFINITE') {
-      ctx.fillText(`♾️ INFINITE HIGHWAY: ${(player.z / 1000).toFixed(2)} KM SURVIVED`, width / 2, progY + 22);
+      ctx.fillText(`♾️ ${(player.z / 1000).toFixed(2)} KM DRIVEN`, progCenterX, progY + 22, progW + 20);
     } else if (gameMode === 'TIME_ATTACK') {
-      ctx.fillText(`⏱️ TIME ATTACK: ${(player.z / 1000).toFixed(2)} KM • OVERTAKES ADD +2.5s!`, width / 2, progY + 22);
+      ctx.fillText(`⏱️ ${(player.z / 1000).toFixed(2)} KM • CLOSE PASS = +2.5s`, progCenterX, progY + 22, progW + 20);
     } else if (gameMode === 'FREE_RIDE') {
-      ctx.fillText(`🕊️ FREE CRUISE: ${(player.z / 1000).toFixed(2)} KM • NO PRESSURE`, width / 2, progY + 22);
+      ctx.fillText(`🕊️ ${(player.z / 1000).toFixed(2)} KM • FREE CRUISE`, progCenterX, progY + 22, progW + 20);
     } else {
-      ctx.fillText(`ROUTE DISTANCE: ${currentKm} / ${totalKm} KM`, width / 2, progY + 22);
+      ctx.fillText(`DISTANCE: ${currentKm} / ${totalKm} KM`, progCenterX, progY + 22, progW + 20);
     }
-
-    // Right: Essential Objectives (Shift Time, Passengers, Fare)
-    const timeColor = timeLeft < 15 ? '#ef4444' : '#facc15';
-    const passTargetMet = player.passengersOnBoard >= stage.targetPassengers;
 
     // Time Left / Mode Badge
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
-    ctx.roundRect(width - 275, 8, 72, 38, 6);
+    ctx.roundRect(timeX, 8, timeW, 38, 6);
     ctx.fill();
     ctx.strokeStyle = gameMode === 'FREE_RIDE' ? '#38bdf8' : timeColor;
     ctx.lineWidth = 1;
@@ -254,26 +279,26 @@ export class UIManager {
     ctx.font = 'bold 15px "Chakra Petch", monospace';
     ctx.textAlign = 'center';
     if (gameMode === 'FREE_RIDE') {
-      ctx.fillText('FREE', width - 239, 25);
+      ctx.fillText('FREE', timeX + timeW / 2, 25);
       ctx.fillStyle = '#94a3b8';
       ctx.font = '8px "Chakra Petch", sans-serif';
-      ctx.fillText('CRUISE', width - 239, 38);
+      ctx.fillText('CRUISE', timeX + timeW / 2, 38);
     } else if (gameMode === 'INFINITE') {
-      ctx.fillText(`${(player.z / 1000).toFixed(1)}K`, width - 239, 25);
+      ctx.fillText(`${(player.z / 1000).toFixed(1)}K`, timeX + timeW / 2, 25);
       ctx.fillStyle = '#94a3b8';
       ctx.font = '8px "Chakra Petch", sans-serif';
-      ctx.fillText('KM DIST', width - 239, 38);
+      ctx.fillText('KM DIST', timeX + timeW / 2, 38);
     } else {
-      ctx.fillText(`${Math.max(0, Math.ceil(timeLeft))}s`, width - 239, 25);
+      ctx.fillText(`${Math.max(0, Math.ceil(timeLeft))}s`, timeX + timeW / 2, 25);
       ctx.fillStyle = '#94a3b8';
       ctx.font = '8px "Chakra Petch", sans-serif';
-      ctx.fillText('TIME LEFT', width - 239, 38);
+      ctx.fillText('TIME LEFT', timeX + timeW / 2, 38);
     }
 
     // Passengers Delivered Badge
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
-    ctx.roundRect(width - 195, 8, 92, 38, 6);
+    ctx.roundRect(passX, 8, passW, 38, 6);
     ctx.fill();
     ctx.strokeStyle = passTargetMet ? '#22c55e' : '#38bdf8';
     ctx.lineWidth = 1;
@@ -281,15 +306,15 @@ export class UIManager {
 
     ctx.fillStyle = passTargetMet ? '#22c55e' : '#38bdf8';
     ctx.font = 'bold 14px "Chakra Petch", monospace';
-    ctx.fillText(`👥 ${player.passengersOnBoard}/${stage.targetPassengers}`, width - 149, 25);
+    ctx.fillText(`👥 ${player.passengersOnBoard}/${stage.targetPassengers}`, passX + passW / 2, 25);
     ctx.fillStyle = '#94a3b8';
     ctx.font = '8px "Chakra Petch", sans-serif';
-    ctx.fillText(passTargetMet ? 'GOAL MET' : 'PASSENGERS', width - 149, 38);
+    ctx.fillText(passTargetMet ? 'GOAL MET' : 'PASSENGERS', passX + passW / 2, 38);
 
     // Fare Earned Badge
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
-    ctx.roundRect(width - 95, 8, 82, 38, 6);
+    ctx.roundRect(fareX, 8, fareW, 38, 6);
     ctx.fill();
     ctx.strokeStyle = '#eab308';
     ctx.lineWidth = 1;
@@ -297,10 +322,10 @@ export class UIManager {
 
     ctx.fillStyle = '#facc15';
     ctx.font = 'bold 14px "Chakra Petch", monospace';
-    ctx.fillText(`💵 ${player.fareCollected}`, width - 54, 25);
+    ctx.fillText(`💵 ${player.fareCollected}`, fareX + fareW / 2, 25);
     ctx.fillStyle = '#94a3b8';
     ctx.font = '8px "Chakra Petch", sans-serif';
-    ctx.fillText('ETB FARE', width - 54, 38);
+    ctx.fillText('ETB FARE', fareX + fareW / 2, 38);
 
     // 2. Active Speed Combo Floating Pill (If combo > 1)
     if (player.comboCount > 1) {
@@ -345,12 +370,16 @@ export class UIManager {
       ctx.restore();
     }
 
-    // 3. Structured Toast Alert Notifications (Stacked below rearview mirror, zero overlap!)
+    // 3. Structured Toast Alert Notifications (Stacked below rearview mirror, with slide-in ease)
     const toastStartY = 112 + (player.comboCount > 1 ? 28 : 0);
     this.toasts.forEach((toast, idx) => {
       ctx.save();
-      const toastY = toastStartY + idx * 30;
-      ctx.globalAlpha = Math.max(0, toast.alpha);
+      const age = toast.maxTimer - toast.timer;
+      const enterProgress = Math.min(1, age / 0.22);
+      const easeOutBack = 1 - Math.pow(1 - enterProgress, 3);
+      const slideOffset = (1 - easeOutBack) * -14;
+      const toastY = toastStartY + idx * 30 + slideOffset;
+      ctx.globalAlpha = Math.max(0, toast.alpha * easeOutBack);
 
       // Measure text width for perfect pill size
       ctx.font = 'bold 12px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
@@ -389,7 +418,7 @@ export class UIManager {
     });
 
     // 5. TRUE AUTOMOTIVE DUAL CORNER CLUSTERS
-    this.renderDualCornerCockpit(ctx, width, height, player);
+    this.renderDualCornerCockpit(ctx, width, height, player, !!drDrivingLayout);
 
     // 6. Dr. Driving Interactive Controls (Steering Wheel, Gas/Brake Pedals, PRND Shifter)
     if (drDrivingLayout) {
@@ -400,17 +429,22 @@ export class UIManager {
   }
 
   // Realistic Automotive Dual-Cluster Cockpit HUD
-  private renderDualCornerCockpit(ctx: CanvasRenderingContext2D, width: number, height: number, player: Player) {
+  private renderDualCornerCockpit(ctx: CanvasRenderingContext2D, width: number, height: number, player: Player, hasOnScreenControls: boolean = false) {
     ctx.save();
 
-    const speedKmh = Math.floor((player.speed / player.maxSpeed) * 165);
-    const rpmRatio = Math.min(1, Math.max(0.12, player.rpm / 7500));
+    const targetSpeedKmh = (player.speed / player.maxSpeed) * 165;
+    const targetRpmRatio = Math.min(1, Math.max(0.12, player.rpm / 7500));
+    this.smoothSpeedKmh += (targetSpeedKmh - this.smoothSpeedKmh) * 0.22;
+    this.smoothRpmRatio += (targetRpmRatio - this.smoothRpmRatio) * 0.25;
+
+    const speedKmh = Math.floor(this.smoothSpeedKmh);
+    const rpmRatio = this.smoothRpmRatio;
     const isBoosting = (player.boostRemaining > 0) || !!player.isNitroActive;
 
-    // Dimensions for corner pods: float above Dr. Driving pedals & steering wheel
+    // Dimensions for corner pods: sit cleanly at bottom corners on desktop, or float above touch controls
     const podW = 224;
     const podH = 88;
-    const podY = height > 520 ? height - podH - 124 : height - podH - 12;
+    const podY = hasOnScreenControls && height > 520 ? height - podH - 124 : height - podH - 14;
 
     // ----------------------------------------------------
     // LEFT POD: Vehicle Diagnostics (Fuel, Bunna Boost, Chassis)
@@ -642,21 +676,23 @@ export class UIManager {
 
     // ----------------------------------------------------
     // CENTER BOTTOM: Subtle Driving Controls Legend
-    // Leaves the center 100% open so the player car is completely visible!
+    // Only shown when there is enough room between pods
     // ----------------------------------------------------
-    const legendW = 340;
-    const legendX = (width - legendW) / 2;
-    const legendY = height - 16;
+    if (width >= 820) {
+      const legendW = 330;
+      const legendX = (width - legendW) / 2;
+      const legendY = height - 16;
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
-    ctx.beginPath();
-    ctx.roundRect(legendX, legendY - 10, legendW, 16, 8);
-    ctx.fill();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+      ctx.beginPath();
+      ctx.roundRect(legendX, legendY - 10, legendW, 18, 8);
+      ctx.fill();
 
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '8px "Chakra Petch", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('W/↑ GAS  •  S/↓ BRAKE  •  A/D STEER  •  N/SHIFT NITRO  •  SPACE HORN  •  R RADIO  •  F HAZARDS', width / 2, legendY + 2);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '8.5px "Chakra Petch", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('W/↑ GAS • S/↓ BRAKE • A/D STEER • SHIFT NITRO • SPACE HORN • R RADIO', width / 2, legendY + 2);
+    }
 
     ctx.restore();
   }
@@ -897,10 +933,10 @@ export class UIManager {
   ) {
     ctx.save();
 
-    const mirrorW = 210;
-    const mirrorH = 54;
+    const mirrorW = 200;
+    const mirrorH = 50;
     const mirrorX = (width - mirrorW) / 2;
-    const mirrorY = 46;
+    const mirrorY = 52;
 
     // 1. Windshield Mounting Bracket
     ctx.fillStyle = '#0f172a';
@@ -1106,7 +1142,7 @@ export class UIManager {
     ctx.fillRect(0, 0, width, height);
 
     const midX = width / 2;
-    const midY = height / 2 - 32;
+    const midY = Math.max(165, Math.min(height / 2 - 24, height - 285));
 
     // Ethiopian Flag Ribbon
     const ribW = Math.min(560, width * 0.9);
@@ -1213,7 +1249,7 @@ export class UIManager {
 
     const flows: { id: TrafficFlow; icon: string; amh: string; eng: string; perk: string }[] = [
       { id: 'ONE_WAY', icon: '➡️', amh: 'አንድ አቅጣጫ', eng: 'ONE-WAY', perk: 'All lanes move forward' },
-      { id: 'TWO_WAY', icon: '⚡', amh: 'ሁለት አቅጣጫ', eng: 'TWO-WAY ONCOMING', perk: 'Facing oncoming traffic (+20 ETB/s)' }
+      { id: 'TWO_WAY', icon: '⚡', amh: 'ሁለት አቅጣጫ', eng: 'TWO-WAY', perk: 'Oncoming lane = +20 ETB/s bonus' }
     ];
 
     const flowGap = 12;
@@ -1260,10 +1296,10 @@ export class UIManager {
     ctx.fill();
 
     const modeDescs: Record<RacingLimitsGameMode, string> = {
-      CAREER: '🚕 Missions & passenger pick-ups across historic Addis Ababa routes',
-      INFINITE: '♾️ Non-stop highway survival! Weave through dense traffic as far as you can!',
-      TIME_ATTACK: '⏱️ 60s countdown! Pull off close overtakes at > 90 km/h to add +2.5s to the clock!',
-      FREE_RIDE: '🕊️ Relaxed highway cruise. Zero time limits, zero crash fines, pure driving enjoyment.'
+      CAREER: '🚕 Pick up passengers & reach the destination before time runs out',
+      INFINITE: '♾️ Endless highway — dodge traffic & survive as far as you can',
+      TIME_ATTACK: '⏱️ 60s countdown — close overtakes above 90 km/h add +2.5s',
+      FREE_RIDE: '🕊️ Relaxed cruise across Addis Ababa — no timer, no crash fines'
     };
 
     ctx.fillStyle = '#facc15';
@@ -1284,17 +1320,24 @@ export class UIManager {
     const btnsY = boxY + boxH + 34;
 
     // [START DRIVING]
-    ctx.fillStyle = `rgba(34, 197, 94, ${pulse})`;
+    const startHov = this.isHovered(midX - btnW - 8, btnsY, btnW, 44);
+    ctx.save();
+    if (startHov) {
+      ctx.shadowColor = '#22c55e';
+      ctx.shadowBlur = 16;
+    }
+    ctx.fillStyle = `rgba(34, 197, 94, ${startHov ? 0.98 : pulse})`;
     ctx.beginPath();
-    ctx.roundRect(midX - btnW - 8, btnsY, btnW, 44, 8);
+    ctx.roundRect(midX - btnW - 8, startHov ? btnsY - 2 : btnsY, btnW, 44, 8);
     ctx.fill();
-    ctx.strokeStyle = '#22c55e';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = startHov ? '#86efac' : '#22c55e';
+    ctx.lineWidth = startHov ? 2 : 1.5;
     ctx.stroke();
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 15px "Chakra Petch", sans-serif';
-    ctx.fillText('▶ START RACE (ENTER)', midX - btnW / 2 - 8, btnsY + 27);
+    ctx.fillText('▶ START RACE (ENTER)', midX - btnW / 2 - 8, (startHov ? btnsY - 2 : btnsY) + 27);
+    ctx.restore();
 
     this.titleHitboxes.push({
       id: 'btn_start',
@@ -1305,16 +1348,24 @@ export class UIManager {
     });
 
     // [GARAGE & UPGRADES]
-    ctx.fillStyle = '#0284c7';
+    const garHov = this.isHovered(midX + 8, btnsY, btnW, 44);
+    ctx.save();
+    if (garHov) {
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 16;
+    }
+    ctx.fillStyle = garHov ? '#0369a1' : '#0284c7';
     ctx.beginPath();
-    ctx.roundRect(midX + 8, btnsY, btnW, 44, 8);
+    ctx.roundRect(midX + 8, garHov ? btnsY - 2 : btnsY, btnW, 44, 8);
     ctx.fill();
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = garHov ? '#bae6fd' : '#38bdf8';
+    ctx.lineWidth = garHov ? 2 : 1.5;
     ctx.stroke();
 
     ctx.fillStyle = '#ffffff';
-    ctx.fillText('🚗 GARAGE / ጋራዥ (G)', midX + btnW / 2 + 8, btnsY + 27);
+    ctx.font = 'bold 15px "Chakra Petch", sans-serif';
+    ctx.fillText('🚗 GARAGE / ጋራዥ (G)', midX + btnW / 2 + 8, (garHov ? btnsY - 2 : btnsY) + 27);
+    ctx.restore();
 
     this.titleHitboxes.push({
       id: 'btn_garage',
@@ -1665,8 +1716,48 @@ export class UIManager {
     }
   }
 
+  private drawOverlayButtons(
+    ctx: CanvasRenderingContext2D,
+    centerX: number,
+    y: number,
+    buttons: { id: string; label: string; bg: string; border: string }[]
+  ) {
+    const btnW = 152;
+    const btnH = 40;
+    const gap = 12;
+    const totalW = buttons.length * btnW + (buttons.length - 1) * gap;
+    let x = centerX - totalW / 2;
+
+    for (const btn of buttons) {
+      const hovered = this.isHovered(x, y, btnW, btnH);
+      const drawY = hovered ? y - 2 : y;
+      ctx.save();
+      if (hovered) {
+        ctx.shadowColor = btn.border;
+        ctx.shadowBlur = 14;
+      }
+      ctx.fillStyle = btn.bg;
+      ctx.beginPath();
+      ctx.roundRect(x, drawY, btnW, btnH, 8);
+      ctx.fill();
+      ctx.strokeStyle = hovered ? '#ffffff' : btn.border;
+      ctx.lineWidth = hovered ? 2 : 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px "Chakra Petch", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(btn.label, x + btnW / 2, drawY + 25);
+      ctx.restore();
+
+      this.overlayHitboxes.push({ id: btn.id, x, y, w: btnW, h: btnH });
+      x += btnW + gap;
+    }
+  }
+
   public renderPauseScreen(ctx: CanvasRenderingContext2D, width: number, height: number) {
     ctx.save();
+    this.overlayHitboxes = [];
     ctx.fillStyle = 'rgba(10, 15, 30, 0.85)';
     ctx.fillRect(0, 0, width, height);
 
@@ -1674,21 +1765,27 @@ export class UIManager {
     const midY = height / 2;
 
     ctx.fillStyle = '#38bdf8';
-    ctx.font = '900 36px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+    ctx.font = '900 34px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('⏸️ ጨዋታው ቆሟል • PAUSED', midX, midY - 50);
+    ctx.fillText('⏸️ ጨዋታው ቆሟል • PAUSED', midX, midY - 60);
 
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '16px "Chakra Petch", sans-serif';
-    ctx.fillText('Press P, ESC, or CLICK to Resume', midX, midY + 10);
-    ctx.fillText('Press G to Open Garage & Upgrades', midX, midY + 40);
-    ctx.fillText('Press R to Restart Route', midX, midY + 70);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '13px "Chakra Petch", sans-serif';
+    ctx.fillText('Press P or ESC to Resume  •  W/↑ Gas  •  S/↓ Brake  •  A/D Steer  •  Shift Nitro  •  Space Horn', midX, midY - 22);
+
+    this.drawOverlayButtons(ctx, midX, midY + 12, [
+      { id: 'btn_resume', label: '▶ RESUME', bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' },
+      { id: 'btn_restart', label: '🔄 RESTART', bg: 'rgba(234, 179, 8, 0.25)', border: '#facc15' },
+      { id: 'btn_garage', label: '🚗 GARAGE', bg: 'rgba(2, 132, 199, 0.85)', border: '#38bdf8' },
+      { id: 'btn_menu', label: '🏠 MENU', bg: 'rgba(51, 65, 85, 0.85)', border: '#94a3b8' }
+    ]);
 
     ctx.restore();
   }
 
   public renderGameOver(ctx: CanvasRenderingContext2D, width: number, height: number, reason: string, score: number, highScore: number) {
     ctx.save();
+    this.overlayHitboxes = [];
     ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
     ctx.fillRect(0, 0, width, height);
 
@@ -1696,28 +1793,29 @@ export class UIManager {
     const midY = height / 2;
 
     ctx.fillStyle = '#ef4444';
-    ctx.font = '900 38px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+    ctx.font = '900 36px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('ጨዋታው አልቋል! • SHIFT OVER', midX, midY - 65);
+    ctx.fillText('ጨዋታው አልቋል! • SHIFT OVER', midX, midY - 75);
 
     ctx.fillStyle = '#f8fafc';
-    ctx.font = '18px "Chakra Petch", sans-serif';
-    ctx.fillText(reason, midX, midY - 20);
+    ctx.font = '17px "Chakra Petch", sans-serif';
+    ctx.fillText(reason, midX, midY - 30);
 
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 24px "Chakra Petch", sans-serif';
-    ctx.fillText(`SHIFT FARES EARNED: +${score} ETB`, midX, midY + 30);
+    ctx.font = 'bold 20px "Chakra Petch", sans-serif';
+    ctx.fillText(`EARNED THIS RUN: +${score} ETB (Saved to Wallet)`, midX, midY + 14);
 
     if (score >= highScore && score > 0) {
       ctx.fillStyle = '#22c55e';
-      ctx.font = 'bold 18px "Chakra Petch", sans-serif';
-      ctx.fillText('🏆 NEW HIGH SCORE RECORD! 🏆', midX, midY + 65);
+      ctx.font = 'bold 16px "Chakra Petch", sans-serif';
+      ctx.fillText('🏆 NEW HIGH SCORE RECORD! 🏆', midX, midY + 46);
     }
 
-    const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 200);
-    ctx.fillStyle = `rgba(56, 189, 248, ${pulse})`;
-    ctx.font = 'bold 20px "Chakra Petch", sans-serif';
-    ctx.fillText('PRESS SPACE TO TRY AGAIN  |  PRESS G FOR GARAGE', midX, midY + 115);
+    this.drawOverlayButtons(ctx, midX, midY + 74, [
+      { id: 'btn_restart', label: '🔄 TRY AGAIN', bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' },
+      { id: 'btn_garage', label: '🚗 GARAGE', bg: 'rgba(2, 132, 199, 0.85)', border: '#38bdf8' },
+      { id: 'btn_menu', label: '🏠 MENU', bg: 'rgba(51, 65, 85, 0.85)', border: '#94a3b8' }
+    ]);
 
     ctx.restore();
   }
@@ -1732,6 +1830,7 @@ export class UIManager {
     isLastStage: boolean
   ) {
     ctx.save();
+    this.overlayHitboxes = [];
     ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
     ctx.fillRect(0, 0, width, height);
 
@@ -1739,32 +1838,33 @@ export class UIManager {
     const midY = height / 2;
 
     ctx.fillStyle = '#22c55e';
-    ctx.font = '900 36px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+    ctx.font = '900 34px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(isLastStage ? 'እንኳን ደስ አለዎት! • GRAND TOUR COMPLETE!' : 'ጣቢያው ደርሰዋል! • STAGE COMPLETE!', midX, midY - 70);
+    ctx.fillText(isLastStage ? 'እንኳን ደስ አለዎት! • GRAND TOUR COMPLETE!' : 'ጣቢያው ደርሰዋል! • STAGE COMPLETE!', midX, midY - 82);
 
     ctx.fillStyle = '#f8fafc';
-    ctx.font = '20px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
-    ctx.fillText(`Completed Route: ${stage.nameAmharic} (${stage.name})`, midX, midY - 20);
+    ctx.font = '18px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+    ctx.fillText(`Completed Route: ${stage.nameAmharic} (${stage.name})`, midX, midY - 36);
 
     ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 20px "Chakra Petch", sans-serif';
-    ctx.fillText(`👥 Passengers Delivered: ${passengers}`, midX, midY + 25);
+    ctx.font = 'bold 18px "Chakra Petch", sans-serif';
+    ctx.fillText(`👥 Passengers Delivered: ${passengers}`, midX, midY + 4);
 
     ctx.fillStyle = '#fbbf24';
-    ctx.fillText(`💵 Fares Earned: +${fare} ETB (Saved to Wallet!)`, midX, midY + 60);
+    ctx.fillText(`💵 Fares Earned: +${fare} ETB (Saved to Wallet!)`, midX, midY + 36);
 
     const activeContract = garage.contracts.find(c => c.targetStageId === stage.id);
     if (activeContract) {
       ctx.fillStyle = activeContract.completed ? '#22c55e' : '#94a3b8';
-      ctx.font = 'bold 15px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
-      ctx.fillText(`📋 ኮንትራት: ${activeContract.titleAmharic} — ${activeContract.completed ? `ተጠናቋል! (+${activeContract.rewardETB} ETB)` : 'በሂደት ላይ'}`, midX, midY + 95);
+      ctx.font = 'bold 14px "Noto Sans Ethiopic", "Chakra Petch", sans-serif';
+      ctx.fillText(`📋 ኮንትራት: ${activeContract.titleAmharic} — ${activeContract.completed ? `ተጠናቋል! (+${activeContract.rewardETB} ETB)` : 'በሂደት ላይ'}`, midX, midY + 68);
     }
 
-    const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 200);
-    ctx.fillStyle = `rgba(250, 204, 21, ${pulse})`;
-    ctx.font = 'bold 22px "Chakra Petch", sans-serif';
-    ctx.fillText(isLastStage ? 'PRESS SPACE TO PLAY AGAIN | G FOR GARAGE' : 'PRESS SPACE FOR NEXT ROUTE | G FOR GARAGE', midX, midY + 135);
+    this.drawOverlayButtons(ctx, midX, midY + 96, [
+      { id: 'btn_next', label: isLastStage ? '▶ PLAY AGAIN' : '▶ NEXT ROUTE', bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' },
+      { id: 'btn_garage', label: '🚗 GARAGE', bg: 'rgba(2, 132, 199, 0.85)', border: '#38bdf8' },
+      { id: 'btn_menu', label: '🏠 MENU', bg: 'rgba(51, 65, 85, 0.85)', border: '#94a3b8' }
+    ]);
 
     ctx.restore();
   }
