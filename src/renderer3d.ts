@@ -257,18 +257,18 @@ export class Renderer3D {
     sky.cloudLight.value.setHex(stage.skyTheme === 'night' ? 0x455377 :
       stage.skyTheme === 'sunset' ? 0xffc39c : 0xfff7e7);
     if (stage.skyTheme === 'day') {
-      this.scene.background = new THREE.Color(0xbfe3ff);
-      this.scene.fog = new THREE.FogExp2(0xc7e6ff, 0.0021);
-      this.updateSkyDomeColors(0x0284c7, 0x60a5fa, 0xc7e6ff);
-      this.ambientLight.color.setHex(0xe0f2fe);
-      this.ambientLight.intensity = 0.4;
-      this.hemiLight.color.setHex(0x93c5fd);
-      this.hemiLight.groundColor.setHex(0x265c3a);
-      this.hemiLight.intensity = 0.9;
-      this.sunLight.color.setHex(0xfffbeb);
-      this.sunLight.intensity = 2.3;
-      (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x265c3a);
-      (this.mountainRing.material as THREE.MeshBasicMaterial).color.setHex(0x4a7c9b);
+      this.scene.background = new THREE.Color(0xcce4f7);
+      this.scene.fog = new THREE.FogExp2(0xdce9f4, 0.00105);
+      this.updateSkyDomeColors(0x1d6fa5, 0x6ba8d8, 0xd8eaf7);
+      this.ambientLight.color.setHex(0xfff8ec);
+      this.ambientLight.intensity = 0.48;
+      this.hemiLight.color.setHex(0xdbeafe);
+      this.hemiLight.groundColor.setHex(0x4a4637);
+      this.hemiLight.intensity = 0.75;
+      this.sunLight.color.setHex(0xfff5dc);
+      this.sunLight.intensity = 2.55;
+      (this.terrainMesh.material as THREE.MeshStandardMaterial).color.setHex(0x2f633e);
+      (this.mountainRing.material as THREE.MeshBasicMaterial).color.setHex(0x425e52);
       (this.celestialDisc.material as THREE.MeshBasicMaterial).color.setHex(0xfef9c3);
     } else if (stage.skyTheme === 'sunset') {
       this.scene.background = new THREE.Color(0xf97316);
