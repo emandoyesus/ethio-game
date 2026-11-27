@@ -657,7 +657,7 @@ export class Track3D {
         mesh: cyclist,
         trackZ: i * ROAD.SEGMENT_LENGTH,
         side,
-        speed: 950 + (i % 5) * 90,
+        speed: 240 + (i % 5) * 25,
         wheels: (cyclist.userData.wheels as THREE.Object3D[]) || []
       });
     }
@@ -690,7 +690,7 @@ export class Track3D {
           trackZ: i * ROAD.SEGMENT_LENGTH,
           side,
           dir,
-          speed: 220 + (i % 4) * 35,
+          speed: 55 + (i % 4) * 10,
           lat
         });
       }

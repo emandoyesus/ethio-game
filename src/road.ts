@@ -440,24 +440,24 @@ export class RoadManager {
 
       if (roll < 0.30) {
         vType = 'TRAFFIC_EV';
-        speed = 2500 + Math.random() * 1300;
+        speed = 1150 + Math.random() * 550;
       } else if (roll < 0.55) {
         vType = 'TRAFFIC_LADA';
-        speed = 2200 + Math.random() * 1200;
+        speed = 1000 + Math.random() * 500;
       } else if (roll < 0.75) {
         vType = 'TRAFFIC_BAJAJ';
-        speed = 1500 + Math.random() * 900;
+        speed = 700 + Math.random() * 400;
       } else if (roll < 0.88) {
         vType = 'TRAFFIC_ISUZU';
-        speed = 1000 + Math.random() * 800;
+        speed = 500 + Math.random() * 350;
       } else {
         vType = 'TRAFFIC_BUS';
-        speed = 1100 + Math.random() * 650;
+        speed = 550 + Math.random() * 300;
       }
 
       if (isOncoming) {
-        // High-speed oncoming traffic hurtling towards player in left lane
-        speed = -(2400 + Math.random() * 1400);
+        // Oncoming traffic heading towards player in left lane
+        speed = -(1100 + Math.random() * 600);
       }
 
       seg.sprites.push({

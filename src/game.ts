@@ -113,9 +113,9 @@ export class GameEngine {
       x: 0,
       z: START_Z,
       speed: 0,
-      maxSpeed: 12500,
-      accel: 5400,
-      decel: 7800,
+      maxSpeed: 5400,
+      accel: 2400,
+      decel: 4200,
       turnSpeed: 2.9,
       boostRemaining: 0,
       boostMax: 5.0,
@@ -731,7 +731,7 @@ export class GameEngine {
       this.player.pitch *= 0.85;
       sound.stopTireScreech();
     } else if (this.player.gearMode === 'R') {
-      const maxReverse = -3600;
+      const maxReverse = -1800;
       if (this.player.brakePedal > 0.05) {
         this.player.speed = Math.min(0, this.player.speed + (this.player.decel * this.player.brakePedal) * dt);
       } else if (this.player.gasPedal > 0.05) {
@@ -877,7 +877,7 @@ export class GameEngine {
     }
 
     // Wet asphalt water spray
-    if (this.stage.isWetRoad && this.player.speed > 2200) {
+    if (this.stage.isWetRoad && this.player.speed > 1000) {
       this.spawnWaterSpray();
     }
 
@@ -1129,7 +1129,7 @@ export class GameEngine {
           sound.playOncomingWhoosh();
 
           const dx = Math.abs(this.player.x - sprite.offset);
-          if (dx < 1.4 && dx * 9 > vehicleFootprints[this.player.vehicleId][0] + (spriteFootprints[sprite.type]?.[0] ?? 0) && this.player.speed > 4600) {
+          if (dx < 1.4 && dx * 9 > vehicleFootprints[this.player.vehicleId][0] + (spriteFootprints[sprite.type]?.[0] ?? 0) && this.player.speed > 2100) {
             this.player.comboCount += 2;
             this.player.comboTimer = 5.0;
             this.player.nitro = Math.min(this.player.maxNitro, this.player.nitro + 25);
@@ -1149,7 +1149,7 @@ export class GameEngine {
           sprite.type === 'TRAFFIC_BUS'
         ) {
           const dx = Math.abs(this.player.x - sprite.offset);
-          if (zDist < ROAD.SEGMENT_LENGTH * 0.8 && dx > hitboxW * 0.8 && dx < hitboxW * 1.6 && this.player.speed > 5400 && this.nearMissCooldown <= 0) {
+          if (zDist < ROAD.SEGMENT_LENGTH * 0.8 && dx > hitboxW * 0.8 && dx < hitboxW * 1.6 && this.player.speed > 2400 && this.nearMissCooldown <= 0) {
             this.nearMissCooldown = 0.6;
             this.player.comboCount++;
             this.player.comboTimer = 4.2;
