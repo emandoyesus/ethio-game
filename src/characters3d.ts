@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const RIGGED_AVATAR_PATHS = [
@@ -15,6 +16,7 @@ const RIGGED_AVATAR_PATHS = [
 const CESIUM_MAN_PATH = '/models/CesiumMan.glb';
 
 const loader = new GLTFLoader();
+loader.setMeshoptDecoder(MeshoptDecoder);
 const loadedAvatars: Record<string, GLTF> = {};
 const loadAvatarPromises: Record<string, Promise<GLTF>> = {};
 let loadedMan: GLTF | null = null;
