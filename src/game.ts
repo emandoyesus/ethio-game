@@ -56,6 +56,9 @@ export class GameEngine {
 
   // Near miss tracker
   private nearMissCooldown: number = 0;
+  private driftDuration: number = 0;
+  private driftEarnedETB: number = 0;
+  private driftBlend: number = 0;
   private oncomingLaneTimer: number = 0;
   private lastImpact = new WeakMap<object, number>();
   private keyboardReverse = false;
@@ -804,13 +807,20 @@ export class GameEngine {
     this.player.steerAngle = this.player.steeringWheelAngle / WHEEL_LOCK;
     this.player.turnSignal = this.player.steerAngle < -0.12 ? 'left' : this.player.steerAngle > 0.12 ? 'right' : 'none';
 
-    // Speed-sensitive steering authority + lateral tire grip (realistic lane-change momentum)
+    // Speed-sensitive steering authority + lateral tire grip (smooth drift blend)
     const dirSign = this.player.gearMode === 'R' ? -1 : 1;
     const lowSpeedAuthority = Math.min(1.0, speedRatio * 2.8);
     const highSpeedStability = 1.0 - 0.36 * Math.min(1.0, speedRatio);
-    const targetLatVel = dirSign * this.player.turnSpeed * this.player.steerAngle * lowSpeedAuthority * highSpeedStability;
-    const tireGrip = isOffRoad ? 4.2 : this.stage.isWetRoad ? 6.8 : 10.5;
-    this.lateralVelocity += (targetLatVel - this.lateralVelocity) * Math.min(1.0, dt * tireGrip);
+    const isDriftInput =
+      (handbrake && speedRatio > 0.22 && Math.abs(this.player.steerAngle) > 0.12) ||
+      (Math.abs(this.player.steerAngle) > 0.45 && speedRatio > 0.55);
+    const targetBlend = isDriftInput && this.player.gearMode === 'D' ? 1.0 : 0.0;
+    this.driftBlend += (targetBlend - this.driftBlend) * (1 - Math.exp(-(targetBlend > this.driftBlend ? 5.5 : 4.5) * dt));
+    const driftLatMult = 1.0 + 0.3 * this.driftBlend;
+    const targetLatVel = dirSign * this.player.turnSpeed * this.player.steerAngle * lowSpeedAuthority * highSpeedStability * driftLatMult;
+    const baseGrip = isOffRoad ? 4.2 : this.stage.isWetRoad ? 6.8 : 10.5;
+    const tireGrip = baseGrip + (3.4 - baseGrip) * this.driftBlend;
+    this.lateralVelocity += (targetLatVel - this.lateralVelocity) * (1 - Math.exp(-tireGrip * dt));
 
     this.player.x += this.lateralVelocity * dt;
     this.player.x = Math.max(-3.4, Math.min(3.4, this.player.x));
@@ -839,9 +849,9 @@ export class GameEngine {
       }
     }
 
-    // Chassis body roll (leaning into / against centrifugal g-force)
+    // Chassis body roll (frame-rate independent exponential smoothing)
     const targetRoll = this.player.steerAngle * speedRatio * 0.14;
-    this.player.roll += (targetRoll - this.player.roll) * dt * 8;
+    this.player.roll += (targetRoll - this.player.roll) * (1 - Math.exp(-8.5 * dt));
     this.player.roll = Math.max(-0.6, Math.min(0.6, this.player.roll));
 
     // Suspension spring oscillation (Hooke's law with damping & safety bounds)
@@ -854,15 +864,28 @@ export class GameEngine {
       this.player.x -= (currentSegment.curve * excess * 0.6) * dt;
     }
 
-    // High speed hard drift or Spacebar handbrake slide
-    if ((handbrake && speedRatio > 0.25 && Math.abs(this.player.steerAngle) > 0.12) ||
-        (Math.abs(this.player.steerAngle) > 0.55 && speedRatio > 0.72)) {
+    // Drift slip angle, tire smoke, Nitro refill & ETB drift bonus
+    if (isDriftInput && this.player.gearMode === 'D') {
       this.player.isDrifting = true;
+      const targetDrift = -this.player.steerAngle * (handbrake ? 0.50 : 0.32);
+      this.player.driftAngle += (targetDrift - this.player.driftAngle) * (1 - Math.exp(-7.0 * dt));
+      this.driftDuration += dt;
+      this.driftEarnedETB += dt * 25;
+      this.player.nitro = Math.min(this.player.maxNitro, this.player.nitro + dt * 10);
       this.spawnTireSmoke();
+      if (Math.random() < 0.65) this.spawnTireSmoke();
       sound.startTireScreech();
-    } else if (!down) {
+    } else {
+      if (this.player.isDrifting && this.driftDuration >= 0.6) {
+        const bonus = Math.max(10, Math.round(this.driftEarnedETB * (this.player.vehicleId === 'BAJAJ' ? 1.5 : 1.0)));
+        this.player.fareCollected += bonus;
+        ui.addFloatingText(`🔥 DRIFT! +${bonus} ETB`, this.width / 2 - 55, this.height / 2 - 70, '#facc15');
+      }
       this.player.isDrifting = false;
-      sound.stopTireScreech();
+      this.driftDuration = 0;
+      this.driftEarnedETB = 0;
+      this.player.driftAngle += (0 - this.player.driftAngle) * (1 - Math.exp(-7.5 * dt));
+      if (!down) sound.stopTireScreech();
     }
 
     // Advance distance
@@ -896,9 +919,8 @@ export class GameEngine {
     this.playerModel.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
     const clampedRoll = Math.max(-0.35, Math.min(0.35, this.player.roll));
     const clampedPitch = Math.max(-0.25, Math.min(0.25, this.player.pitch));
-    // Subtle yaw into the turn/drift so the chassis points along its path
-    const driftYawMult = (handbrake && this.player.isDrifting) ? 2.1 : 1.0;
-    const bodyYaw = -this.player.steerAngle * 0.1 * driftYawMult * Math.min(1, speedRatio * 1.5);
+    // Yaw chassis into turn + dramatic drift slip angle
+    const bodyYaw = -this.player.steerAngle * 0.1 * Math.min(1, speedRatio * 1.5) + this.player.driftAngle;
     this.playerModel.group.rotateY(bodyYaw);
     this.playerModel.group.rotateZ(-clampedRoll - this.player.steerAngle * 0.06);
     this.playerModel.group.rotateX(clampedPitch);
