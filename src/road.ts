@@ -217,9 +217,10 @@ export class RoadManager {
       if (stage.id === 3 && i > total * 0.55) {
         sceneryType = roll > 0.4 ? 'SCENERY_EUCALYPTUS' : 'SCENERY_ACACIA';
       } else {
-        if (roll < 0.4) sceneryType = 'SCENERY_LAMP';
-        else if (roll < 0.7) sceneryType = 'SCENERY_ACACIA';
-        else if (roll < 0.88) sceneryType = 'SCENERY_EUCALYPTUS';
+        if (roll < 0.36) sceneryType = 'SCENERY_LAMP';
+        else if (roll < 0.62) sceneryType = stage.id === 2 || roll < 0.5 ? 'SCENERY_PALM' : 'SCENERY_ACACIA';
+        else if (roll < 0.78) sceneryType = 'SCENERY_ACACIA';
+        else if (roll < 0.90) sceneryType = 'SCENERY_EUCALYPTUS';
         else sceneryType = 'SCENERY_BILLBOARD';
       }
 
@@ -229,10 +230,12 @@ export class RoadManager {
       });
     }
 
-    // Roadside Buildings lining both sides of the road
+    // Roadside Buildings forming front-row city blocks with side-street gaps
     const buildingStep = stage.id === 3 ? 8 : 5;
     for (let i = 12; i < total - 32; i += buildingStep) {
       if (isNearSpecialZone(i, 8)) continue;
+      // Periodic cross-alley / side-street gap every 5 blocks
+      if ((Math.floor(i / buildingStep) % 6) === 0) continue;
       // Upper Entoto mountain climb transitions from urban Merkato to mountain forest
       if (stage.id === 3 && i > total * 0.6 && Math.random() < 0.7) continue;
 
@@ -241,9 +244,9 @@ export class RoadManager {
 
       const sides = [-1, 1];
       for (const dir of sides) {
-        // Leave occasional gaps for natural skyline variety
-        if (Math.random() < 0.14) continue;
-        const offset = dir * (2.55 + Math.random() * 0.75);
+        // Leave occasional courtyard/lot gaps for natural skyline variety
+        if (Math.random() < 0.16) continue;
+        const offset = dir * (2.45 + Math.random() * 1.15);
         const roll = Math.random();
         let bType: SpriteType;
         if (stage.id === 2) {
@@ -435,15 +438,21 @@ export class RoadManager {
       let vType: SpriteType;
       let speed: number;
 
-      if (roll < 0.45) {
+      if (roll < 0.30) {
+        vType = 'TRAFFIC_EV';
+        speed = 2500 + Math.random() * 1300;
+      } else if (roll < 0.55) {
         vType = 'TRAFFIC_LADA';
         speed = 2200 + Math.random() * 1200;
       } else if (roll < 0.75) {
         vType = 'TRAFFIC_BAJAJ';
         speed = 1500 + Math.random() * 900;
-      } else {
+      } else if (roll < 0.88) {
         vType = 'TRAFFIC_ISUZU';
         speed = 1000 + Math.random() * 800;
+      } else {
+        vType = 'TRAFFIC_BUS';
+        speed = 1100 + Math.random() * 650;
       }
 
       if (isOncoming) {
@@ -513,7 +522,13 @@ export class RoadManager {
           spr.targetOffset = spr.offset < 0 ? -1.65 : 1.65;
           clearedAnimals = true;
           scariedCount++;
-        } else if (spr.type === 'TRAFFIC_BAJAJ' || spr.type === 'TRAFFIC_LADA' || spr.type === 'TRAFFIC_ISUZU') {
+        } else if (
+          spr.type === 'TRAFFIC_BAJAJ' ||
+          spr.type === 'TRAFFIC_LADA' ||
+          spr.type === 'TRAFFIC_ISUZU' ||
+          spr.type === 'TRAFFIC_EV' ||
+          spr.type === 'TRAFFIC_BUS'
+        ) {
           if (!spr.isOncoming && Math.abs(spr.offset - playerX) < 0.65) {
             const yieldRight = spr.offset >= 0;
             spr.targetOffset = yieldRight ? 0.75 : -0.75;
@@ -537,7 +552,12 @@ export class RoadManager {
       for (let j = seg.sprites.length - 1; j >= 0; j--) {
         const sprite = seg.sprites[j];
 
-        const isTrafficCar = sprite.type === 'TRAFFIC_LADA' || sprite.type === 'TRAFFIC_BAJAJ' || sprite.type === 'TRAFFIC_ISUZU';
+        const isTrafficCar =
+          sprite.type === 'TRAFFIC_LADA' ||
+          sprite.type === 'TRAFFIC_BAJAJ' ||
+          sprite.type === 'TRAFFIC_ISUZU' ||
+          sprite.type === 'TRAFFIC_EV' ||
+          sprite.type === 'TRAFFIC_BUS';
 
         if (isTrafficCar) {
           sprite.previousOffset = sprite.offset;
