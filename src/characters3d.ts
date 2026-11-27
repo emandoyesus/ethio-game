@@ -17,21 +17,30 @@ const CESIUM_MAN_PATH = '/models/CesiumMan.glb';
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
+
 const loadedAvatars: Record<string, GLTF> = {};
 const loadAvatarPromises: Record<string, Promise<GLTF>> = {};
 let loadedMan: GLTF | null = null;
 let loadManPromise: Promise<GLTF> | null = null;
 
+interface BoneTrack {
+  bone: THREE.Object3D;
+  base: THREE.Quaternion;
+  swingAxis: THREE.Vector3;
+}
+
 interface AnimatedHuman {
   root: THREE.Object3D;
   role: 'passenger' | 'pedestrian' | 'cyclist';
   phase: number;
-  rightArm?: { bone: THREE.Object3D; base: THREE.Quaternion };
-  leftArm?: { bone: THREE.Object3D; base: THREE.Quaternion };
-  leftUpLeg?: { bone: THREE.Object3D; base: THREE.Quaternion };
-  rightUpLeg?: { bone: THREE.Object3D; base: THREE.Quaternion };
-  leftLeg?: { bone: THREE.Object3D; base: THREE.Quaternion };
-  rightLeg?: { bone: THREE.Object3D; base: THREE.Quaternion };
+  rightArm?: BoneTrack;
+  leftArm?: BoneTrack;
+  rightForeArm?: BoneTrack;
+  leftForeArm?: BoneTrack;
+  leftUpLeg?: BoneTrack;
+  rightUpLeg?: BoneTrack;
+  leftLeg?: BoneTrack;
+  rightLeg?: BoneTrack;
 }
 
 const activeHumans: Set<AnimatedHuman> = new Set();
@@ -89,8 +98,6 @@ export function clearHumanAnimations(): void {
 }
 
 const tmpQuat = new THREE.Quaternion();
-const xAxis = new THREE.Vector3(1, 0, 0);
-const zAxis = new THREE.Vector3(0, 0, 1);
 
 export function updateHumanAnimations(dt: number): void {
   animTime += dt;
@@ -99,54 +106,85 @@ export function updateHumanAnimations(dt: number): void {
   }
   for (const h of activeHumans) {
     if (!h.root.visible) continue;
-    const t = animTime * 4.5 + h.phase;
+    const t = animTime * 3.2 + h.phase;
 
     if (h.role === 'passenger' && h.rightArm) {
-      tmpQuat.setFromAxisAngle(zAxis, Math.sin(t * 1.4) * 0.22);
+      tmpQuat.setFromAxisAngle(h.rightArm.swingAxis, Math.sin(t * 1.4) * 0.22);
       h.rightArm.bone.quaternion.copy(h.rightArm.base).multiply(tmpQuat);
     } else if (h.role === 'pedestrian') {
-      const stride = Math.sin(t) * 0.38;
+      const stride = Math.sin(t) * 0.36;
+      const kneeL = Math.max(0, Math.sin(t + 0.7)) * 0.65;
+      const kneeR = Math.max(0, Math.sin(t + Math.PI + 0.7)) * 0.65;
       if (h.leftUpLeg) {
-        tmpQuat.setFromAxisAngle(xAxis, stride);
+        tmpQuat.setFromAxisAngle(h.leftUpLeg.swingAxis, stride);
         h.leftUpLeg.bone.quaternion.copy(h.leftUpLeg.base).multiply(tmpQuat);
       }
       if (h.rightUpLeg) {
-        tmpQuat.setFromAxisAngle(xAxis, -stride);
+        tmpQuat.setFromAxisAngle(h.rightUpLeg.swingAxis, -stride);
         h.rightUpLeg.bone.quaternion.copy(h.rightUpLeg.base).multiply(tmpQuat);
       }
+      if (h.leftLeg) {
+        tmpQuat.setFromAxisAngle(h.leftLeg.swingAxis, -kneeL);
+        h.leftLeg.bone.quaternion.copy(h.leftLeg.base).multiply(tmpQuat);
+      }
+      if (h.rightLeg) {
+        tmpQuat.setFromAxisAngle(h.rightLeg.swingAxis, -kneeR);
+        h.rightLeg.bone.quaternion.copy(h.rightLeg.base).multiply(tmpQuat);
+      }
       if (h.leftArm) {
-        tmpQuat.setFromAxisAngle(xAxis, -stride * 0.55);
+        tmpQuat.setFromAxisAngle(h.leftArm.swingAxis, -stride * 0.55);
         h.leftArm.bone.quaternion.copy(h.leftArm.base).multiply(tmpQuat);
       }
       if (h.rightArm) {
-        tmpQuat.setFromAxisAngle(xAxis, stride * 0.55);
+        tmpQuat.setFromAxisAngle(h.rightArm.swingAxis, stride * 0.55);
         h.rightArm.bone.quaternion.copy(h.rightArm.base).multiply(tmpQuat);
+      }
+      if (h.leftForeArm) {
+        tmpQuat.setFromAxisAngle(h.leftForeArm.swingAxis, 0.25 + Math.max(0, -stride) * 0.4);
+        h.leftForeArm.bone.quaternion.copy(h.leftForeArm.base).multiply(tmpQuat);
+      }
+      if (h.rightForeArm) {
+        tmpQuat.setFromAxisAngle(h.rightForeArm.swingAxis, 0.25 + Math.max(0, stride) * 0.4);
+        h.rightForeArm.bone.quaternion.copy(h.rightForeArm.base).multiply(tmpQuat);
       }
     } else if (h.role === 'cyclist') {
       const pL = Math.sin(t * 1.8) * 0.28;
       const pR = Math.sin(t * 1.8 + Math.PI) * 0.28;
       if (h.leftUpLeg) {
-        tmpQuat.setFromAxisAngle(xAxis, pL);
+        tmpQuat.setFromAxisAngle(h.leftUpLeg.swingAxis, pL);
         h.leftUpLeg.bone.quaternion.copy(h.leftUpLeg.base).multiply(tmpQuat);
       }
       if (h.leftLeg) {
-        tmpQuat.setFromAxisAngle(xAxis, -pL * 0.65);
+        tmpQuat.setFromAxisAngle(h.leftLeg.swingAxis, -pL * 0.7);
         h.leftLeg.bone.quaternion.copy(h.leftLeg.base).multiply(tmpQuat);
       }
       if (h.rightUpLeg) {
-        tmpQuat.setFromAxisAngle(xAxis, pR);
+        tmpQuat.setFromAxisAngle(h.rightUpLeg.swingAxis, pR);
         h.rightUpLeg.bone.quaternion.copy(h.rightUpLeg.base).multiply(tmpQuat);
       }
       if (h.rightLeg) {
-        tmpQuat.setFromAxisAngle(xAxis, -pR * 0.65);
+        tmpQuat.setFromAxisAngle(h.rightLeg.swingAxis, -pR * 0.7);
         h.rightLeg.bone.quaternion.copy(h.rightLeg.base).multiply(tmpQuat);
       }
     }
   }
 }
 
-function captureBase(bone?: THREE.Object3D) {
-  return bone ? { bone, base: bone.quaternion.clone() } : undefined;
+function captureBone(
+  root: THREE.Object3D,
+  bone: THREE.Object3D | undefined,
+  axisInRootSpace: THREE.Vector3
+): BoneTrack | undefined {
+  if (!bone) return undefined;
+  root.updateMatrixWorld(true);
+  const rootWorldQ = root.getWorldQuaternion(new THREE.Quaternion());
+  const boneWorldQ = bone.getWorldQuaternion(new THREE.Quaternion());
+  const localAxis = axisInRootSpace
+    .clone()
+    .applyQuaternion(rootWorldQ)
+    .applyQuaternion(boneWorldQ.invert())
+    .normalize();
+  return { bone, base: bone.quaternion.clone(), swingAxis: localAxis };
 }
 
 function aimBoneAt(
@@ -182,7 +220,6 @@ function attachRiggedHuman(
   const clone = SkeletonUtils.clone(gltf.scene);
   clone.scale.setScalar(role === 'cyclist' ? 0.96 : 1.04);
 
-  // Subtle per-person outfit tint on Michelle; VALID avatars already have unique outfits/skin/hair
   const tint = isMichelle
     ? [0xffffff, 0xdbeafe, 0xfef3c7, 0xfce7f3, 0xdcfce7][Math.floor(Math.random() * 5)]
     : 0xffffff;
@@ -211,16 +248,21 @@ function attachRiggedHuman(
   const rightUpLeg = findBone(clone, 'RightUpLeg');
   const leftLeg = findBone(clone, 'LeftLeg');
   const rightLeg = findBone(clone, 'RightLeg');
+  const leftFoot = findBone(clone, 'LeftFoot');
+  const rightFoot = findBone(clone, 'RightFoot');
   const spine = findBone(clone, 'Spine');
-  const spine1 = findBone(clone, 'Spine1');
+  const head = findBone(clone, 'Head');
 
   container.add(clone);
 
   if (role === 'cyclist') {
-    clone.position.set(0, 0.12, -0.26);
-    if (spine) spine.rotateX(0.32);
-    if (spine1) spine1.rotateX(0.22);
+    // Sit hips squarely on bicycle saddle (y ≈ 0.90m)
+    clone.position.set(0, -0.08, -0.24);
 
+    // Lean torso forward toward handlebars
+    aimBoneAt(container, spine, head, new THREE.Vector3(0, 1.38, 0.14));
+
+    // Aim both hands directly onto handlebar grips (±0.22, 0.94, 0.36)
     const leftGrip = new THREE.Vector3(0.22, 0.94, 0.36);
     const rightGrip = new THREE.Vector3(-0.22, 0.94, 0.36);
     aimBoneAt(container, leftArm, leftForeArm, leftGrip);
@@ -228,13 +270,18 @@ function attachRiggedHuman(
     aimBoneAt(container, rightArm, rightForeArm, rightGrip);
     aimBoneAt(container, rightForeArm, rightHand, rightGrip);
 
-    if (leftUpLeg) leftUpLeg.rotateX(0.95);
-    if (rightUpLeg) rightUpLeg.rotateX(0.95);
-    if (leftLeg) leftLeg.rotateX(-1.15);
-    if (rightLeg) rightLeg.rotateX(-1.15);
+    // Aim thighs forward to knees and calves down to pedals
+    const leftKnee = new THREE.Vector3(0.14, 0.72, 0.24);
+    const rightKnee = new THREE.Vector3(-0.14, 0.72, 0.24);
+    const leftPedal = new THREE.Vector3(0.14, 0.32, 0.04);
+    const rightPedal = new THREE.Vector3(-0.14, 0.32, 0.04);
+    aimBoneAt(container, leftUpLeg, leftLeg, leftKnee);
+    aimBoneAt(container, leftLeg, leftFoot, leftPedal);
+    aimBoneAt(container, rightUpLeg, rightLeg, rightKnee);
+    aimBoneAt(container, rightLeg, rightFoot, rightPedal);
   } else {
     // Lower arms naturally to sides using world-space aiming
-    const leftSide = new THREE.Vector3(0.26, 0.78, 0.04);
+    const leftSide = new THREE.Vector3(0.24, 0.78, 0.04);
     aimBoneAt(container, leftArm, leftForeArm, leftSide);
     aimBoneAt(container, leftForeArm, leftHand, leftSide);
 
@@ -243,22 +290,27 @@ function attachRiggedHuman(
       aimBoneAt(container, rightArm, rightForeArm, waveTarget);
       aimBoneAt(container, rightForeArm, rightHand, waveTarget);
     } else {
-      const rightSide = new THREE.Vector3(-0.26, 0.78, 0.04);
+      const rightSide = new THREE.Vector3(-0.24, 0.78, 0.04);
       aimBoneAt(container, rightArm, rightForeArm, rightSide);
       aimBoneAt(container, rightForeArm, rightHand, rightSide);
     }
   }
 
+  const rootRight = new THREE.Vector3(1, 0, 0);
+  const rootForward = new THREE.Vector3(0, 0, 1);
+
   activeHumans.add({
     root: container,
     role,
     phase: Math.random() * Math.PI * 2,
-    leftArm: captureBase(leftArm),
-    rightArm: captureBase(rightArm),
-    leftUpLeg: captureBase(leftUpLeg),
-    rightUpLeg: captureBase(rightUpLeg),
-    leftLeg: captureBase(leftLeg),
-    rightLeg: captureBase(rightLeg)
+    leftArm: captureBone(container, leftArm, rootRight),
+    rightArm: captureBone(container, rightArm, role === 'passenger' ? rootForward : rootRight),
+    leftForeArm: captureBone(container, leftForeArm, rootRight),
+    rightForeArm: captureBone(container, rightForeArm, rootRight),
+    leftUpLeg: captureBone(container, leftUpLeg, rootRight),
+    rightUpLeg: captureBone(container, rightUpLeg, rootRight),
+    leftLeg: captureBone(container, leftLeg, rootRight),
+    rightLeg: captureBone(container, rightLeg, rootRight)
   });
 }
 
