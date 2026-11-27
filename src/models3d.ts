@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { createRealHuman3D } from './characters3d';
 import type { VehicleId } from './types';
 
 // Materials cache to maximize performance and batching
@@ -62,19 +63,35 @@ export const materials = {
   asphaltPaintWhite: new THREE.MeshBasicMaterial({ color: 0xf8fafc, side: THREE.DoubleSide }),
   asphaltPaintYellow: new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide }),
 
-  // Roadside Building Materials
-  bldgStuccoCream: new THREE.MeshStandardMaterial({ color: 0xe7dcc8, roughness: 0.85 }),
+  // Roadside Building Materials (Warm Addis Stone, Terracotta, Concrete & Architectural Glass)
+  bldgStuccoCream: new THREE.MeshStandardMaterial({ color: 0xe6dac4, roughness: 0.85 }),
   bldgStuccoTerracotta: new THREE.MeshStandardMaterial({ color: 0xc26d4a, roughness: 0.85 }),
-  bldgConcrete: new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.9 }),
-  bldgDarkTrim: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 }),
+  bldgConcrete: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.88 }),
+  bldgDarkTrim: new THREE.MeshStandardMaterial({ color: 0x292524, roughness: 0.72 }),
   bldgWindowLit: new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfde047, emissiveIntensity: 0.55, roughness: 0.2 }),
-  bldgWindowDark: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.6 }),
-  bldgGlassBlue: new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.15, metalness: 0.85 }),
+  bldgWindowDark: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.25, metalness: 0.45 }),
+  bldgGlassBlue: new THREE.MeshStandardMaterial({ color: 0x2c4a5e, roughness: 0.22, metalness: 0.55 }),
   bldgRoofRed: new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.75 }),
   bldgRoofMetal: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.5, metalness: 0.5 }),
   bldgAwningGreen: new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.7 }),
   bldgAwningGold: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 }),
-  bldgWaterTank: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 })
+  bldgWaterTank: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 }),
+
+  // Modern Addis EV, Electric Bus, Corridor Palm, Smart Pole & AALRT Materials
+  evWhite: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.2, metalness: 0.4 }),
+  evTeal: new THREE.MeshStandardMaterial({ color: 0x0d9488, roughness: 0.22, metalness: 0.45 }),
+  evSilver: new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.22, metalness: 0.55 }),
+  evLightbar: new THREE.MeshStandardMaterial({ color: 0xe0f2fe, emissive: 0xbae6fd, emissiveIntensity: 2.8 }),
+  evPlateGreen: new THREE.MeshStandardMaterial({ color: 0x16a34a, emissive: 0x15803d, emissiveIntensity: 0.3 }),
+  busGreen: new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.35, metalness: 0.2 }),
+  busYellow: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 }),
+  palmTrunk: new THREE.MeshStandardMaterial({ color: 0x78553a, roughness: 0.92 }),
+  palmFrond: new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.75, side: THREE.DoubleSide }),
+  smartPole: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.45, metalness: 0.65 }),
+  ledCoolWhite: new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xe0f2fe, emissiveIntensity: 3.0 }),
+  lrtBlue: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.25 }),
+  lrtCanopy: new THREE.MeshStandardMaterial({ color: 0x93c5fd, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.65, side: THREE.DoubleSide }),
+  cbeFacetGlass: new THREE.MeshStandardMaterial({ color: 0x0c4a6e, metalness: 0.92, roughness: 0.08 })
 };
 
 export interface Vehicle3DModel {
@@ -628,6 +645,165 @@ export function createPolice3D(isPlayer: boolean = false): Vehicle3DModel {
   return model;
 }
 
+// 5b. Modern Addis Electric Crossover EV (VW ID.4 / BYD style)
+export function createEV3D(): Vehicle3DModel {
+  const group = new THREE.Group();
+  const wheels: THREE.Mesh[] = [];
+  const leftBlinkers: THREE.Mesh[] = [];
+  const rightBlinkers: THREE.Mesh[] = [];
+
+  const bodyMats = [materials.evWhite, materials.evTeal, materials.evSilver];
+  const bodyMat = bodyMats[Math.floor(Math.random() * bodyMats.length)];
+
+  // Sleek aerodynamic lower chassis
+  const lower = new THREE.Mesh(new RoundedBoxGeometry(1.94, 0.68, 4.45, 3, 0.14), bodyMat);
+  lower.position.set(0, 0.62, 0);
+  lower.castShadow = true;
+  lower.receiveShadow = true;
+  group.add(lower);
+
+  // Sloped glasshouse cabin
+  const cabin = new THREE.Mesh(new RoundedBoxGeometry(1.72, 0.56, 2.55, 3, 0.16), materials.glass);
+  cabin.position.set(0, 1.18, -0.18);
+  cabin.castShadow = true;
+  group.add(cabin);
+
+  // Body-color roof cap
+  const roof = new THREE.Mesh(new RoundedBoxGeometry(1.54, 0.09, 2.1, 2, 0.04), bodyMat);
+  roof.position.set(0, 1.46, -0.22);
+  group.add(roof);
+
+  // Signature EV full-width front & rear LED lightbars
+  const frontBar = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.07, 0.08), materials.evLightbar);
+  frontBar.position.set(0, 0.78, 2.22);
+  group.add(frontBar);
+
+  const rearBar = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.08, 0.08), materials.taillight);
+  rearBar.position.set(0, 0.82, -2.22);
+  group.add(rearBar);
+
+  // Green Ethiopian EV license plate
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.12, 0.05), materials.evPlateGreen);
+  plate.position.set(0, 0.45, -2.23);
+  group.add(plate);
+
+  // Blinkers
+  const bGeo = new THREE.BoxGeometry(0.16, 0.09, 0.12);
+  for (const z of [2.18, -2.18]) {
+    const bL = new THREE.Mesh(bGeo, materials.blinkerAmberOff);
+    bL.position.set(-0.86, 0.68, z);
+    group.add(bL);
+    leftBlinkers.push(bL);
+
+    const bR = new THREE.Mesh(bGeo, materials.blinkerAmberOff);
+    bR.position.set(0.86, 0.68, z);
+    group.add(bR);
+    rightBlinkers.push(bR);
+  }
+
+  // Alloy wheels
+  const tireGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.24, 16);
+  tireGeo.rotateZ(Math.PI / 2);
+  const rimGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.26, 12);
+  rimGeo.rotateZ(Math.PI / 2);
+
+  for (const [wx, wz] of [[-0.92, 1.38], [0.92, 1.38], [-0.92, -1.38], [0.92, -1.38]]) {
+    const tire = new THREE.Mesh(tireGeo, materials.rubber);
+    tire.position.set(wx, 0.36, wz);
+    tire.castShadow = true;
+    const rim = new THREE.Mesh(rimGeo, materials.hubcap);
+    tire.add(rim);
+    group.add(tire);
+    wheels.push(tire);
+  }
+
+  return { group, wheels, headlights: [], leftBlinkers, rightBlinkers };
+}
+
+// 5c. Addis Electric City Bus (Anbessa / Sheger E-Bus)
+export function createElectricBus3D(): Vehicle3DModel {
+  const group = new THREE.Group();
+  const wheels: THREE.Mesh[] = [];
+  const leftBlinkers: THREE.Mesh[] = [];
+  const rightBlinkers: THREE.Mesh[] = [];
+
+  // Main bus body (Green eco-transit lower + crisp white upper or yellow stripe)
+  const lower = new THREE.Mesh(new RoundedBoxGeometry(2.48, 1.25, 9.0, 2, 0.08), materials.busGreen);
+  lower.position.set(0, 1.05, 0);
+  lower.castShadow = true;
+  lower.receiveShadow = true;
+  group.add(lower);
+
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.51, 0.22, 9.02), materials.busYellow);
+  stripe.position.set(0, 1.68, 0);
+  group.add(stripe);
+
+  const upper = new THREE.Mesh(new RoundedBoxGeometry(2.44, 1.28, 8.92, 2, 0.08), materials.minibusWhite);
+  upper.position.set(0, 2.38, 0);
+  upper.castShadow = true;
+  group.add(upper);
+
+  // Panoramic front windshield & side passenger window band
+  const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(2.26, 1.35, 0.1), materials.glass);
+  frontGlass.position.set(0, 2.15, 4.46);
+  group.add(frontGlass);
+
+  const sideGlass = new THREE.Mesh(new THREE.BoxGeometry(2.48, 0.88, 7.8), materials.glass);
+  sideGlass.position.set(0, 2.35, -0.2);
+  group.add(sideGlass);
+
+  // Roof-mounted electric battery & HVAC pod
+  const batteryPod = new THREE.Mesh(new RoundedBoxGeometry(1.75, 0.34, 5.2, 2, 0.06), materials.evSilver);
+  batteryPod.position.set(0, 3.16, 0.2);
+  group.add(batteryPod);
+
+  // Amber LED destination header
+  const destBoard = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.22, 0.12), materials.blinker);
+  destBoard.position.set(0, 2.92, 4.46);
+  group.add(destBoard);
+
+  // Headlights & Taillights
+  const hlGeo = new THREE.BoxGeometry(0.32, 0.18, 0.1);
+  for (const x of [-0.9, 0.9]) {
+    const hl = new THREE.Mesh(hlGeo, materials.headlightOn);
+    hl.position.set(x, 0.72, 4.5);
+    group.add(hl);
+    const tl = new THREE.Mesh(hlGeo, materials.taillight);
+    tl.position.set(x, 0.85, -4.5);
+    group.add(tl);
+  }
+
+  // Blinkers
+  const bGeo = new THREE.BoxGeometry(0.18, 0.14, 0.12);
+  for (const z of [4.48, -4.48]) {
+    const bL = new THREE.Mesh(bGeo, materials.blinkerAmberOff);
+    bL.position.set(-1.12, 0.72, z);
+    group.add(bL);
+    leftBlinkers.push(bL);
+
+    const bR = new THREE.Mesh(bGeo, materials.blinkerAmberOff);
+    bR.position.set(1.12, 0.72, z);
+    group.add(bR);
+    rightBlinkers.push(bR);
+  }
+
+  // Heavy bus wheels
+  const tireGeo = new THREE.CylinderGeometry(0.48, 0.48, 0.32, 16);
+  tireGeo.rotateZ(Math.PI / 2);
+  const rimGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.34, 12);
+  rimGeo.rotateZ(Math.PI / 2);
+  for (const [wx, wz] of [[-1.16, 2.75], [1.16, 2.75], [-1.16, -2.65], [1.16, -2.65]]) {
+    const tire = new THREE.Mesh(tireGeo, materials.rubber);
+    tire.position.set(wx, 0.48, wz);
+    tire.castShadow = true;
+    tire.add(new THREE.Mesh(rimGeo, materials.hubcap));
+    group.add(tire);
+    wheels.push(tire);
+  }
+
+  return { group, wheels, headlights: [], leftBlinkers, rightBlinkers };
+}
+
 export function createVehicleMeshById(id: VehicleId, isPlayer: boolean = false): Vehicle3DModel {
   switch (id) {
     case 'MINIBUS':
@@ -830,32 +1006,48 @@ export function createFuelCan3D(): THREE.Group {
   return group;
 }
 
-// 12. Ethiopian Pedestrian / Passenger in Netela Shawl (ተሳፋሪ)
-export function createPassenger3D(): THREE.Group {
+// 12. Rigged 3D Human Pedestrian / Passenger (GTA-style GLB character)
+export function createPassenger3D(role: 'passenger' | 'pedestrian' = 'passenger'): THREE.Group {
+  return createRealHuman3D(role);
+}
+
+// 12b. Rigged 3D Human Cyclist & Bicycle (ለብስክሌት መንገድ)
+export function createCyclist3D(): THREE.Group {
   const group = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.35, metalness: 0.7 });
 
-  // White Netela/Gabi Garment
-  const gown = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, 1.15, 8), materials.netelaWhite);
-  gown.position.y = 0.65;
-  gown.castShadow = true;
-  group.add(gown);
+  // Bicycle Wheels
+  const wheelGeo = new THREE.TorusGeometry(0.33, 0.038, 8, 16);
+  wheelGeo.rotateY(Math.PI / 2);
+  const wheelF = new THREE.Mesh(wheelGeo, materials.rubber);
+  wheelF.position.set(0, 0.35, 0.56);
+  const wheelR = new THREE.Mesh(wheelGeo, materials.rubber);
+  wheelR.position.set(0, 0.35, -0.56);
+  group.add(wheelF, wheelR);
 
-  // Emerald/Gold Tibeb embroidery trim around bottom
-  const trim = new THREE.Mesh(new THREE.CylinderGeometry(0.405, 0.405, 0.12, 8), materials.netelaTibeb);
-  trim.position.y = 0.15;
-  group.add(trim);
+  // Diamond Bicycle Frame, Fork, Handlebars & Saddle
+  const topTube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.65, 6), frameMat);
+  topTube.rotation.x = Math.PI / 2;
+  topTube.position.set(0, 0.74, 0.04);
+  const downTube = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.76, 6), frameMat);
+  downTube.rotation.x = 0.85;
+  downTube.position.set(0, 0.55, 0.14);
+  const seatTube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.6, 6), frameMat);
+  seatTube.rotation.x = -0.25;
+  seatTube.position.set(0, 0.6, -0.22);
+  const fork = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.02, 0.64, 6), frameMat);
+  fork.rotation.x = -0.28;
+  fork.position.set(0, 0.62, 0.44);
+  const handlebar = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.52, 6), materials.chrome);
+  handlebar.rotation.z = Math.PI / 2;
+  handlebar.position.set(0, 0.94, 0.36);
+  const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.24), materials.signalHousing);
+  saddle.position.set(0, 0.9, -0.26);
+  group.add(topTube, downTube, seatTube, fork, handlebar, saddle);
 
-  // Head
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 8), materials.clay);
-  head.position.y = 1.38;
-  group.add(head);
-
-  // Waving / Taxi Hailing Arm
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.1), materials.netelaWhite);
-  arm.position.set(-0.35, 1.25, 0.1);
-  arm.rotation.z = -0.55;
-  arm.rotation.x = 0.35;
-  group.add(arm);
+  // Real Rigged 3D Human Rider
+  group.add(createRealHuman3D('cyclist'));
+  group.userData.wheels = [wheelF, wheelR];
 
   return group;
 }
@@ -927,38 +1119,76 @@ export function createEucalyptusTree3D(): THREE.Group {
   return group;
 }
 
-// 16. Addis Highway Street Light Lamp (የጎዳና መብራት)
+// 16. Addis Corridor Smart Dual-Arm LED Street Lamp (የዘመናዊ ጎዳና መብራት)
 export function createStreetLamp3D(): THREE.Group {
   const group = new THREE.Group();
 
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 6.8, 6), materials.concretePillar);
-  pole.position.y = 3.4;
+  // Sleek dark-metallic tapered smart pole
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 7.6, 8), materials.smartPole);
+  pole.position.y = 3.8;
   group.add(pole);
 
-  // Curved overhead arm extending toward roadway
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 0.08), materials.chrome);
-  arm.position.set(0.9, 6.75, 0);
-  group.add(arm);
+  // Decorative base collar
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.7, 8), materials.smartPole);
+  base.position.y = 0.35;
+  group.add(base);
 
-  // Overhead luminaire head with warm glow
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.14, 0.3), materials.headlightOn);
-  head.position.set(1.8, 6.7, 0);
-  group.add(head);
+  // Dual arched overhead luminaire arms (roadway + pedestrian walkway)
+  const armRoad = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.08, 0.08), materials.smartPole);
+  armRoad.position.set(0.95, 7.45, 0);
+  armRoad.rotation.z = 0.08;
+  group.add(armRoad);
 
-  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.34), materials.signalHousing);
-  housing.position.set(1.8, 6.79, 0);
-  group.add(housing);
+  const headRoad = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.1, 0.32), materials.ledCoolWhite);
+  headRoad.position.set(1.9, 7.52, 0);
+  group.add(headRoad);
+
+  const housingRoad = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.07, 0.36), materials.signalHousing);
+  housingRoad.position.set(1.9, 7.59, 0);
+  group.add(housingRoad);
+
+  const armWalk = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.07, 0.07), materials.smartPole);
+  armWalk.position.set(-0.5, 5.8, 0);
+  armWalk.rotation.z = -0.1;
+  group.add(armWalk);
+
+  const headWalk = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.08, 0.24), materials.ledCoolWhite);
+  headWalk.position.set(-0.95, 5.75, 0);
+  group.add(headWalk);
 
   // Addis Ababa Boulevard Tricolor Banner (Green / Yellow / Red)
   const bannerG = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.04), materials.bldgAwningGreen);
-  bannerG.position.set(-0.32, 4.9, 0);
+  bannerG.position.set(0.32, 4.9, 0);
   group.add(bannerG);
   const bannerY = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.04), materials.gold);
-  bannerY.position.set(-0.32, 4.45, 0);
+  bannerY.position.set(0.32, 4.45, 0);
   group.add(bannerY);
   const bannerR = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.04), materials.fuelRed);
-  bannerR.position.set(-0.32, 4.0, 0);
+  bannerR.position.set(0.32, 4.0, 0);
   group.add(bannerR);
+
+  return group;
+}
+
+// 16b. Addis Corridor Ornamental Palm Tree (የቦሌ መንገድ ዘንባባ)
+export function createPalmTree3D(): THREE.Group {
+  const group = new THREE.Group();
+
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 6.2, 7), materials.palmTrunk);
+  trunk.position.y = 3.1;
+  trunk.castShadow = true;
+  group.add(trunk);
+
+  const frondGeo = new THREE.ConeGeometry(0.55, 3.2, 4);
+  frondGeo.scale(1, 1, 0.16);
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const frond = new THREE.Mesh(frondGeo, materials.palmFrond);
+    frond.position.set(Math.cos(angle) * 1.15, 6.1, Math.sin(angle) * 1.15);
+    frond.rotation.y = -angle + Math.PI / 2;
+    frond.rotation.x = 1.18;
+    group.add(frond);
+  }
 
   return group;
 }
@@ -1036,52 +1266,119 @@ export function createCheckpointGate3D(): THREE.Group {
 export function createCBETower3D(): THREE.Group {
   const group = new THREE.Group();
 
-  // Main glass prism skyscraper
-  const tower = new THREE.Mesh(new THREE.BoxGeometry(18, 120, 18), materials.cbeTowerGlass);
-  tower.position.y = 60;
+  // Sweeping commercial podium plaza
+  const podium = new THREE.Mesh(new THREE.CylinderGeometry(16, 18, 12, 8), materials.bldgConcrete);
+  podium.position.y = 6;
+  group.add(podium);
+
+  // Tapered, faceted glass prism skyscraper
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(7.2, 11.8, 124, 8), materials.cbeFacetGlass);
+  tower.position.y = 74;
   group.add(tower);
 
-  // Exterior structural blue ribs
-  const rib = new THREE.Mesh(new THREE.BoxGeometry(19.2, 115, 2), materials.cbeTrim);
-  rib.position.y = 60;
-  group.add(rib);
+  // Exterior structural blue-silver curtain-wall ribs
+  for (let i = 0; i < 4; i++) {
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(22 - i * 1.4, 120, 1.3), materials.cbeTrim);
+    rib.position.y = 72;
+    rib.rotation.y = (i * Math.PI) / 4;
+    group.add(rib);
+  }
 
   // Top observation crown & architectural spire
-  const crown = new THREE.Mesh(new THREE.BoxGeometry(14, 10, 14), materials.chrome);
-  crown.position.y = 125;
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(6.2, 7.2, 10, 8), materials.chrome);
+  crown.position.y = 141;
   group.add(crown);
 
-  const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 1.5, 25, 8), materials.chrome);
-  spire.position.y = 142.5;
+  const beacon = new THREE.Mesh(new THREE.CylinderGeometry(6.5, 6.5, 1.4, 8), materials.gold);
+  beacon.position.y = 136;
+  group.add(beacon);
+
+  const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 1.2, 24, 8), materials.chrome);
+  spire.position.y = 158;
   group.add(spire);
 
   return group;
 }
 
-// 21. Addis Ababa Light Rail Transit (AALRT) Elevated Viaduct & Train
+// 21. Addis Ababa Light Rail Transit (AALRT) Elevated Viaduct, Station & Articulated Tram
 export function createLightRailViaduct3D(): THREE.Group {
   const group = new THREE.Group();
 
-  // Viaduct Bridge Deck
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(7.0, 1.2, 120), materials.concretePillar);
-  deck.position.set(0, 6.0, 0);
+  // 240m Elevated Twin-Track Concrete Viaduct Deck
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(8.6, 1.2, 240), materials.concretePillar);
+  deck.position.set(0, 6.2, 0);
   group.add(deck);
 
-  // Concrete Piers
-  for (let z = -50; z <= 50; z += 25) {
-    const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 6.0, 8), materials.concretePillar);
-    pier.position.set(0, 3.0, z);
-    group.add(pier);
+  // Concrete safety parapet walls along deck edges
+  for (const px of [-4.15, 4.15]) {
+    const parapet = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.9, 240), materials.bldgConcrete);
+    parapet.position.set(px, 7.25, 0);
+    group.add(parapet);
   }
 
-  // Modern Green & White Addis LRT Train
-  const trainCar = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.6, 28), materials.lrtGreen);
-  trainCar.position.set(0, 7.8, 0);
-  group.add(trainCar);
+  // Concrete Piers & Overhead Catenary Gantry Poles
+  for (let z = -105; z <= 105; z += 30) {
+    const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.05, 6.2, 8), materials.concretePillar);
+    pier.position.set(0, 3.1, z);
+    group.add(pier);
 
-  const trainRoof = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.4, 27.5), materials.minibusWhite);
-  trainRoof.position.set(0, 9.3, 0);
-  group.add(trainRoof);
+    const catenaryPole = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4.2, 0.2), materials.smartPole);
+    catenaryPole.position.set(-3.9, 8.9, z);
+    group.add(catenaryPole);
+
+    const crossArm = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.14, 0.14), materials.smartPole);
+    crossArm.position.set(-1.6, 10.9, z);
+    group.add(crossArm);
+  }
+
+  // Elevated AALRT Station Canopy (Arched translucent roof)
+  const canopyGeo = new THREE.CylinderGeometry(5.6, 5.6, 38, 12, 1, true, -Math.PI * 0.36, Math.PI * 0.72);
+  canopyGeo.rotateX(Math.PI / 2);
+  const stationCanopy = new THREE.Mesh(canopyGeo, materials.lrtCanopy);
+  stationCanopy.position.set(0, 7.8, 0);
+  group.add(stationCanopy);
+
+  // Articulated 3-Car Blue & White Addis LRT Tram (moves along viaduct)
+  const tram = new THREE.Group();
+  tram.position.set(0, 7.0, 0);
+
+  for (const carZ of [-10.6, 0, 10.6]) {
+    const lower = new THREE.Mesh(new THREE.BoxGeometry(2.75, 1.3, 9.6), materials.lrtBlue);
+    lower.position.set(0, 0.85, carZ);
+    tram.add(lower);
+
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.25, 9.5), materials.minibusWhite);
+    upper.position.set(0, 2.1, carZ);
+    tram.add(upper);
+
+    const windows = new THREE.Mesh(new THREE.BoxGeometry(2.76, 0.85, 8.6), materials.glass);
+    windows.position.set(0, 2.05, carZ);
+    tram.add(windows);
+  }
+
+  // Articulated accordion bellows between cars
+  for (const jointZ of [-5.3, 5.3]) {
+    const bellows = new THREE.Mesh(new THREE.BoxGeometry(2.45, 2.35, 1.1), materials.signalHousing);
+    bellows.position.set(0, 1.45, jointZ);
+    tram.add(bellows);
+  }
+
+  // Front & rear windshields + headlights + roof pantograph
+  for (const dir of [-1, 1]) {
+    const ws = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.2, 0.12), materials.glass);
+    ws.position.set(0, 1.9, dir * 15.42);
+    tram.add(ws);
+
+    const hl = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.18, 0.12), materials.headlightOn);
+    hl.position.set(0, 0.75, dir * 15.42);
+    tram.add(hl);
+  }
+  const pantograph = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.8, 1.4), materials.chrome);
+  pantograph.position.set(0, 3.1, 0);
+  tram.add(pantograph);
+
+  tram.userData.isLrtTrain = true;
+  group.add(tram);
 
   return group;
 }
@@ -1301,26 +1598,39 @@ export function createBuilding3D(variant: 'APARTMENT' | 'SHOP' | 'TOWER' | 'HOUS
       }
     }
   } else if (variant === 'TOWER') {
-    const floors = 7 + Math.floor(Math.random() * 3);
+    const floors = 8 + Math.floor(Math.random() * 4);
     const h = floors * 3.6;
-    const core = new THREE.Mesh(new THREE.BoxGeometry(13.0, h, 11.0), materials.bldgConcrete);
+    const core = new THREE.Mesh(new THREE.BoxGeometry(13.4, h, 11.2), materials.bldgConcrete);
     core.position.y = h / 2;
     core.castShadow = true;
     core.receiveShadow = true;
     group.add(core);
 
-    const facade = new THREE.Mesh(new THREE.BoxGeometry(11.6, h - 1.6, 11.2), materials.bldgGlassBlue);
-    facade.position.y = h / 2 + 0.4;
+    // Modern Bole / Financial District curtain-wall glass facade
+    const facade = new THREE.Mesh(new THREE.BoxGeometry(12.2, h - 1.2, 11.5), materials.bldgGlassBlue);
+    facade.position.y = h / 2 + 0.3;
     group.add(facade);
 
+    // Vertical aluminum mullions
+    for (const mx of [-4.2, -1.4, 1.4, 4.2]) {
+      const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.28, h - 0.8, 11.65), materials.bldgDarkTrim);
+      mullion.position.set(mx, h / 2 + 0.3, 0);
+      group.add(mullion);
+    }
+
     for (let f = 1; f < floors; f++) {
-      const band = new THREE.Mesh(new THREE.BoxGeometry(13.2, 0.45, 11.3), materials.bldgDarkTrim);
+      const band = new THREE.Mesh(new THREE.BoxGeometry(13.6, 0.42, 11.75), materials.bldgDarkTrim);
       band.position.y = f * 3.6;
       group.add(band);
     }
 
-    const crown = new THREE.Mesh(new THREE.BoxGeometry(8.5, 1.6, 0.6), materials.bldgWindowLit);
-    crown.position.set(0, h + 0.8, 4.8);
+    // Rooftop mechanical penthouse + illuminated commercial crown
+    const penthouse = new THREE.Mesh(new THREE.BoxGeometry(7.2, 2.4, 6.2), materials.bldgDarkTrim);
+    penthouse.position.y = h + 1.2;
+    group.add(penthouse);
+
+    const crown = new THREE.Mesh(new THREE.BoxGeometry(9.2, 1.3, 0.5), materials.bldgWindowLit);
+    crown.position.set(0, h + 0.75, 5.75);
     group.add(crown);
   } else {
     const body = new THREE.Mesh(new THREE.BoxGeometry(9.0, 4.0, 7.5), materials.bldgStuccoCream);
