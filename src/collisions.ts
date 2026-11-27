@@ -8,7 +8,8 @@ export const vehicleFootprints: Record<VehicleId, readonly [number, number]> = {
 export const spriteFootprints: Partial<Record<SpriteType, readonly [number, number]>> = {
   TRAFFIC_LADA: vehicleFootprints.LADA, TRAFFIC_POLICE: vehicleFootprints.LADA,
   TRAFFIC_BAJAJ: vehicleFootprints.BAJAJ, TRAFFIC_ISUZU: vehicleFootprints.ISUZU,
-  SCENERY_ACACIA: [0.36, 0.36], SCENERY_EUCALYPTUS: [0.3, 0.3],
+  TRAFFIC_EV: [1.0, 2.3], TRAFFIC_BUS: [1.3, 4.6],
+  SCENERY_ACACIA: [0.36, 0.36], SCENERY_EUCALYPTUS: [0.3, 0.3], SCENERY_PALM: [0.32, 0.32],
   SCENERY_BUILDING_APARTMENT: [4.75, 6], SCENERY_BUILDING_SHOP: [4, 5.25],
   SCENERY_BUILDING_TOWER: [5.6, 6.5], SCENERY_BUILDING_HOUSE: [3.75, 4.5]
 };
