@@ -244,7 +244,11 @@ export class GameEngine {
         }
       }
 
-      if (e.key === 'h' || e.key === 'H' || e.code === 'Space') {
+      if (e.code === 'Space' && this.state === 'PLAYING') {
+        e.preventDefault();
+      }
+
+      if (e.key === 'h' || e.key === 'H') {
         if (this.state === 'PLAYING') {
           this.triggerHorn();
         }
@@ -686,9 +690,10 @@ export class GameEngine {
     }
     const reversing = this.player.gearMode === 'R';
     const forwardBrakes = reversing && this.keyboardReverse;
-    const up = !!(this.keys['arrowup'] || this.controls?.isGasHeld ||
+    const handbrake = !!this.keys['Space'];
+    const up = !handbrake && !!(this.keys['arrowup'] || this.controls?.isGasHeld ||
       (forward && !forwardBrakes) || (backward && reversing));
-    const down = pedalBrake || (backward && !reversing) || (forward && forwardBrakes) || (forward && backward);
+    const down = handbrake || pedalBrake || (backward && !reversing) || (forward && forwardBrakes) || (forward && backward);
     const left = !!(this.keys['arrowleft'] || this.keys['a']);
     const right = !!(this.keys['arrowright'] || this.keys['d']);
 
@@ -743,11 +748,12 @@ export class GameEngine {
       const aeroDrag = this.player.accel * (0.07 + 0.28 * speedRatioPre * speedRatioPre);
 
       if (this.player.brakePedal > 0.05) {
-        // Braking overrides throttle; progressive hydraulic bite
+        // Braking overrides throttle; handbrake (Space) applies 1.75x rear-lock bite
         const brakeGrip = this.stage.isWetRoad ? 0.84 : 1.0;
-        const brakeForce = this.player.decel * (0.75 + 0.35 * this.player.brakePedal) * this.player.brakePedal * brakeGrip;
+        const handbrakeBoost = handbrake ? 1.75 : 1.0;
+        const brakeForce = this.player.decel * (0.75 + 0.35 * this.player.brakePedal) * this.player.brakePedal * brakeGrip * handbrakeBoost;
         this.player.speed = Math.max(0, this.player.speed - (brakeForce + aeroDrag + slopeForce) * dt);
-        if (this.player.brakePedal > 0.65 && speedRatioPre > 0.45) {
+        if ((handbrake || this.player.brakePedal > 0.65) && speedRatioPre > 0.32) {
           this.spawnTireSmoke();
           sound.startTireScreech();
         } else {
@@ -848,8 +854,9 @@ export class GameEngine {
       this.player.x -= (currentSegment.curve * excess * 0.6) * dt;
     }
 
-    // High speed hard drift
-    if (Math.abs(this.player.steerAngle) > 0.55 && speedRatio > 0.72) {
+    // High speed hard drift or Spacebar handbrake slide
+    if ((handbrake && speedRatio > 0.25 && Math.abs(this.player.steerAngle) > 0.12) ||
+        (Math.abs(this.player.steerAngle) > 0.55 && speedRatio > 0.72)) {
       this.player.isDrifting = true;
       this.spawnTireSmoke();
       sound.startTireScreech();
@@ -890,7 +897,8 @@ export class GameEngine {
     const clampedRoll = Math.max(-0.35, Math.min(0.35, this.player.roll));
     const clampedPitch = Math.max(-0.25, Math.min(0.25, this.player.pitch));
     // Subtle yaw into the turn/drift so the chassis points along its path
-    const bodyYaw = -this.player.steerAngle * 0.1 * Math.min(1, speedRatio * 1.5);
+    const driftYawMult = (handbrake && this.player.isDrifting) ? 2.1 : 1.0;
+    const bodyYaw = -this.player.steerAngle * 0.1 * driftYawMult * Math.min(1, speedRatio * 1.5);
     this.playerModel.group.rotateY(bodyYaw);
     this.playerModel.group.rotateZ(-clampedRoll - this.player.steerAngle * 0.06);
     this.playerModel.group.rotateX(clampedPitch);
@@ -1070,7 +1078,7 @@ export class GameEngine {
         if (car) {
           const trafficSpeed = car.speed ?? 0;
           car.cruiseSpeed ??= trafficSpeed;
-          const share = this.player.vehicleId === 'ISUZU' ? 0.72 : car.type === 'TRAFFIC_ISUZU' ? 0.2 : 0.45;
+          const share = this.player.vehicleId === 'ISUZU' ? 0.72 : (car.type === 'TRAFFIC_ISUZU' || car.type === 'TRAFFIC_BUS') ? 0.2 : 0.45;
           const common = trafficSpeed + (this.player.speed - trafficSpeed) * share;
           car.speed = this.player.speed = car.isOncoming ? 0 : common;
         } else this.player.speed = 0;
@@ -1133,7 +1141,13 @@ export class GameEngine {
         }
 
         // Near-Miss Combo check with traffic
-        if (sprite.type === 'TRAFFIC_LADA' || sprite.type === 'TRAFFIC_BAJAJ' || sprite.type === 'TRAFFIC_ISUZU') {
+        if (
+          sprite.type === 'TRAFFIC_LADA' ||
+          sprite.type === 'TRAFFIC_BAJAJ' ||
+          sprite.type === 'TRAFFIC_ISUZU' ||
+          sprite.type === 'TRAFFIC_EV' ||
+          sprite.type === 'TRAFFIC_BUS'
+        ) {
           const dx = Math.abs(this.player.x - sprite.offset);
           if (zDist < ROAD.SEGMENT_LENGTH * 0.8 && dx > hitboxW * 0.8 && dx < hitboxW * 1.6 && this.player.speed > 5400 && this.nearMissCooldown <= 0) {
             this.nearMissCooldown = 0.6;
