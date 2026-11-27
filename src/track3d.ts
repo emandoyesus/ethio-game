@@ -5,6 +5,8 @@ import {
   createBajaj3D,
   createIsuzu3D,
   createPolice3D,
+  createEV3D,
+  createElectricBus3D,
   createZebuCow3D,
   createGoat3D,
   createPothole3D,
@@ -12,9 +14,11 @@ import {
   createBunnaJebena3D,
   createFuelCan3D,
   createPassenger3D,
+  createCyclist3D,
   createPoliceCone3D,
   createAcaciaTree3D,
   createEucalyptusTree3D,
+  createPalmTree3D,
   createStreetLamp3D,
   createBillboard3D,
   createBuilding3D,
@@ -29,6 +33,7 @@ import {
 } from './models3d';
 import { ROAD, type RoadManager } from './road';
 import { addStreetShops, districtSign } from './streetscape';
+import { clearHumanAnimations, createRealHuman3D, preloadHumanCharacters, updateHumanAnimations } from './characters3d';
 import type { RouteStage, SpriteInstance } from './types';
 
 export class Track3D {
@@ -45,8 +50,10 @@ export class Track3D {
   public spineNormals: THREE.Vector3[] = [];
   public spineTangents: THREE.Vector3[] = [];
 
-  private lrtTrainMesh: THREE.Object3D | null = null;
+  private lrtTrains: { mesh: THREE.Object3D; dir: number; offset: number }[] = [];
   private lrtProgress: number = 0;
+  private bikeCyclists: { mesh: THREE.Object3D; trackZ: number; side: number; speed: number; wheels: THREE.Object3D[] }[] = [];
+  private sidewalkWalkers: { mesh: THREE.Object3D; trackZ: number; side: number; dir: number; speed: number; lat: number }[] = [];
   private policeLights: { red: THREE.PointLight; blue: THREE.PointLight }[] = [];
 
   constructor(scene: THREE.Scene) {
@@ -67,8 +74,12 @@ export class Track3D {
     this.clearGroup(this.roadGroup);
     this.clearGroup(this.entitiesGroup);
     this.clearGroup(this.sceneryGroup);
+    clearHumanAnimations();
+    preloadHumanCharacters();
     this.policeLights = [];
-    this.lrtTrainMesh = null;
+    this.lrtTrains = [];
+    this.bikeCyclists = [];
+    this.sidewalkWalkers = [];
 
     this.spinePoints = [];
     this.spineNormals = [];
@@ -109,8 +120,9 @@ export class Track3D {
     // 3. Build Road Geometry Ribbon
     this.buildRoadRibbon(segments, stage);
 
-    // 4. Build Landmarks (CBE 209m Tower & Light Rail Viaduct)
+    // 4. Build Landmarks (CBE 209m Tower, Light Rail Viaduct & Multi-Row City Blocks)
     this.buildLandmarks(stage, road);
+    this.buildCityBlocks(stage, road);
 
     // 5. Build Intersection Crossroads
     this.buildIntersectionCrossroads(road);
@@ -212,7 +224,7 @@ export class Track3D {
       shoulderVerts.push(leftRoad.x, leftRoad.y - 0.01, leftRoad.z);
       shoulderVerts.push(rightRoad.x, rightRoad.y - 0.01, rightRoad.z);
       shoulderVerts.push(rightShoulderOut.x, rightShoulderOut.y, rightShoulderOut.z);
-      shoulderUVs.push(0, i * 0.5, 1, i * 0.5, 0, i * 0.5, 1, i * 0.5);
+      shoulderUVs.push(0, i * 0.5, 1, i * 0.5, 1, i * 0.5, 0, i * 0.5);
 
       // Elevation-matched roadside grass apron extending 130m outward on both sides
       const grassWidth = 130;
@@ -368,25 +380,29 @@ export class Track3D {
       'rgba(0,0,0,0.14)',
       true
     );
-    // Addis Ababa Cobblestone Sidewalk + Black/White Painted Concrete Curb Texture
+    // Addis Ababa Corridor Development Sidewalk: Interlocking Pavers + Protected Green Bike Lane + Black/White Curb
     const makeSidewalkTex = () => {
       const c = document.createElement('canvas');
       c.width = 256;
       c.height = 256;
       const ctx = c.getContext('2d')!;
-      ctx.fillStyle = stage.skyTheme === 'night' ? '#334155' : '#78716c';
+      ctx.fillStyle = stage.skyTheme === 'night' ? '#334155' : '#8b6f5c';
       ctx.fillRect(0, 0, 256, 256);
 
-      // Interlocking cobblestone paver grid
+      // Terracotta & grey interlocking block pavers for pedestrian walkway (x = 0..160)
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
       ctx.lineWidth = 1.5;
       for (let y = 0; y < 256; y += 24) {
+        if ((y / 24) % 3 === 0) {
+          ctx.fillStyle = stage.skyTheme === 'night' ? '#3f4e63' : '#7c7672';
+          ctx.fillRect(14, y, 146, 24);
+        }
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(256, y);
+        ctx.lineTo(160, y);
         ctx.stroke();
         const offset = (y / 24) % 2 === 0 ? 0 : 16;
-        for (let x = offset; x < 256; x += 32) {
+        for (let x = offset; x < 160; x += 32) {
           ctx.beginPath();
           ctx.moveTo(x, y);
           ctx.lineTo(x, y + 24);
@@ -394,14 +410,46 @@ export class Track3D {
         }
       }
 
-      // Iconic Addis Ababa alternating black & white painted curb along road edge (x = 228..256)
+      // Wide dedicated green-painted Corridor bicycle lane (x = 160..232)
+      ctx.fillStyle = stage.skyTheme === 'night' ? '#14532d' : '#16a34a';
+      ctx.fillRect(160, 0, 72, 256);
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.92)';
+      ctx.fillRect(158, 0, 4, 256);
+      ctx.fillRect(229, 0, 3, 256);
+
+      // Painted white bicycle symbol + directional arrow on bike lane
+      ctx.strokeStyle = 'rgba(248, 250, 252, 0.9)';
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.9)';
+      ctx.lineWidth = 3;
+      // Rear & front wheels
+      ctx.beginPath();
+      ctx.arc(196, 175, 11, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(196, 125, 11, 0, Math.PI * 2);
+      ctx.stroke();
+      // Frame & handlebars
+      ctx.beginPath();
+      ctx.moveTo(196, 175);
+      ctx.lineTo(196, 125);
+      ctx.moveTo(185, 132);
+      ctx.lineTo(207, 132);
+      ctx.stroke();
+      // Forward direction chevron
+      ctx.beginPath();
+      ctx.moveTo(196, 60);
+      ctx.lineTo(184, 78);
+      ctx.lineTo(208, 78);
+      ctx.closePath();
+      ctx.fill();
+
+      // Iconic Addis Ababa alternating black & white painted curb along road edge (x = 232..256)
       for (let y = 0; y < 256; y += 64) {
         ctx.fillStyle = (y / 64) % 2 === 0 ? '#f8fafc' : '#18181b';
-        ctx.fillRect(228, y, 28, 64);
-        ctx.fillRect(0, y, 24, 64);
+        ctx.fillRect(232, y, 24, 64);
       }
 
-      // Red volcanic soil strip on outer edge of sidewalk
+      // Red volcanic soil planter strip on outer edge of sidewalk
       ctx.fillStyle = stage.skyTheme === 'night' ? '#450a0a' : '#8c2d19';
       ctx.fillRect(0, 0, 12, 256);
 
@@ -524,18 +572,454 @@ export class Track3D {
         this.sceneryGroup.add(cbe);
       }
 
-      // 2. Addis Light Rail Transit (AALRT) Elevated Viaduct
-      const viaductIdx = Math.floor(this.spinePoints.length * 0.25);
-      if (this.spinePoints[viaductIdx]) {
-        const viaduct = createLightRailViaduct3D();
-        const pt = this.spinePoints[viaductIdx];
-        const normal = this.spineNormals[viaductIdx];
-        const tangent = this.spineTangents[viaductIdx];
-        viaduct.position.copy(pt).addScaledVector(normal, -24.0);
-        viaduct.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
-        this.sceneryGroup.add(viaduct);
-        this.lrtTrainMesh = viaduct.children.find(c => c.position.y > 7.0) || null;
+      // 2. Addis Light Rail Transit (AALRT) Elevated Viaducts & Animated Trains along corridor
+      const viaductFracs = [0.22, 0.52, 0.80];
+      viaductFracs.forEach((frac, idx) => {
+        const viaductIdx = Math.floor(this.spinePoints.length * frac);
+        if (this.spinePoints[viaductIdx]) {
+          const viaduct = createLightRailViaduct3D();
+          const pt = this.spinePoints[viaductIdx];
+          const normal = this.spineNormals[viaductIdx];
+          const tangent = this.spineTangents[viaductIdx];
+          viaduct.position.copy(pt).addScaledVector(normal, -22.5);
+          viaduct.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+          this.sceneryGroup.add(viaduct);
+          const train = viaduct.children.find(c => c.userData.isLrtTrain);
+          if (train) {
+            this.lrtTrains.push({ mesh: train, dir: idx % 2 === 0 ? 1 : -1, offset: idx * 65 });
+          }
+        }
+      });
+
+      // 3. Parallel At-Grade Railway Track & Highway Railway Level Crossing
+      this.buildRailwayCorridor(road);
+    }
+
+    // 4. Protected Bicycle Lane Bollards & Cyclists (Addis Corridor NMT)
+    this.buildBikeLaneDetails(road);
+
+    // 5. Sidewalk Pedestrians & Shoppers
+    this.buildSidewalkPedestrians(road);
+  }
+
+  private buildBikeLaneDetails(road: RoadManager) {
+    const count = this.spinePoints.length;
+    if (count < 20) return;
+
+    const isNearInter = (idx: number) =>
+      road.intersections.some(inter => Math.abs(inter.segmentIndex - idx) <= 6);
+
+    const bollardSites: THREE.Vector3[] = [];
+    for (let i = 6; i < count - 10; i += 3) {
+      if (isNearInter(i)) continue;
+      const pt = this.spinePoints[i];
+      const normal = this.spineNormals[i];
+      bollardSites.push(pt.clone().addScaledVector(normal, -9.25));
+      bollardSites.push(pt.clone().addScaledVector(normal, 9.25));
+    }
+
+    if (bollardSites.length > 0) {
+      const postGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.78, 6);
+      const bandGeo = new THREE.CylinderGeometry(0.068, 0.068, 0.16, 6);
+      const postMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.45 });
+      const bandMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xca8a04, emissiveIntensity: 0.25 });
+
+      const posts = new THREE.InstancedMesh(postGeo, postMat, bollardSites.length);
+      const bands = new THREE.InstancedMesh(bandGeo, bandMat, bollardSites.length);
+      const dummy = new THREE.Object3D();
+
+      bollardSites.forEach((p, idx) => {
+        dummy.position.set(p.x, p.y + 0.39, p.z);
+        dummy.rotation.set(0, 0, 0);
+        dummy.updateMatrix();
+        posts.setMatrixAt(idx, dummy.matrix);
+
+        dummy.position.set(p.x, p.y + 0.62, p.z);
+        dummy.updateMatrix();
+        bands.setMatrixAt(idx, dummy.matrix);
+      });
+      this.sceneryGroup.add(posts, bands);
+    }
+
+    // 3D Articulated Cyclists riding along both protected green bike lanes
+    for (let i = 14; i < count - 16; i += 12) {
+      if (isNearInter(i)) continue;
+      const side = ((i - 14) / 12) % 2 === 0 ? 1 : -1;
+      const pt = this.spinePoints[i];
+      const normal = this.spineNormals[i];
+      const tangent = this.spineTangents[i];
+
+      const cyclist = createCyclist3D();
+      cyclist.position.copy(pt).addScaledVector(normal, side * 10.1);
+      cyclist.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), side > 0 ? tangent : tangent.clone().negate());
+      this.sceneryGroup.add(cyclist);
+      this.bikeCyclists.push({
+        mesh: cyclist,
+        trackZ: i * ROAD.SEGMENT_LENGTH,
+        side,
+        speed: 950 + (i % 5) * 90,
+        wheels: (cyclist.userData.wheels as THREE.Object3D[]) || []
+      });
+    }
+  }
+
+  private buildSidewalkPedestrians(road: RoadManager) {
+    const count = this.spinePoints.length;
+    if (count < 20) return;
+
+    const isNearInter = (idx: number) =>
+      road.intersections.some(inter => Math.abs(inter.segmentIndex - idx) <= 6);
+
+    for (let i = 8; i < count - 12; i += 9) {
+      if (isNearInter(i)) continue;
+      const pt = this.spinePoints[i];
+      const normal = this.spineNormals[i];
+      const tangent = this.spineTangents[i];
+
+      // Spawn walking pedestrians on both sidewalks
+      for (const side of [-1, 1]) {
+        if ((i + (side > 0 ? 1 : 0)) % 3 === 0) continue;
+        const dir = ((i + side) % 2 === 0) ? 1 : -1;
+        const lat = 11.7 + ((i * 7 + side) % 3) * 0.55;
+        const walker = createRealHuman3D('pedestrian');
+        walker.position.copy(pt).addScaledVector(normal, side * lat);
+        walker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir > 0 ? tangent : tangent.clone().negate());
+        this.sceneryGroup.add(walker);
+        this.sidewalkWalkers.push({
+          mesh: walker,
+          trackZ: i * ROAD.SEGMENT_LENGTH,
+          side,
+          dir,
+          speed: 220 + (i % 4) * 35,
+          lat
+        });
       }
+    }
+  }
+
+  private buildRailwayCorridor(road: RoadManager) {
+    const count = this.spinePoints.length;
+    if (count < 30) return;
+
+    const ballastMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.96 });
+    const sleeperMat = new THREE.MeshStandardMaterial({ color: 0x3f3a36, roughness: 0.9 });
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.3 });
+
+    const dummy = new THREE.Object3D();
+    const ballastSites: { pos: THREE.Vector3; rotY: number }[] = [];
+    const sleeperSites: { pos: THREE.Vector3; rotY: number }[] = [];
+    const railSites: { pos: THREE.Vector3; rotY: number }[] = [];
+
+    const isNearInter = (idx: number) =>
+      road.intersections.some(inter => Math.abs(inter.segmentIndex - idx) <= 7);
+
+    // Parallel at-grade railway line on left side (-16.2m from road centerline)
+    for (let i = 6; i < count - 12; i += 2) {
+      if (isNearInter(i)) continue;
+      const pt = this.spinePoints[i];
+      const normal = this.spineNormals[i];
+      const tangent = this.spineTangents[i];
+      const rotY = Math.atan2(tangent.x, tangent.z);
+      const trackCenter = pt.clone().addScaledVector(normal, -16.2);
+
+      ballastSites.push({ pos: trackCenter, rotY });
+      sleeperSites.push({ pos: trackCenter, rotY });
+      for (const railOff of [-0.72, 0.72]) {
+        railSites.push({
+          pos: trackCenter.clone().addScaledVector(normal, railOff),
+          rotY
+        });
+      }
+    }
+
+    if (ballastSites.length > 0) {
+      const ballastGeo = new THREE.BoxGeometry(3.2, 0.14, 12.2);
+      const sleeperGeo = new THREE.BoxGeometry(2.4, 0.12, 0.35);
+      const railGeo = new THREE.BoxGeometry(0.12, 0.16, 12.2);
+
+      const ballasts = new THREE.InstancedMesh(ballastGeo, ballastMat, ballastSites.length);
+      const sleepers = new THREE.InstancedMesh(sleeperGeo, sleeperMat, sleeperSites.length);
+      const rails = new THREE.InstancedMesh(railGeo, railMat, railSites.length);
+
+      ballastSites.forEach((s, idx) => {
+        dummy.position.set(s.pos.x, s.pos.y + 0.04, s.pos.z);
+        dummy.rotation.set(0, s.rotY, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        ballasts.setMatrixAt(idx, dummy.matrix);
+      });
+      sleeperSites.forEach((s, idx) => {
+        dummy.position.set(s.pos.x, s.pos.y + 0.13, s.pos.z);
+        dummy.rotation.set(0, s.rotY, 0);
+        dummy.updateMatrix();
+        sleepers.setMatrixAt(idx, dummy.matrix);
+      });
+      railSites.forEach((s, idx) => {
+        dummy.position.set(s.pos.x, s.pos.y + 0.22, s.pos.z);
+        dummy.rotation.set(0, s.rotY, 0);
+        dummy.updateMatrix();
+        rails.setMatrixAt(idx, dummy.matrix);
+      });
+      this.sceneryGroup.add(ballasts, sleepers, rails);
+    }
+
+    // Highway Railway Level Crossing (at 62% of the route)
+    const crossIdx = Math.floor(count * 0.62);
+    if (this.spinePoints[crossIdx] && !isNearInter(crossIdx)) {
+      const pt = this.spinePoints[crossIdx];
+      const normal = this.spineNormals[crossIdx];
+      const tangent = this.spineTangents[crossIdx];
+      const crossing = new THREE.Group();
+      crossing.position.copy(pt);
+      crossing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+
+      // Concrete crossing apron & twin steel rails cutting across all 3 lanes
+      const apron = new THREE.Mesh(new THREE.BoxGeometry(20.0, 0.06, 3.6), materials.concretePillar);
+      apron.position.y = 0.08;
+      crossing.add(apron);
+
+      for (const rz of [-0.75, 0.75]) {
+        const crossRail = new THREE.Mesh(new THREE.BoxGeometry(58.0, 0.12, 0.14), railMat);
+        crossRail.position.set(0, 0.13, rz);
+        crossing.add(crossRail);
+      }
+
+      // Red & white railway crossing barrier posts on both shoulders
+      for (const side of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 2.8, 8), materials.fuelRed);
+        post.position.set(side * 10.6, 1.4, -2.0);
+        crossing.add(post);
+
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.14, 0.14), materials.minibusWhite);
+        arm.position.set(side * 9.0, 2.5, -2.0);
+        arm.rotation.z = side * 0.65; // Raised open gate arm
+        crossing.add(arm);
+
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.15, 0.15), materials.fuelRed);
+        stripe.position.set(side * 8.4, 2.9, -2.0);
+        stripe.rotation.z = side * 0.65;
+        crossing.add(stripe);
+      }
+
+      // Keep road alignment clean on curves
+      void normal;
+      this.sceneryGroup.add(crossing);
+    }
+  }
+
+  private buildCityBlocks(stage: RouteStage, road: RoadManager) {
+    const count = this.spinePoints.length;
+    if (count < 20) return;
+
+    const midRiseSites: { pos: THREE.Vector3; rotY: number; sx: number; sy: number; sz: number }[] = [];
+    const towerSites: { pos: THREE.Vector3; rotY: number; sx: number; sy: number; sz: number }[] = [];
+    const houseSites: { pos: THREE.Vector3; rotY: number; sx: number; sy: number; sz: number }[] = [];
+
+    const maxSeg = stage.id === 3 ? Math.floor(count * 0.52) : count - 15;
+    const isNearInter = (idx: number) =>
+      road.intersections.some(inter => Math.abs(inter.segmentIndex - idx) <= 8);
+
+    // Deterministic pseudo-random helper so blocks look organic and consistent
+    const hash = (n: number) => {
+      const s = Math.sin(n * 127.1 + stage.id * 311.7) * 43758.5453;
+      return s - Math.floor(s);
+    };
+
+    for (let i = 10; i < maxSeg; i += 4) {
+      if (isNearInter(i)) continue;
+      // Leave cross-street corridors every ~24 segments
+      if (i % 24 < 3) continue;
+
+      const pt = this.spinePoints[i];
+      const normal = this.spineNormals[i];
+      const tangent = this.spineTangents[i];
+      const baseRot = Math.atan2(tangent.x, tangent.z);
+
+      for (const side of [-1, 1]) {
+        const r1 = hash(i * 3 + side);
+        const r2 = hash(i * 7 + side * 13);
+
+        // Row 2 (42m - 68m from road center): Mid-rise apartments & neighborhood houses
+        if (r1 > 0.18) {
+          const dist2 = 42 + r2 * 24;
+          const pos2 = pt.clone().addScaledVector(normal, side * dist2);
+          const jitterRot = baseRot + (r1 - 0.5) * 0.22;
+
+          if (stage.id === 3 || (stage.id === 1 && r1 > 0.65)) {
+            houseSites.push({
+              pos: pos2,
+              rotY: jitterRot,
+              sx: 0.9 + r2 * 0.45,
+              sy: 0.85 + r1 * 0.4,
+              sz: 0.9 + r1 * 0.45
+            });
+          } else {
+            midRiseSites.push({
+              pos: pos2,
+              rotY: jitterRot,
+              sx: 0.85 + r2 * 0.55,
+              sy: 0.8 + r1 * 1.1,
+              sz: 0.85 + r1 * 0.5
+            });
+          }
+        }
+
+        // Row 3 (74m - 116m from road center): Deeper city blocks & glass skyline towers
+        if (r2 > 0.25) {
+          const dist3 = 74 + r1 * 38;
+          const pos3 = pt.clone().addScaledVector(normal, side * dist3);
+          const jitterRot = baseRot + (r2 - 0.5) * 0.28;
+
+          if (stage.id !== 3 && r2 > 0.52) {
+            towerSites.push({
+              pos: pos3,
+              rotY: jitterRot,
+              sx: 0.9 + r1 * 0.6,
+              sy: 1.0 + r2 * 1.45,
+              sz: 0.9 + r2 * 0.55
+            });
+          } else {
+            midRiseSites.push({
+              pos: pos3,
+              rotY: jitterRot,
+              sx: 1.0 + r1 * 0.6,
+              sy: 0.7 + r2 * 0.9,
+              sz: 1.0 + r2 * 0.5
+            });
+          }
+        }
+      }
+    }
+
+    const dummy = new THREE.Object3D();
+
+    // Procedural architectural window-grid facade material helper
+    const makeFacadeMat = (wallHex: string, spandrelHex: string, glassHex: string, cols: number, rows: number, isGlassTower = false) => {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = wallHex;
+      ctx.fillRect(0, 0, 256, 256);
+
+      const cellW = 256 / cols;
+      const cellH = 256 / rows;
+      for (let r = 0; r < rows; r++) {
+        // Floor spandrel band
+        ctx.fillStyle = spandrelHex;
+        ctx.fillRect(0, r * cellH, 256, Math.max(3, cellH * 0.22));
+        for (let col = 0; col < cols; col++) {
+          const lit = ((r * 7 + col * 13) % 11) === 0;
+          ctx.fillStyle = lit ? '#fde68a' : glassHex;
+          const padX = isGlassTower ? 2 : cellW * 0.18;
+          const padY = cellH * 0.28;
+          ctx.fillRect(
+            col * cellW + padX,
+            r * cellH + padY,
+            cellW - padX * 2,
+            cellH * 0.58
+          );
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.anisotropy = 4;
+      return new THREE.MeshStandardMaterial({
+        map: tex,
+        roughness: isGlassTower ? 0.28 : 0.82,
+        metalness: isGlassTower ? 0.35 : 0.05
+      });
+    };
+
+    // 1. Mid-rise cream, terracotta & sandstone city-block apartments (batched with window facades)
+    if (midRiseSites.length > 0) {
+      const boxGeo = new THREE.BoxGeometry(12, 14, 10);
+      const roofGeo = new THREE.BoxGeometry(12.4, 0.6, 10.4);
+      const creamMat = makeFacadeMat('#e2d4bc', '#c8b89d', '#293241', 5, 5, false);
+      const terraMat = makeFacadeMat('#be6a48', '#964e32', '#262930', 5, 5, false);
+      const ochreMat = makeFacadeMat('#d4a359', '#b0823d', '#2b303a', 5, 5, false);
+      const buckets = [
+        { sites: midRiseSites.filter((_, idx) => idx % 3 === 0), mat: creamMat },
+        { sites: midRiseSites.filter((_, idx) => idx % 3 === 1), mat: terraMat },
+        { sites: midRiseSites.filter((_, idx) => idx % 3 === 2), mat: ochreMat }
+      ];
+
+      for (const { sites, mat } of buckets) {
+        if (!sites.length) continue;
+        const bodies = new THREE.InstancedMesh(boxGeo, mat, sites.length);
+        const roofs = new THREE.InstancedMesh(roofGeo, materials.bldgDarkTrim, sites.length);
+        sites.forEach((s, idx) => {
+          dummy.position.set(s.pos.x, s.pos.y + 7 * s.sy, s.pos.z);
+          dummy.rotation.set(0, s.rotY, 0);
+          dummy.scale.set(s.sx, s.sy, s.sz);
+          dummy.updateMatrix();
+          bodies.setMatrixAt(idx, dummy.matrix);
+
+          dummy.position.set(s.pos.x, s.pos.y + 14 * s.sy + 0.3, s.pos.z);
+          dummy.scale.set(s.sx, 1, s.sz);
+          dummy.updateMatrix();
+          roofs.setMatrixAt(idx, dummy.matrix);
+        });
+        bodies.receiveShadow = true;
+        this.sceneryGroup.add(bodies, roofs);
+      }
+    }
+
+    // 2. Deeper skyline towers (charcoal-bronze, warm limestone & slate-glass, batched)
+    if (towerSites.length > 0) {
+      const towerGeo = new THREE.BoxGeometry(13, 30, 12);
+      const crownGeo = new THREE.BoxGeometry(11, 1.4, 10);
+      const bronzeTowerMat = makeFacadeMat('#4a433d', '#2b2623', '#1e293b', 6, 10, true);
+      const stoneTowerMat = makeFacadeMat('#d1c7b7', '#9e9484', '#263646', 6, 10, false);
+      const slateTowerMat = makeFacadeMat('#364152', '#1e293b', '#334e68', 6, 10, true);
+      const towerBuckets = [
+        { sites: towerSites.filter((_, idx) => idx % 3 === 0), mat: bronzeTowerMat },
+        { sites: towerSites.filter((_, idx) => idx % 3 === 1), mat: stoneTowerMat },
+        { sites: towerSites.filter((_, idx) => idx % 3 === 2), mat: slateTowerMat }
+      ];
+
+      for (const { sites, mat } of towerBuckets) {
+        if (!sites.length) continue;
+        const towers = new THREE.InstancedMesh(towerGeo, mat, sites.length);
+        const crowns = new THREE.InstancedMesh(crownGeo, materials.bldgDarkTrim, sites.length);
+        sites.forEach((s, idx) => {
+          dummy.position.set(s.pos.x, s.pos.y + 15 * s.sy, s.pos.z);
+          dummy.rotation.set(0, s.rotY, 0);
+          dummy.scale.set(s.sx, s.sy, s.sz);
+          dummy.updateMatrix();
+          towers.setMatrixAt(idx, dummy.matrix);
+
+          dummy.position.set(s.pos.x, s.pos.y + 30 * s.sy + 0.7, s.pos.z);
+          dummy.scale.set(s.sx, 1, s.sz);
+          dummy.updateMatrix();
+          crowns.setMatrixAt(idx, dummy.matrix);
+        });
+        this.sceneryGroup.add(towers, crowns);
+      }
+    }
+
+    // 3. Neighborhood corrugated-roof houses (batched)
+    if (houseSites.length > 0) {
+      const hBodyGeo = new THREE.BoxGeometry(9, 4.2, 8);
+      const hRoofGeo = new THREE.ConeGeometry(6.6, 2.2, 4);
+      const hBodies = new THREE.InstancedMesh(hBodyGeo, materials.bldgStuccoCream, houseSites.length);
+      const hRoofs = new THREE.InstancedMesh(hRoofGeo, materials.bldgRoofRed, houseSites.length);
+      houseSites.forEach((s, idx) => {
+        dummy.position.set(s.pos.x, s.pos.y + 2.1 * s.sy, s.pos.z);
+        dummy.rotation.set(0, s.rotY, 0);
+        dummy.scale.set(s.sx, s.sy, s.sz);
+        dummy.updateMatrix();
+        hBodies.setMatrixAt(idx, dummy.matrix);
+
+        dummy.position.set(s.pos.x, s.pos.y + 4.2 * s.sy + 1.1, s.pos.z);
+        dummy.rotation.set(0, s.rotY + Math.PI / 4, 0);
+        dummy.scale.set(s.sx, 1, s.sz);
+        dummy.updateMatrix();
+        hRoofs.setMatrixAt(idx, dummy.matrix);
+      });
+      this.sceneryGroup.add(hBodies, hRoofs);
     }
   }
 
@@ -620,6 +1104,16 @@ export class Track3D {
         v.group.userData.vehicleModel = v;
         return v.group;
       }
+      case 'TRAFFIC_EV': {
+        const v = createEV3D();
+        v.group.userData.vehicleModel = v;
+        return v.group;
+      }
+      case 'TRAFFIC_BUS': {
+        const v = createElectricBus3D();
+        v.group.userData.vehicleModel = v;
+        return v.group;
+      }
       case 'TRAFFIC_POLICE': {
         const v = createPolice3D(false);
         v.group.userData.vehicleModel = v;
@@ -660,8 +1154,9 @@ export class Track3D {
       case 'ITEM_FUEL':
         return createFuelCan3D();
       case 'PASSENGER':
+        return createPassenger3D('passenger');
       case 'SCENERY_ZEBRA_PEDESTRIAN':
-        return createPassenger3D();
+        return createPassenger3D('pedestrian');
       case 'SCENERY_POLICE_CONE':
         return createPoliceCone3D();
       case 'SCENERY_RADAR_SIGN':
@@ -671,6 +1166,8 @@ export class Track3D {
         return createAcaciaTree3D();
       case 'SCENERY_EUCALYPTUS':
         return createEucalyptusTree3D();
+      case 'SCENERY_PALM':
+        return createPalmTree3D();
       case 'SCENERY_LAMP':
         return createStreetLamp3D();
       case 'SCENERY_BILLBOARD':
@@ -713,10 +1210,51 @@ export class Track3D {
       pl.blue.intensity = redOn ? 0.2 : 7.0;
     }
 
-    // Animate LRT Train
-    if (this.lrtTrainMesh) {
-      this.lrtProgress = (this.lrtProgress + dt * 12.0) % 80;
-      this.lrtTrainMesh.position.z = -40 + this.lrtProgress;
+    // Animate rigged GLB human characters (Idle / Walk)
+    updateHumanAnimations(dt);
+
+    // Animate LRT Trains along 240m viaducts
+    this.lrtProgress += dt * 16.0;
+    for (const train of this.lrtTrains) {
+      const p = (this.lrtProgress + train.offset) % 200;
+      train.mesh.position.z = train.dir > 0 ? -100 + p : 100 - p;
+    }
+
+    // Move 3D cyclists along the green bicycle lanes & spin their wheels
+    for (const c of this.bikeCyclists) {
+      c.trackZ = (c.trackZ + c.side * c.speed * dt + totalTrackZ) % totalTrackZ;
+      let dist = c.trackZ - playerZ;
+      if (dist < -totalTrackZ / 2) dist += totalTrackZ;
+      if (dist > totalTrackZ / 2) dist -= totalTrackZ;
+      if (dist < -1500 || dist > 18000) {
+        c.mesh.visible = false;
+        continue;
+      }
+      c.mesh.visible = true;
+      const { pos, tangent, normal } = this.getPointAtZ(c.trackZ);
+      c.mesh.position.copy(pos).addScaledVector(normal, c.side * 10.1);
+      c.mesh.position.y += 0.02;
+      c.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), c.side > 0 ? tangent : tangent.clone().negate());
+      for (const w of c.wheels) {
+        w.rotation.x += dt * 10.5;
+      }
+    }
+
+    // Move 3D sidewalk pedestrians along both walkways
+    for (const w of this.sidewalkWalkers) {
+      w.trackZ = (w.trackZ + w.dir * w.speed * dt + totalTrackZ) % totalTrackZ;
+      let dist = w.trackZ - playerZ;
+      if (dist < -totalTrackZ / 2) dist += totalTrackZ;
+      if (dist > totalTrackZ / 2) dist -= totalTrackZ;
+      if (dist < -1500 || dist > 16000) {
+        w.mesh.visible = false;
+        continue;
+      }
+      w.mesh.visible = true;
+      const { pos, tangent, normal } = this.getPointAtZ(w.trackZ);
+      w.mesh.position.copy(pos).addScaledVector(normal, w.side * w.lat);
+      w.mesh.position.y += 0.02;
+      w.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), w.dir > 0 ? tangent : tangent.clone().negate());
     }
 
     // Update Intersections & Cross-Traffic Vehicles
@@ -822,8 +1360,12 @@ export class Track3D {
           worldPos.y += 0.04;
           mesh.position.copy(worldPos);
         } else if (sprite.type === 'PASSENGER' || sprite.type.startsWith('PASSENGER_')) {
-          worldPos.y += 0.02 + Math.abs(Math.sin(now * 0.005 + spriteZ * 0.01)) * 0.14;
+          worldPos.y += 0.02;
           mesh.position.copy(worldPos);
+          const wavingArm = mesh.userData.wavingArm as THREE.Object3D | undefined;
+          if (wavingArm) {
+            wavingArm.rotation.z = 2.45 + Math.sin(now * 0.008 + spriteZ * 0.02) * 0.28;
+          }
         } else {
           worldPos.y += 0.02;
           mesh.position.copy(worldPos);
